@@ -99,11 +99,7 @@ contract ChainlinkV25DirectFundingAdapterTest is Test {
         vm.deal(address(adapter), 0);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ChainlinkV25DirectFundingAdapter.InsufficientAdapterBalance.selector,
-                0.01 ether,
-                0
-            )
+            abi.encodeWithSelector(ChainlinkV25DirectFundingAdapter.InsufficientAdapterBalance.selector, 0.01 ether, 0)
         );
         adapter.requestRandomNumbers(1, 0);
     }
