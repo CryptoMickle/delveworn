@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IVRFCoordinator, IVRFConsumer} from "../RiseDungeon.sol";
+import {IRandomnessAdapter, IRandomnessConsumer} from "../interfaces/IRandomnessAdapter.sol";
 
 /// @notice Compatibility adapter between Rise Dungeon core and a legacy VRF-style coordinator.
-/// @dev RiseDungeon talks only to this adapter. The adapter owns the chain/provider-specific callback boundary.
-contract LegacyVRFAdapter is IVRFCoordinator, IVRFConsumer {
-    IVRFCoordinator public immutable upstreamCoordinator;
+/// @dev The adapter owns the chain/provider-specific callback boundary and no longer imports game core types.
+contract LegacyVRFAdapter is IRandomnessAdapter, IRandomnessConsumer {
+    IRandomnessAdapter public immutable upstreamCoordinator;
 
     mapping(uint256 => address) public requestConsumers;
 
@@ -18,7 +18,7 @@ contract LegacyVRFAdapter is IVRFCoordinator, IVRFConsumer {
 
     constructor(address upstreamCoordinatorAddress) {
         require(upstreamCoordinatorAddress != address(0), "Invalid upstream coordinator");
-        upstreamCoordinator = IVRFCoordinator(upstreamCoordinatorAddress);
+        upstreamCoordinator = IRandomnessAdapter(upstreamCoordinatorAddress);
     }
 
     function requestRandomNumbers(uint32 numNumbers, uint256 seed) external override returns (uint256 requestId) {
@@ -41,7 +41,7 @@ contract LegacyVRFAdapter is IVRFCoordinator, IVRFConsumer {
 
         delete requestConsumers[requestId];
 
-        IVRFConsumer(consumer).rawFulfillRandomNumbers(requestId, randomNumbers);
+        IRandomnessConsumer(consumer).rawFulfillRandomNumbers(requestId, randomNumbers);
 
         emit AdapterRandomnessFulfilled(requestId, consumer);
     }
