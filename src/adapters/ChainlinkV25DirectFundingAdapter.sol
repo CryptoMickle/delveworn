@@ -31,7 +31,9 @@ contract ChainlinkV25DirectFundingAdapter is IRandomnessAdapter {
 
     event ConsumerSet(address indexed consumer);
     event AdapterFunded(address indexed sender, uint256 amount);
-    event AdapterRandomnessRequested(uint256 indexed requestId, address indexed consumer, uint32 numberCount, uint256 paid);
+    event AdapterRandomnessRequested(
+        uint256 indexed requestId, address indexed consumer, uint32 numberCount, uint256 paid
+    );
     event AdapterRandomnessFulfilled(uint256 indexed requestId, address indexed consumer);
     event NativeWithdrawn(address indexed recipient, uint256 amount);
 
