@@ -11,10 +11,7 @@ contract LegacyVRFAdapter is IVRFCoordinator, IVRFConsumer {
     mapping(uint256 => address) public requestConsumers;
 
     event AdapterRandomnessRequested(
-        uint256 indexed requestId,
-        address indexed consumer,
-        address indexed upstreamCoordinator,
-        uint32 numberCount
+        uint256 indexed requestId, address indexed consumer, address indexed upstreamCoordinator, uint32 numberCount
     );
 
     event AdapterRandomnessFulfilled(uint256 indexed requestId, address indexed consumer);
