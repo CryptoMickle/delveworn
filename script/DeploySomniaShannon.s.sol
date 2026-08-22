@@ -8,10 +8,7 @@ import {ChainlinkV25DirectFundingAdapter} from "../src/adapters/ChainlinkV25Dire
 contract DeploySomniaShannon is Script {
     address internal constant DEFAULT_VRF_WRAPPER = 0x763cC914d5CA79B04dC4787aC14CcAd780a16BD2;
 
-    function run()
-        external
-        returns (ChainlinkV25DirectFundingAdapter adapter, RiseDungeon dungeon)
-    {
+    function run() external returns (ChainlinkV25DirectFundingAdapter adapter, RiseDungeon dungeon) {
         address wrapper = vm.envOr("SOMNIA_SHANNON_VRF_WRAPPER", DEFAULT_VRF_WRAPPER);
         uint32 callbackGasLimit = uint32(vm.envOr("SOMNIA_VRF_CALLBACK_GAS_LIMIT", uint256(500_000)));
         uint16 requestConfirmations = uint16(vm.envOr("SOMNIA_VRF_REQUEST_CONFIRMATIONS", uint256(3)));
@@ -19,11 +16,7 @@ contract DeploySomniaShannon is Script {
 
         vm.startBroadcast();
 
-        adapter = new ChainlinkV25DirectFundingAdapter(
-            wrapper,
-            callbackGasLimit,
-            requestConfirmations
-        );
+        adapter = new ChainlinkV25DirectFundingAdapter(wrapper, callbackGasLimit, requestConfirmations);
 
         dungeon = new RiseDungeon(address(adapter));
         adapter.setConsumer(address(dungeon));
