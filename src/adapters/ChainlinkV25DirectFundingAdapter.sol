@@ -16,7 +16,7 @@ interface IChainlinkV25Wrapper {
 
 /// @notice Provider adapter for Chainlink VRF v2.5 Wrapper direct funding using native gas token.
 /// @dev The adapter is intentionally chain-agnostic: deploy it with the wrapper address for the target chain.
-///      Fund the adapter before requests. The owner sets the single authorized RiseDungeon consumer after deployment.
+///      Fund the adapter before requests. The owner sets the single authorized Delveworn consumer after deployment.
 contract ChainlinkV25DirectFundingAdapter is IRandomnessAdapter {
     bytes4 private constant EXTRA_ARGS_V1_TAG = bytes4(keccak256("VRF ExtraArgsV1"));
 
