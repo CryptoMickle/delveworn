@@ -24,3 +24,5 @@ docs/
 
 # Local backup files
 *.bak-*
+broadcast/
+*.code-workspace
