@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IRandomnessAdapter, IRandomnessConsumer} from "../interfaces/IRandomnessAdapter.sol";
 
-/// @notice Compatibility adapter between Rise Dungeon core and a legacy VRF-style coordinator.
+/// @notice Compatibility adapter between the Delveworn core and a legacy VRF-style coordinator.
 /// @dev The adapter owns the chain/provider-specific callback boundary and no longer imports game core types.
 contract LegacyVRFAdapter is IRandomnessAdapter, IRandomnessConsumer {
     IRandomnessAdapter public immutable upstreamCoordinator;

@@ -5,12 +5,12 @@ import {Test} from "forge-std/Test.sol";
 
 import {Vm} from "forge-std/Vm.sol";
 
-import {RiseDungeon} from "../src/RiseDungeon.sol";
+import {Delveworn} from "../src/Delveworn.sol";
 
 import {MockVRFCoordinator} from "../src/MockVRFCoordinator.sol";
 
-contract RiseDungeonTest is Test {
-    RiseDungeon dungeon;
+contract DelvewornTest is Test {
+    Delveworn dungeon;
     MockVRFCoordinator mockVRF;
 
     address player = address(0x1234);
@@ -18,7 +18,7 @@ contract RiseDungeonTest is Test {
     function setUp() public {
         mockVRF = new MockVRFCoordinator();
 
-        dungeon = new RiseDungeon(address(mockVRF));
+        dungeon = new Delveworn(address(mockVRF));
     }
 
     /*
@@ -31,7 +31,7 @@ contract RiseDungeonTest is Test {
         vm.prank(player);
         dungeon.startGame();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.hp, 100);
         assertEq(p.monsterHp, 0);
@@ -79,12 +79,12 @@ contract RiseDungeonTest is Test {
 
             uint8 kind = abi.decode(logs[i].data, (uint8));
 
-            assertEq(kind, uint8(RiseDungeon.RequestKind.Monster));
+            assertEq(kind, uint8(Delveworn.RequestKind.Monster));
         }
 
         assertTrue(found);
 
-        RiseDungeon.FrontendSnapshot memory directSnapshot = dungeon.frontendSnapshot(player);
+        Delveworn.FrontendSnapshot memory directSnapshot = dungeon.frontendSnapshot(player);
 
         assertEq(directSnapshot.hp, 100);
 
@@ -98,7 +98,7 @@ contract RiseDungeonTest is Test {
 
         assertEq(directSnapshot.requestId, 0);
 
-        assertEq(uint256(directSnapshot.requestKind), uint256(RiseDungeon.RequestKind.None));
+        assertEq(uint256(directSnapshot.requestKind), uint256(Delveworn.RequestKind.None));
 
         assertTrue(directSnapshot.hasStarted);
 
@@ -159,7 +159,7 @@ contract RiseDungeonTest is Test {
 
         uint256 requestedAt = dungeon.pendingRequestTimestamp(player);
 
-        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(RiseDungeon.RequestKind.Attack));
+        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(Delveworn.RequestKind.Attack));
 
         assertEq(mockVRF.requestedNumberCount(oldRequestId), 5);
 
@@ -175,7 +175,7 @@ contract RiseDungeonTest is Test {
 
         assertEq(dungeon.pendingRequestId(player), newRequestId);
 
-        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(RiseDungeon.RequestKind.Attack));
+        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(Delveworn.RequestKind.Attack));
 
         assertEq(mockVRF.requestedNumberCount(newRequestId), 5);
 
@@ -200,7 +200,7 @@ contract RiseDungeonTest is Test {
 
         uint256 newRequestId = dungeon.retryRandomness();
 
-        RiseDungeon.Player memory beforeLateCallback = dungeon.getPlayer(player);
+        Delveworn.Player memory beforeLateCallback = dungeon.getPlayer(player);
 
         uint256[] memory numbers = new uint256[](5);
 
@@ -214,7 +214,7 @@ contract RiseDungeonTest is Test {
 
         mockVRF.fulfill(oldRequestId, numbers);
 
-        RiseDungeon.Player memory afterLateCallback = dungeon.getPlayer(player);
+        Delveworn.Player memory afterLateCallback = dungeon.getPlayer(player);
 
         assertEq(afterLateCallback.hp, beforeLateCallback.hp);
 
@@ -226,7 +226,7 @@ contract RiseDungeonTest is Test {
 
         assertEq(dungeon.pendingRequestId(player), 0);
 
-        RiseDungeon.Player memory afterRealCallback = dungeon.getPlayer(player);
+        Delveworn.Player memory afterRealCallback = dungeon.getPlayer(player);
 
         assertLt(afterRealCallback.monsterHp, beforeLateCallback.monsterHp);
     }
@@ -240,9 +240,9 @@ contract RiseDungeonTest is Test {
     function testRandomZombieSpawn() public {
         _startWithMonster(0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
-        assertEq(uint256(p.monsterType), uint256(RiseDungeon.MonsterType.Zombie));
+        assertEq(uint256(p.monsterType), uint256(Delveworn.MonsterType.Zombie));
 
         assertEq(p.monsterHp, 30);
 
@@ -252,9 +252,9 @@ contract RiseDungeonTest is Test {
     function testRandomGoblinSpawn() public {
         _startWithMonster(50);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
-        assertEq(uint256(p.monsterType), uint256(RiseDungeon.MonsterType.Goblin));
+        assertEq(uint256(p.monsterType), uint256(Delveworn.MonsterType.Goblin));
 
         assertEq(p.monsterHp, 40);
     }
@@ -262,9 +262,9 @@ contract RiseDungeonTest is Test {
     function testRandomOrcSpawn() public {
         _startWithMonster(90);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
-        assertEq(uint256(p.monsterType), uint256(RiseDungeon.MonsterType.Orc));
+        assertEq(uint256(p.monsterType), uint256(Delveworn.MonsterType.Orc));
 
         assertEq(p.monsterHp, 60);
     }
@@ -280,7 +280,7 @@ contract RiseDungeonTest is Test {
 
         _attackResolve(2, 99, 1, 50, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.hp, 95);
 
@@ -298,7 +298,7 @@ contract RiseDungeonTest is Test {
 
         _attackResolve(2, 0, 1, 50, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.hp, 95);
 
@@ -328,7 +328,7 @@ contract RiseDungeonTest is Test {
     function testStormRangeScalesWithWeapon() public {
         _killRoomOne(85, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.weaponLevel, 1);
 
@@ -344,7 +344,7 @@ contract RiseDungeonTest is Test {
 
         _stormResolve(0, 1, 50, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.monsterHp, 30);
 
@@ -362,7 +362,7 @@ contract RiseDungeonTest is Test {
 
         _stormResolve(20, 1, 50, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.monsterHp, 10);
 
@@ -390,7 +390,7 @@ contract RiseDungeonTest is Test {
 
         _attackResolve(2, 0, 0, 50, 0);
 
-        RiseDungeon.Player memory before = dungeon.getPlayer(player);
+        Delveworn.Player memory before = dungeon.getPlayer(player);
 
         assertEq(before.hp, 96);
 
@@ -398,7 +398,7 @@ contract RiseDungeonTest is Test {
 
         _stormResolve(20, 2, 50, 0);
 
-        RiseDungeon.Player memory afterState = dungeon.getPlayer(player);
+        Delveworn.Player memory afterState = dungeon.getPlayer(player);
 
         assertEq(afterState.hp, 96);
 
@@ -419,7 +419,7 @@ contract RiseDungeonTest is Test {
 
         assertEq(mockVRF.requestedNumberCount(requestId), 4);
 
-        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(RiseDungeon.RequestKind.Storm));
+        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(Delveworn.RequestKind.Storm));
     }
 
     /*
@@ -479,7 +479,7 @@ contract RiseDungeonTest is Test {
 
         _reachCampWithNineArmor();
 
-        RiseDungeon.Player memory beforeBoss = dungeon.getPlayer(player);
+        Delveworn.Player memory beforeBoss = dungeon.getPlayer(player);
 
         assertEq(beforeBoss.armorLevel, 9);
 
@@ -532,11 +532,11 @@ contract RiseDungeonTest is Test {
 
         _fulfillCurrent(_one(0));
 
-        RiseDungeon.Player memory before = dungeon.getPlayer(player);
+        Delveworn.Player memory before = dungeon.getPlayer(player);
 
         _attackResolve(2, 99, 0, 50, 0);
 
-        RiseDungeon.Player memory afterState = dungeon.getPlayer(player);
+        Delveworn.Player memory afterState = dungeon.getPlayer(player);
 
         /*
             raw = 12
@@ -572,7 +572,7 @@ contract RiseDungeonTest is Test {
 
         _fulfillCurrent(_one(2));
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.hp, 100);
 
@@ -584,14 +584,14 @@ contract RiseDungeonTest is Test {
     function testPotionBetweenRoomsDoesNotUseCombatLimit() public {
         _killRoomOne(50, 0);
 
-        RiseDungeon.Player memory before = dungeon.getPlayer(player);
+        Delveworn.Player memory before = dungeon.getPlayer(player);
 
         assertEq(before.hp, 90);
 
         vm.prank(player);
         dungeon.usePotion();
 
-        RiseDungeon.Player memory afterState = dungeon.getPlayer(player);
+        Delveworn.Player memory afterState = dungeon.getPlayer(player);
 
         assertEq(afterState.hp, 100);
 
@@ -650,7 +650,7 @@ contract RiseDungeonTest is Test {
 
         _killCurrentMonsterWithPotionLoot();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.potions, 5);
     }
@@ -672,13 +672,13 @@ contract RiseDungeonTest is Test {
 
         _fulfillCurrent(_one(0));
 
-        RiseDungeon.Player memory before = dungeon.getPlayer(player);
+        Delveworn.Player memory before = dungeon.getPlayer(player);
 
         uint256 goldBefore = before.gold;
 
         _killCurrentMonsterWithPotionLoot();
 
-        RiseDungeon.Player memory afterState = dungeon.getPlayer(player);
+        Delveworn.Player memory afterState = dungeon.getPlayer(player);
 
         assertEq(afterState.potions, 5);
 
@@ -690,17 +690,17 @@ contract RiseDungeonTest is Test {
     function testPotionLoot() public {
         _killRoomOne(10, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.potions, 4);
 
-        assertEq(uint256(p.lastLootType), uint256(RiseDungeon.LootType.Potion));
+        assertEq(uint256(p.lastLootType), uint256(Delveworn.LootType.Potion));
     }
 
     function testBonusGoldLoot() public {
         _killRoomOne(50, 10);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.gold, 20);
 
@@ -710,7 +710,7 @@ contract RiseDungeonTest is Test {
     function testWeaponLoot() public {
         _killRoomOne(85, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.weaponLevel, 1);
     }
@@ -718,7 +718,7 @@ contract RiseDungeonTest is Test {
     function testArmorLoot() public {
         _killRoomOne(95, 0);
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.armorLevel, 1);
     }
@@ -731,7 +731,7 @@ contract RiseDungeonTest is Test {
 
     function testZombieStatsRoomOne() public {
         (uint256 hp, uint256 minDamage, uint256 maxDamage, uint256 goldReward) =
-            dungeon.monsterStatsForRoom(RiseDungeon.MonsterType.Zombie, 1);
+            dungeon.monsterStatsForRoom(Delveworn.MonsterType.Zombie, 1);
 
         assertEq(hp, 30);
         assertEq(minDamage, 4);
@@ -741,7 +741,7 @@ contract RiseDungeonTest is Test {
 
     function testGoblinRoom43Scaling() public {
         (uint256 hp, uint256 minDamage, uint256 maxDamage, uint256 goldReward) =
-            dungeon.monsterStatsForRoom(RiseDungeon.MonsterType.Goblin, 43);
+            dungeon.monsterStatsForRoom(Delveworn.MonsterType.Goblin, 43);
 
         assertEq(hp, 107);
         assertEq(minDamage, 11);
@@ -751,7 +751,7 @@ contract RiseDungeonTest is Test {
 
     function testDungeonLordRoom10StatsUnchanged() public {
         (uint256 hp, uint256 minDamage, uint256 maxDamage, uint256 goldReward) =
-            dungeon.monsterStatsForRoom(RiseDungeon.MonsterType.DungeonLord, 10);
+            dungeon.monsterStatsForRoom(Delveworn.MonsterType.DungeonLord, 10);
 
         assertEq(hp, 122);
         assertEq(minDamage, 12);
@@ -821,7 +821,7 @@ contract RiseDungeonTest is Test {
     function testSupplyOpensAfterRoomFive() public {
         _reachSupplyStop();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.roomsCleared, 5);
 
@@ -834,7 +834,7 @@ contract RiseDungeonTest is Test {
         vm.prank(player);
         dungeon.supplyBuyBandage();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.hp, 100);
 
@@ -863,7 +863,7 @@ contract RiseDungeonTest is Test {
 
         vm.stopPrank();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.potions, 5);
 
@@ -938,7 +938,7 @@ contract RiseDungeonTest is Test {
     function testCampOpensAfterRoomNine() public {
         _reachCamp();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.roomsCleared, 9);
 
@@ -953,7 +953,7 @@ contract RiseDungeonTest is Test {
         vm.prank(player);
         dungeon.campRest();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.hp, 100);
 
@@ -970,7 +970,7 @@ contract RiseDungeonTest is Test {
 
         vm.stopPrank();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.potions, 5);
 
@@ -998,7 +998,7 @@ contract RiseDungeonTest is Test {
         vm.prank(player);
         dungeon.campBuyWeapon();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.weaponLevel, 1);
 
@@ -1015,7 +1015,7 @@ contract RiseDungeonTest is Test {
         vm.prank(player);
         dungeon.campBuyArmor();
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.armorLevel, 1);
     }
@@ -1028,9 +1028,9 @@ contract RiseDungeonTest is Test {
 
         _fulfillCurrent(_one(0));
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
-        assertEq(uint256(p.monsterType), uint256(RiseDungeon.MonsterType.DungeonLord));
+        assertEq(uint256(p.monsterType), uint256(Delveworn.MonsterType.DungeonLord));
 
         assertEq(p.monsterHp, 122);
     }
@@ -1051,7 +1051,7 @@ contract RiseDungeonTest is Test {
 
         _killCurrentMonsterWithBonusGold();
 
-        RiseDungeon.Player memory afterBoss = dungeon.getPlayer(player);
+        Delveworn.Player memory afterBoss = dungeon.getPlayer(player);
 
         assertEq(afterBoss.roomsCleared, 10);
 
@@ -1071,7 +1071,7 @@ contract RiseDungeonTest is Test {
             uint256 attackMin,
             uint256 attackMax,,,
             uint256 requestId,
-            RiseDungeon.RequestKind requestKind,,,,
+            Delveworn.RequestKind requestKind,,,,
             bool campOpen,,,,
             bool supplyOpen,,
             uint256 supplyPotionPurchases
@@ -1083,7 +1083,7 @@ contract RiseDungeonTest is Test {
 
         assertEq(requestId, 0);
 
-        assertEq(uint256(requestKind), uint256(RiseDungeon.RequestKind.None));
+        assertEq(uint256(requestKind), uint256(Delveworn.RequestKind.None));
 
         assertFalse(campOpen);
 
@@ -1224,7 +1224,7 @@ contract RiseDungeonTest is Test {
             }
         }
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
 
         assertEq(p.roomsCleared, 9);
 
@@ -1237,7 +1237,7 @@ contract RiseDungeonTest is Test {
 
     function _killCurrentMonsterWithBonusGold() internal {
         while (true) {
-            RiseDungeon.Player memory p = dungeon.getPlayer(player);
+            Delveworn.Player memory p = dungeon.getPlayer(player);
 
             assertTrue(p.active);
 
@@ -1251,7 +1251,7 @@ contract RiseDungeonTest is Test {
 
     function _killCurrentMonsterWithPotionLoot() internal {
         while (true) {
-            RiseDungeon.Player memory p = dungeon.getPlayer(player);
+            Delveworn.Player memory p = dungeon.getPlayer(player);
 
             assertTrue(p.active);
 
@@ -1265,7 +1265,7 @@ contract RiseDungeonTest is Test {
 
     function _killCurrentMonsterWithArmorLoot() internal {
         while (true) {
-            RiseDungeon.Player memory p = dungeon.getPlayer(player);
+            Delveworn.Player memory p = dungeon.getPlayer(player);
 
             assertTrue(p.active);
 

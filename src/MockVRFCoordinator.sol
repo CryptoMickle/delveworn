@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IVRFCoordinator, IVRFConsumer} from "./RiseDungeon.sol";
+import {IVRFCoordinator, IVRFConsumer} from "./Delveworn.sol";
 
 contract MockVRFCoordinator is IVRFCoordinator {
     uint256 public nextRequestId = 1;

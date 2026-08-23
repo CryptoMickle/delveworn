@@ -9,7 +9,7 @@ interface IVRFConsumer {
     function rawFulfillRandomNumbers(uint256 requestId, uint256[] memory randomNumbers) external;
 }
 
-contract RiseDungeon is IVRFConsumer {
+contract Delveworn is IVRFConsumer {
     enum MonsterType {
         Zombie,
         Goblin,
