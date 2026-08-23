@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {RiseDungeon} from "../src/RiseDungeon.sol";
+import {Delveworn} from "../src/Delveworn.sol";
 import {MockVRFCoordinator} from "../src/MockVRFCoordinator.sol";
 import {LegacyVRFAdapter} from "../src/adapters/LegacyVRFAdapter.sol";
 
 contract LegacyVRFAdapterTest is Test {
-    RiseDungeon dungeon;
+    Delveworn dungeon;
     MockVRFCoordinator upstream;
     LegacyVRFAdapter adapter;
 
@@ -17,7 +17,7 @@ contract LegacyVRFAdapterTest is Test {
     function setUp() public {
         upstream = new MockVRFCoordinator();
         adapter = new LegacyVRFAdapter(address(upstream));
-        dungeon = new RiseDungeon(address(adapter));
+        dungeon = new Delveworn(address(adapter));
     }
 
     function testRoutesRequestAndFulfillmentThroughAdapter() public {
@@ -37,7 +37,7 @@ contract LegacyVRFAdapterTest is Test {
         assertEq(dungeon.pendingRequestId(player), 0);
         assertEq(adapter.requestConsumers(requestId), address(0));
 
-        RiseDungeon.Player memory p = dungeon.getPlayer(player);
+        Delveworn.Player memory p = dungeon.getPlayer(player);
         assertGt(p.monsterHp, 0);
     }
 
