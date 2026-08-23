@@ -1,216 +1,134 @@
-# RISE Dungeon
+# Delveworn
 
-RISE Dungeon is an experimental fully onchain dungeon crawler built in Solidity for **RISE Chain**.
+Delveworn is an experimental fully onchain dungeon crawler built in Solidity.
 
-The game uses verifiable randomness (VRF) for gameplay actions such as monster generation, combat and special attacks.
+The game core is chain-agnostic. Gameplay, balance, player state and progression live in a single core contract, while chain/provider-specific randomness is isolated behind adapters.
 
-The repository also includes a minimal `VRFProbe` contract for measuring VRF request-to-fulfillment latency independently of the game logic.
+The game uses verifiable randomness for gameplay actions such as monster generation, combat and special attacks.
 
 > **Status:** Work in progress. The contracts have not been audited and are not production-ready.
 
 ## Project overview
 
-RISE Dungeon currently includes:
+Delveworn currently includes:
 
-* Fully onchain player state
-* Procedurally selected enemies
-* Zombie, Goblin, Orc and Dungeon Lord encounters
-* Normal attacks
-* Storm attacks
-* Critical hits
-* Potions
-* Gold and loot
-* Weapon upgrades
-* Armor upgrades
-* Supply stops
-* Camps
-* Boss encounters
-* Scaling enemy stats
-* VRF-backed gameplay resolution
+- Fully onchain player state
+- Procedurally selected enemies
+- Zombie, Goblin, Orc and Dungeon Lord encounters
+- Normal attacks and Storm attacks
+- Critical hits
+- Potions
+- Gold and loot
+- Weapon and armor upgrades
+- Supply stops and camps
+- Boss encounters
+- Scaling enemy stats
+- Randomness-backed gameplay resolution
 
-## Contracts
+## Architecture
 
-### `RiseDungeon.sol`
+```text
+Delveworn -> randomness adapter -> provider
+          <- randomness adapter <- provider callback
+```
 
-The main game contract.
+`Delveworn.sol` contains the game domain. Provider-specific configuration belongs in adapters and deployment configuration, not in combat logic.
 
-Randomness is used for several types of gameplay actions:
+Current adapter implementations include:
 
-* Monster generation
-* Normal attacks
-* Storm attacks
-* Potion-related combat outcomes
+- `LegacyVRFAdapter.sol`
+- `ChainlinkV25DirectFundingAdapter.sol`
 
-Only one VRF request may be pending for a player at a time.
+See `docs/CHAIN_AGNOSTIC_ARCHITECTURE.md` for the architecture rules.
+
+## Main contracts
+
+### `Delveworn.sol`
+
+The main game contract. Only one randomness request may be pending for a player at a time.
+
+Randomness is used for:
+
+- Monster generation
+- Normal attacks
+- Storm attacks
+- Potion-related combat outcomes
 
 ### `VRFProbe.sol`
 
-A minimal VRF consumer created specifically for testing RISE VRF latency without the additional game logic.
-
-The probe:
-
-* requests one random number;
-* records when the request was made;
-* records when fulfillment arrives;
-* stores the returned random number;
-* emits events for both request and fulfillment.
-
-This allows request-to-fulfillment latency to be measured directly.
+A minimal randomness consumer for measuring request-to-fulfillment latency independently of game logic.
 
 ### `MockVRFCoordinator.sol`
 
-A local mock VRF coordinator used by the Foundry test suite.
-
-It allows randomness requests and callbacks to be tested deterministically without relying on a live network.
-
-## VRF latency investigation
-
-RISE Dungeon is designed around frequent randomness-dependent interactions.
-
-For this type of game, VRF latency directly affects gameplay because an action cannot be resolved until the randomness callback arrives.
-
-During manual live-network testing, some VRF requests have taken approximately:
-
-**60–120+ seconds**
-
-The request transaction itself is accepted normally. The observed delay occurs while waiting for VRF fulfillment.
-
-To make the issue easier to isolate, this repository includes `VRFProbe.sol`.
-
-The probe is intended to help distinguish between latency caused by:
-
-* the game contract;
-* frontend or RPC polling;
-* or the VRF coordinator / fulfillment process.
+A deterministic local mock used by the Foundry test suite.
 
 ## Timeout and retry
 
-The game currently uses a VRF timeout of:
+The core currently uses:
 
 ```solidity
 uint256 public constant VRF_TIMEOUT = 30 seconds;
 ```
 
-If fulfillment has not arrived after the timeout, the player can call:
-
-```solidity
-retryRandomness()
-```
-
-The old request is invalidated and a replacement request is submitted.
-
-A late callback from the old request cannot resolve the action after the retry has replaced it.
-
-This retry system is primarily a resilience mechanism while VRF latency is being investigated.
+If fulfillment has not arrived after the timeout, the player can call `retryRandomness()`. The superseded request is invalidated, so a late callback from the old request cannot resolve the action.
 
 ## Testing
 
-The project uses Foundry.
-
-Run the full test suite with:
+The project uses Foundry:
 
 ```bash
-forge test
+forge fmt --check
+forge build --sizes
+forge test -vvv
 ```
 
-Current status:
-
-**64 tests passed, 0 failed.**
-
-The tests cover both gameplay and VRF-related behavior, including:
-
-* normal randomness fulfillment;
-* coordinator access control;
-* invalid request handling;
-* incorrect random-number counts;
-* VRF timeout handling;
-* retry after timeout;
-* prevention of premature retry;
-* rejection of late callbacks from superseded requests;
-* combat;
-* critical hits;
-* Storm attacks;
-* armor;
-* weapons;
-* potions;
-* loot;
-* supply stops;
-* camps;
-* boss progression.
+The suite covers gameplay, progression, randomness fulfillment, timeout/retry behavior and rejection of superseded callbacks.
 
 ## Local development
 
-Clone the repository including the Foundry submodule:
+The GitHub repository still uses its original repository slug while the product/code naming is being migrated:
 
 ```bash
 git clone --recurse-submodules https://github.com/CryptoMickle/rise-dungeon.git
 cd rise-dungeon
-```
-
-Build:
-
-```bash
 forge build
-```
-
-Test:
-
-```bash
 forge test
-```
-
-Format:
-
-```bash
-forge fmt
 ```
 
 ## Repository structure
 
 ```text
 .
-├── .github/
-│   └── workflows/
-│       └── test.yml
-├── lib/
-│   └── forge-std/
+├── .github/workflows/test.yml
+├── docs/CHAIN_AGNOSTIC_ARCHITECTURE.md
+├── lib/forge-std/
+├── script/DeploySomniaShannon.s.sol
 ├── src/
+│   ├── adapters/
+│   ├── interfaces/
+│   ├── Delveworn.sol
 │   ├── MockVRFCoordinator.sol
-│   ├── RiseDungeon.sol
 │   └── VRFProbe.sol
 ├── test/
-│   └── RiseDungeon.t.sol
-├── foundry.toml
-└── README.md
+│   ├── ChainlinkV25DirectFundingAdapter.t.sol
+│   ├── Delveworn.t.sol
+│   └── LegacyVRFAdapter.t.sol
+└── foundry.toml
 ```
 
-## Current development focus
+## Deployment philosophy
 
-Current priorities include:
+A new chain deployment should normally require only:
 
-* measuring live RISE VRF latency;
-* identifying the source of delayed fulfillment;
-* testing repeated VRF requests under gameplay conditions;
-* improving UX while randomness is pending;
-* continuing contract testing;
-* developing the frontend.
+1. Selecting or implementing the appropriate randomness adapter.
+2. Deploying that adapter with chain/provider configuration.
+3. Deploying the same `Delveworn` core against the adapter.
+4. Configuring the frontend deployment registry.
+
+The game core should not be forked per chain.
 
 ## Security
 
-This project is experimental.
-
-Do not use the contracts with funds or assets of material value without appropriate review and auditing.
+This project is experimental. Do not use the contracts with funds or assets of material value without appropriate review and auditing.
 
 Never commit private keys, seed phrases, `.env` files or other signing credentials.
-
-## Feedback
-
-Technical feedback is welcome, particularly regarding:
-
-* RISE Chain VRF integration;
-* VRF fulfillment latency;
-* Solidity architecture;
-* gas optimization;
-* fully onchain game design.
-
-For VRF debugging, `VRFProbe.sol` provides the smallest relevant reproduction in this repository.
