@@ -4,17 +4,23 @@ on:
   push:
     branches:
       - cleanup/delveworn-naming
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   rename:
+    if: github.event_name == 'push' || github.head_ref == 'cleanup/delveworn-naming'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          ref: cleanup/delveworn-naming
           submodules: recursive
 
       - name: Install Foundry
@@ -53,4 +59,4 @@ jobs:
           git status --short
 
           git commit -m "refactor: rename RiseDungeon to Delveworn"
-          git push origin HEAD
+          git push origin HEAD:cleanup/delveworn-naming
