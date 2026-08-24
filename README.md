@@ -38,6 +38,7 @@ Current adapter implementations include:
 
 - `LegacyVRFAdapter.sol`
 - `ChainlinkV25DirectFundingAdapter.sol`
+- `DevRandomnessAdapter.sol` — deterministic and **DEV/TEST ONLY**
 
 See `docs/CHAIN_AGNOSTIC_ARCHITECTURE.md` for the architecture rules.
 
@@ -57,6 +58,12 @@ Randomness is used for:
 ### `VRFProbe.sol`
 
 A minimal randomness consumer for measuring request-to-fulfillment latency independently of game logic.
+
+### `DevRandomnessAdapter.sol`
+
+A deterministic development adapter that preserves the production-like two-transaction request/callback lifecycle without depending on an external VRF service. It can derive repeatable words from stored request data or accept explicit words for exact scenario reproduction.
+
+This adapter is operator-controlled and must never be used as a production or competitive randomness source.
 
 ### `MockVRFCoordinator.sol`
 
@@ -84,6 +91,45 @@ forge test -vvv
 
 The suite covers gameplay, progression, randomness fulfillment, timeout/retry behavior and rejection of superseded callbacks.
 
+The deterministic pre-relic balance control can be rerun with:
+
+```bash
+forge test --match-contract BalanceBaselineTest -vvv
+```
+
+See `docs/BALANCE_BASELINE.md` for the strategy definition, recorded baseline and interpretation rules.
+
+## Local development without external VRF
+
+External testnet VRF availability should not block combat, relic or balance development.
+
+Deploy a local development stack against Anvil:
+
+```bash
+anvil
+```
+
+In another terminal, use a local Anvil key as `DEV_PRIVATE_KEY` and deploy:
+
+```bash
+forge script script/DeployDev.s.sol:DeployDev \
+  --rpc-url http://127.0.0.1:8545 \
+  --broadcast \
+  --private-key "$DEV_PRIVATE_KEY"
+```
+
+Copy the deployed `DevRandomnessAdapter` address and start the auto-fulfiller:
+
+```bash
+DEV_RANDOMNESS_ADAPTER=0x... \
+DEV_PRIVATE_KEY="$DEV_PRIVATE_KEY" \
+bash scripts/dev-autofulfill.sh
+```
+
+The watcher polls the local adapter and fulfills pending requests in separate transactions. This keeps Delveworn's asynchronous request/callback semantics while removing the external provider dependency.
+
+`DEV_OWNER_ADDRESS` can be used instead of `DEV_PRIVATE_KEY` when the local RPC exposes an unlocked adapter-owner account.
+
 ## Local development
 
 The GitHub repository still uses its original repository slug while the product/code naming is being migrated:
@@ -100,9 +146,15 @@ forge test
 ```text
 .
 ├── .github/workflows/test.yml
-├── docs/CHAIN_AGNOSTIC_ARCHITECTURE.md
+├── docs/
+│   ├── BALANCE_BASELINE.md
+│   └── CHAIN_AGNOSTIC_ARCHITECTURE.md
 ├── lib/forge-std/
-├── script/DeploySomniaShannon.s.sol
+├── script/
+│   ├── DeployDev.s.sol
+│   └── DeploySomniaShannon.s.sol
+├── scripts/
+│   └── dev-autofulfill.sh
 ├── src/
 │   ├── adapters/
 │   ├── interfaces/
@@ -110,8 +162,10 @@ forge test
 │   ├── MockVRFCoordinator.sol
 │   └── VRFProbe.sol
 ├── test/
+│   ├── BalanceBaseline.t.sol
 │   ├── ChainlinkV25DirectFundingAdapter.t.sol
 │   ├── Delveworn.t.sol
+│   ├── DevRandomnessAdapter.t.sol
 │   └── LegacyVRFAdapter.t.sol
 └── foundry.toml
 ```
