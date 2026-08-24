@@ -8,7 +8,7 @@ on:
 
 jobs:
   balance:
-    name: Matched relic telemetry
+    name: Fresh-state matched relic telemetry
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,15 +21,11 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Run matched balance telemetry
-        run: |
-          forge test --match-path test/BalanceBaseline.t.sol -vv > balance-baseline.txt 2>&1
-          forge test --match-path test/RelicBalanceMatched.t.sol --match-test testMatched -vv > relic-balance-matched.txt 2>&1
+      - name: Run fresh-state matched balance telemetry
+        run: forge test --match-path test/RelicBalanceFreshMatched.t.sol -vv > fresh-matched-balance.txt 2>&1
 
-      - name: Upload matched balance telemetry
+      - name: Upload fresh-state matched balance telemetry
         uses: actions/upload-artifact@v4
         with:
-          name: matched-balance-telemetry
-          path: |
-            balance-baseline.txt
-            relic-balance-matched.txt
+          name: fresh-matched-balance-telemetry
+          path: fresh-matched-balance.txt
