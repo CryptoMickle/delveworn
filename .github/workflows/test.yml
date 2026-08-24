@@ -31,5 +31,33 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Run Forge tests
-        run: forge test -vvv
+      - name: Relic rules tests
+        run: forge test --match-path test/RelicRules.t.sol -vv
+
+      - name: Relics V1 regression tests
+        if: always()
+        run: forge test --match-path test/RelicsV1.t.sol -vv
+
+      - name: Relic balance tests
+        if: always()
+        run: forge test --match-path test/RelicBalance.t.sol -vv
+
+      - name: Baseline balance tests
+        if: always()
+        run: forge test --match-path test/BalanceBaseline.t.sol -vv
+
+      - name: Core Delveworn tests
+        if: always()
+        run: forge test --match-path test/Delveworn.t.sol -vv
+
+      - name: Chainlink adapter tests
+        if: always()
+        run: forge test --match-path test/ChainlinkV25DirectFundingAdapter.t.sol -vv
+
+      - name: Dev randomness adapter tests
+        if: always()
+        run: forge test --match-path test/DevRandomnessAdapter.t.sol -vv
+
+      - name: Legacy VRF adapter tests
+        if: always()
+        run: forge test --match-path test/LegacyVRFAdapter.t.sol -vv
