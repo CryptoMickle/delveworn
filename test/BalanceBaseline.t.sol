@@ -158,11 +158,7 @@ contract BalanceBaselineTest is Test {
         if (finalState.roomsCleared >= 30) reached30++;
     }
 
-    function _shouldUseCombatPotion(address playerAddress, Delveworn.Player memory state)
-        internal
-        view
-        returns (bool)
-    {
+    function _shouldUseCombatPotion(address playerAddress, Delveworn.Player memory state) internal view returns (bool) {
         if (state.hp > 35 || state.potions == 0) {
             return false;
         }
