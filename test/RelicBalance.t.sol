@@ -57,7 +57,7 @@ contract RelicBalanceTest is Test {
         _runSuite(Delveworn.Relic.EchoLens, 0xE000, "ECHO LENS");
     }
 
-    function _runSuite(Delveworn.Relic relic, uint256 addressBase, string memory label) internal {
+    function _runSuite(Delveworn.Relic relic, uint256 addressBase, string memory label) internal noGasMetering {
         for (uint256 i = 0; i < RUNS; i++) {
             // forge-lint: disable-next-line(unsafe-typecast)
             _playRun(address(uint160(addressBase + i)), relic);
