@@ -21,11 +21,25 @@ CURRENT_DUNGEON="$(cast to-check-sum-address "$CURRENT_DUNGEON")"
 echo "Existing RISE dungeon: $CURRENT_DUNGEON"
 echo "Reading its coordinator from $RPC_URL ..."
 
-RISE_VRF_COORDINATOR="$(cast call "$CURRENT_DUNGEON" 'coordinator()(address)' --rpc-url "$RPC_URL")"
-RISE_VRF_COORDINATOR="$(cast to-check-sum-address "$RISE_VRF_COORDINATOR")"
+CURRENT_COORDINATOR="$(cast call "$CURRENT_DUNGEON" 'coordinator()(address)' --rpc-url "$RPC_URL")"
+CURRENT_COORDINATOR="$(cast to-check-sum-address "$CURRENT_COORDINATOR")"
+
+# A chain-agnostic Delveworn deployment may already point at a
+# LegacyVRFAdapter. If so, reuse the actual provider-facing coordinator
+# rather than stacking a second compatibility adapter on top of the first.
+UPSTREAM_COORDINATOR="$(cast call "$CURRENT_COORDINATOR" 'upstreamCoordinator()(address)' --rpc-url "$RPC_URL" 2>/dev/null || true)"
+
+if [[ -n "$UPSTREAM_COORDINATOR" ]]; then
+  RISE_VRF_COORDINATOR="$(cast to-check-sum-address "$UPSTREAM_COORDINATOR")"
+  echo "Existing coordinator is an adapter: $CURRENT_COORDINATOR"
+  echo "Underlying RISE VRF coordinator: $RISE_VRF_COORDINATOR"
+else
+  RISE_VRF_COORDINATOR="$CURRENT_COORDINATOR"
+  echo "RISE VRF coordinator: $RISE_VRF_COORDINATOR"
+fi
+
 export RISE_VRF_COORDINATOR
 
-echo "RISE VRF coordinator: $RISE_VRF_COORDINATOR"
 echo "Deploying fresh LegacyVRFAdapter + Delveworn V2 ..."
 
 forge script script/DeployRiseTestnet.s.sol:DeployRiseTestnet \
