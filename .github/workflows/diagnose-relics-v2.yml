@@ -1,0 +1,38 @@
+name: Diagnose Relics V2
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - feature/relics-v2-rarities
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Relic rules tests
+        run: forge test --match-path test/RelicRules.t.sol -vv
+      - name: Relics V1 regression tests
+        if: always()
+        run: forge test --match-path test/RelicsV1.t.sol -vv
+      - name: Relic balance tests
+        if: always()
+        run: forge test --match-path test/RelicBalance.t.sol -vv
+      - name: Baseline balance tests
+        if: always()
+        run: forge test --match-path test/BalanceBaseline.t.sol -vv
+      - name: Core Delveworn tests
+        if: always()
+        run: forge test --match-path test/Delveworn.t.sol -vv
+      - name: Randomness adapter tests
+        if: always()
+        run: forge test --match-path 'test/*Adapter.t.sol' -vv
