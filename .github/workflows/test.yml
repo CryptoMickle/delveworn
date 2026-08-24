@@ -31,35 +31,5 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Run Balance baseline tests
-        run: forge test --match-path test/BalanceBaseline.t.sol -vv
-
-      - name: Run Chainlink V2.5 adapter tests
-        run: forge test --match-path test/ChainlinkV25DirectFundingAdapter.t.sol -vv
-
-      - name: Run Delveworn core tests
-        run: forge test --match-path test/Delveworn.t.sol -vv
-
-      - name: Run dev randomness adapter tests
-        run: forge test --match-path test/DevRandomnessAdapter.t.sol -vv
-
-      - name: Run legacy VRF adapter tests
-        run: forge test --match-path test/LegacyVRFAdapter.t.sol -vv
-
-      - name: Diagnose Blood Price without block gas limit
-        if: always()
-        run: forge test --disable-block-gas-limit --match-path test/RelicBalance.t.sol --match-test testBloodPriceBalance -vv
-
-      - name: Diagnose Echo Lens with raised gas limit
-        if: always()
-        env:
-          FOUNDRY_GAS_LIMIT: 18446744073709551615
-        run: forge test --match-path test/RelicBalance.t.sol --match-test testEchoLensBalance -vv
-
-      - name: Run Iron Shell balance
-        if: always()
-        run: forge test --match-path test/RelicBalance.t.sol --match-test testIronShellBalance -vv
-
-      - name: Run Relics V1 tests
-        if: always()
-        run: forge test --match-path test/RelicsV1.t.sol -vv
+      - name: Run Forge tests
+        run: forge test -vvv
