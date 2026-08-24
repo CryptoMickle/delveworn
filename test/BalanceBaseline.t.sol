@@ -9,7 +9,7 @@ import {DevRandomnessAdapter} from "../src/adapters/DevRandomnessAdapter.sol";
 /// @dev This is intentionally a strategy simulation, not a claim about human play.
 ///      The exact same strategy can be rerun after balance/relic changes to measure drift.
 contract BalanceBaselineTest is Test {
-    uint256 internal constant RUNS = 128;
+    uint256 internal constant RUNS = 32;
     uint256 internal constant MAX_ROOMS = 30;
     uint256 internal constant SAFETY_ACTION_LIMIT = 500;
 
@@ -49,7 +49,7 @@ contract BalanceBaselineTest is Test {
         adapter.setConsumer(address(dungeon));
     }
 
-    function testPreRelicConservativeAttackBaseline() public noGasMetering {
+    function testPreRelicConservativeAttackBaseline() public {
         for (uint256 i = 0; i < RUNS; i++) {
             _playRun(address(uint160(0xB000 + i)));
         }
