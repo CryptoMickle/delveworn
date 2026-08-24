@@ -1,0 +1,30 @@
+name: Relics V2 Balance
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - feature/relics-v2-rarities
+  workflow_dispatch:
+
+jobs:
+  telemetry:
+    name: Matched V2 balance telemetry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Run Relics V2 telemetry
+        run: forge test --match-path test/RelicsV2Balance.t.sol -vv > relics-v2-balance.txt 2>&1
+      - name: Upload Relics V2 telemetry
+        uses: actions/upload-artifact@v4
+        with:
+          name: relics-v2-balance-telemetry
+          path: relics-v2-balance.txt
