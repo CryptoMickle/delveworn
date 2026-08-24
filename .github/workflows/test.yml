@@ -31,5 +31,17 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
+      - name: Diagnose Relics V1 tests
+        continue-on-error: true
+        run: forge test --match-path test/RelicsV1.t.sol -vv
+
+      - name: Diagnose relic balance tests
+        continue-on-error: true
+        run: forge test --match-path test/RelicBalance.t.sol -vv
+
+      - name: Diagnose existing test suite
+        continue-on-error: true
+        run: forge test --no-match-path 'test/(RelicsV1|RelicBalance)\.t\.sol' -vv
+
       - name: Run Forge tests
         run: forge test -vvv
