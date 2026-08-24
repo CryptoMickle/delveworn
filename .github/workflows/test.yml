@@ -34,6 +34,10 @@ jobs:
       - name: Relic rules tests
         run: forge test --match-path test/RelicRules.t.sol -vv
 
+      - name: Relics V2 integration tests
+        if: always()
+        run: forge test --match-path test/RelicsV2.t.sol -vv
+
       - name: Relics V1 regression tests
         if: always()
         run: forge test --match-path test/RelicsV1.t.sol -vv
