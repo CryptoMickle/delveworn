@@ -46,17 +46,30 @@ jobs:
       - name: Run legacy VRF adapter tests
         run: forge test --match-path test/LegacyVRFAdapter.t.sol -vv
 
-      - name: Diagnose Blood Price balance
+      - name: Capture failing relic balance diagnostics
         if: always()
-        run: forge test --match-path test/RelicBalance.t.sol --match-test testBloodPriceBalance -vv
+        run: |
+          set +e
+          forge test --match-path test/RelicBalance.t.sol --match-test testBloodPriceBalance -vvvv > blood-price.txt 2>&1
+          echo $? > blood-price.exit
+          forge test --match-path test/RelicBalance.t.sol --match-test testEchoLensBalance -vvvv > echo-lens.txt 2>&1
+          echo $? > echo-lens.exit
+          exit 0
 
-      - name: Diagnose Iron Shell balance
+      - name: Upload relic balance diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relic-balance-diagnostics
+          path: |
+            blood-price.txt
+            blood-price.exit
+            echo-lens.txt
+            echo-lens.exit
+
+      - name: Run Iron Shell balance
         if: always()
         run: forge test --match-path test/RelicBalance.t.sol --match-test testIronShellBalance -vv
-
-      - name: Diagnose Echo Lens balance
-        if: always()
-        run: forge test --match-path test/RelicBalance.t.sol --match-test testEchoLensBalance -vv
 
       - name: Run Relics V1 tests
         if: always()
