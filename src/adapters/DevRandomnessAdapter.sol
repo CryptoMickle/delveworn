@@ -22,9 +22,7 @@ contract DevRandomnessAdapter is IRandomnessAdapter {
     mapping(uint256 => bool) public pendingRequests;
 
     event ConsumerSet(address indexed consumer);
-    event DevRandomnessRequested(
-        uint256 indexed requestId, address indexed consumer, uint32 numberCount, uint256 seed
-    );
+    event DevRandomnessRequested(uint256 indexed requestId, address indexed consumer, uint32 numberCount, uint256 seed);
     event DevRandomnessFulfilled(uint256 indexed requestId, address indexed consumer, bool customWords);
 
     error OnlyOwner();
