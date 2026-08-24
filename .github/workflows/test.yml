@@ -33,3 +33,16 @@ jobs:
 
       - name: Run Forge tests
         run: forge test -vvv
+
+      - name: Capture balance telemetry
+        run: |
+          forge test --match-path test/BalanceBaseline.t.sol -vv > balance-baseline.txt 2>&1
+          forge test --match-path test/RelicBalance.t.sol -vv > relic-balance.txt 2>&1
+
+      - name: Upload balance telemetry
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance-telemetry
+          path: |
+            balance-baseline.txt
+            relic-balance.txt
