@@ -5,8 +5,18 @@ import {Test, console2} from "forge-std/Test.sol";
 import {Delveworn} from "../src/Delveworn.sol";
 import {DevRandomnessAdapter} from "../src/adapters/DevRandomnessAdapter.sol";
 
+/// @dev Test-only subclass used to keep the legacy Common balance comparison
+///      pinned to Common without changing any production offer rules or VRF words.
+contract RelicBalanceDungeon is Delveworn {
+    constructor(address coordinatorAddress) Delveworn(coordinatorAddress) {}
+
+    function forceRelicOfferRarity(address playerAddress, RelicRarity rarity) external {
+        relicOfferRarity[playerAddress] = rarity;
+    }
+}
+
 /// @notice Uses the exact conservative strategy from BalanceBaseline.t.sol,
-///         but selects one V1 relic as soon as the room-5 offer appears.
+///         but selects one calibrated Common relic as soon as the room-5 offer appears.
 /// @dev The pre-relic control remains in BalanceBaseline.t.sol.
 contract RelicBalanceTest is Test {
     uint256 internal constant RUNS = 32;
@@ -14,7 +24,7 @@ contract RelicBalanceTest is Test {
     uint256 internal constant SAFETY_ACTION_LIMIT = 500;
 
     DevRandomnessAdapter internal adapter;
-    Delveworn internal dungeon;
+    RelicBalanceDungeon internal dungeon;
 
     uint256 internal totalRoomsCleared;
     uint256 internal totalBossesCleared;
@@ -41,7 +51,7 @@ contract RelicBalanceTest is Test {
 
     function setUp() public {
         adapter = new DevRandomnessAdapter();
-        dungeon = new Delveworn(address(adapter));
+        dungeon = new RelicBalanceDungeon(address(adapter));
         adapter.setConsumer(address(dungeon));
     }
 
@@ -129,6 +139,7 @@ contract RelicBalanceTest is Test {
                 dungeon.relicOfferAvailable(playerAddress)
                     && dungeon.equippedRelic(playerAddress) == Delveworn.Relic.None
             ) {
+                dungeon.forceRelicOfferRarity(playerAddress, Delveworn.RelicRarity.Common);
                 vm.prank(playerAddress);
                 dungeon.chooseRelic(relic);
             }

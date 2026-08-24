@@ -49,7 +49,7 @@ contract BalanceBaselineTest is Test {
         adapter.setConsumer(address(dungeon));
     }
 
-    function testPreRelicConservativeAttackBaseline() public {
+    function testPreRelicConservativeAttackBaseline() public noGasMetering {
         for (uint256 i = 0; i < RUNS; i++) {
             _playRun(address(uint160(0xB000 + i)));
         }

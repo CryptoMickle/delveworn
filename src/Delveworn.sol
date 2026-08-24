@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {RelicRules} from "./RelicRules.sol";
+
 interface IVRFCoordinator {
     function requestRandomNumbers(uint32 numNumbers, uint256 seed) external returns (uint256 requestId);
 }
@@ -47,9 +49,35 @@ contract Delveworn is IVRFConsumer {
 
     enum Relic {
         None,
+        // Common
         BloodPrice,
         IronShell,
-        EchoLens
+        EchoLens,
+        // Uncommon
+        GlassEdge,
+        AshenFang,
+        Stormglass,
+        // Rare
+        GildedHunger,
+        GravePact,
+        Stormheart,
+        // Epic
+        TitanBone,
+        BlackMirror,
+        BloodEngine,
+        // Legendary
+        CrownOfRuin,
+        UndyingFlame,
+        Worldbreaker
+    }
+
+    enum RelicRarity {
+        None,
+        Common,
+        Uncommon,
+        Rare,
+        Epic,
+        Legendary
     }
 
     struct Player {
@@ -112,6 +140,12 @@ contract Delveworn is IVRFConsumer {
         bool supplyOpen;
         bool bandageUsed;
         uint256 supplyPotionPurchases;
+        Relic equippedRelic;
+        bool relicOfferAvailable;
+        RelicRarity relicOfferRarity;
+        uint256 maxHp;
+        uint256 criticalChance;
+        bool relicReviveUsed;
     }
 
     /*
@@ -153,37 +187,23 @@ contract Delveworn is IVRFConsumer {
     uint256 public constant VRF_TIMEOUT = 30 seconds;
 
     /*
-        Relics V1
+        Relics V2
 
-        Relics are run-only. The first offer appears after room 5.
-        V1 has one slot and three flat-tier choices. The offer is
-        optional so the deterministic pre-relic control simulation
-        remains possible against the exact same contract version.
+        Relics are run-only and occupy one slot. After room 5 the killing
+        VRF callback rolls one rarity tier without an extra randomness
+        request, then offers all three relics in that tier.
 
-        Blood Price:
-        +10% outgoing damage, but entering a new room permanently
-        reduces max HP for the current run by 2 (minimum 20).
+        Rarity odds:
+        Common 55%, Uncommon 25%, Rare 12%, Epic 6%, Legendary 2%.
 
-        Iron Shell:
-        +20 max HP immediately, but -5% outgoing damage.
-
-        Echo Lens:
-        +5 percentage points normal-attack critical chance,
-        but -20% Storm damage.
+        The full catalog and numeric modifiers live in RelicRules.sol.
+        Common retains the calibrated V1 identities; higher tiers become
+        progressively more run-defining while preserving explicit tradeoffs.
     */
     uint256 public constant BASE_MAX_HP = 100;
     uint256 public constant RELIC_OFFER_ROOM = 5;
     uint256 public constant RELIC_MIN_MAX_HP = 20;
-
-    uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 10;
-    uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 2;
-
-    uint256 public constant IRON_SHELL_MAX_HP_BONUS = 20;
-    uint256 public constant IRON_SHELL_DAMAGE_PENALTY_PERCENT = 5;
-
     uint256 public constant BASE_CRITICAL_CHANCE = 15;
-    uint256 public constant ECHO_LENS_CRITICAL_BONUS_PERCENT = 5;
-    uint256 public constant ECHO_LENS_STORM_DAMAGE_PENALTY_PERCENT = 20;
 
     /*
         ========================================================
@@ -215,7 +235,9 @@ contract Delveworn is IVRFConsumer {
 
     mapping(address => Relic) public equippedRelic;
     mapping(address => bool) public relicOfferAvailable;
+    mapping(address => RelicRarity) public relicOfferRarity;
     mapping(address => uint256) public playerMaxHp;
+    mapping(address => bool) public relicReviveUsed;
 
     uint256 public requestNonce;
 
@@ -256,9 +278,13 @@ contract Delveworn is IVRFConsumer {
 
     event RelicOffered(address indexed player, uint256 indexed roomCleared);
 
-    event RelicChosen(address indexed player, Relic relic, uint256 maxHp);
+    event RelicOfferRolled(address indexed player, RelicRarity rarity);
+
+    event RelicChosen(address indexed player, Relic relic, RelicRarity rarity, uint256 maxHp);
 
     event BloodPricePaid(address indexed player, uint256 newMaxHp, uint256 currentHp);
+
+    event RelicRevived(address indexed player, Relic relic, uint256 hp);
 
     /*
         ========================================================
@@ -326,19 +352,49 @@ contract Delveworn is IVRFConsumer {
 
         equippedRelic[msg.sender] = Relic.None;
         relicOfferAvailable[msg.sender] = false;
+        relicOfferRarity[msg.sender] = RelicRarity.None;
         playerMaxHp[msg.sender] = BASE_MAX_HP;
+        relicReviveUsed[msg.sender] = false;
 
         _requestRandomness(msg.sender, RequestKind.Monster, 1);
     }
 
     /*
         ========================================================
-        RELICS V1
+        RELICS V2
         ========================================================
     */
 
+    /// @notice Backwards-compatible Common choices preview.
     function relicChoices() external pure returns (Relic first, Relic second, Relic third) {
         return (Relic.BloodPrice, Relic.IronShell, Relic.EchoLens);
+    }
+
+    function relicChoicesForRarity(RelicRarity rarity) public pure returns (Relic first, Relic second, Relic third) {
+        (uint8 firstId, uint8 secondId, uint8 thirdId) = RelicRules.choicesForRarity(uint8(rarity));
+        return (Relic(firstId), Relic(secondId), Relic(thirdId));
+    }
+
+    function currentRelicChoices(address playerAddress)
+        external
+        view
+        returns (RelicRarity rarity, Relic first, Relic second, Relic third)
+    {
+        rarity = relicOfferRarity[playerAddress];
+        require(rarity != RelicRarity.None, "No relic offer");
+        (first, second, third) = relicChoicesForRarity(rarity);
+    }
+
+    function relicRarityOf(Relic relic) public pure returns (RelicRarity) {
+        return RelicRarity(RelicRules.relicRarity(uint8(relic)));
+    }
+
+    function relicRarityWeightBps(RelicRarity rarity) external pure returns (uint16) {
+        return RelicRules.rarityWeightBps(uint8(rarity));
+    }
+
+    function previewRelicRarity(uint256 entropy) external pure returns (RelicRarity) {
+        return RelicRarity(RelicRules.rollRarity(entropy));
     }
 
     function chooseRelic(Relic relic) external noPending(msg.sender) {
@@ -348,23 +404,36 @@ contract Delveworn is IVRFConsumer {
         require(player.monsterHp == 0, "Choose relic between rooms");
         require(relicOfferAvailable[msg.sender], "No relic offer");
         require(equippedRelic[msg.sender] == Relic.None, "Relic slot occupied");
-        require(relic != Relic.None && uint256(relic) <= uint256(Relic.EchoLens), "Invalid relic");
+        require(relic != Relic.None && uint256(relic) <= uint256(Relic.Worldbreaker), "Invalid relic");
+
+        RelicRarity rarity = relicRarityOf(relic);
+        require(rarity == relicOfferRarity[msg.sender], "Relic not in offer");
 
         equippedRelic[msg.sender] = relic;
         relicOfferAvailable[msg.sender] = false;
 
-        if (relic == Relic.IronShell) {
-            uint256 newMaxHp = _maxHp(msg.sender) + IRON_SHELL_MAX_HP_BONUS;
-            playerMaxHp[msg.sender] = newMaxHp;
+        uint256 currentMaxHp = _maxHp(msg.sender);
+        uint256 bonus = RelicRules.maxHpBonus(uint8(relic));
+        uint256 penalty = RelicRules.maxHpPenalty(uint8(relic));
+        uint256 newMaxHp = currentMaxHp + bonus;
 
-            uint256 newHp = player.hp + IRON_SHELL_MAX_HP_BONUS;
-            if (newHp > newMaxHp) {
-                newHp = newMaxHp;
-            }
-            player.hp = newHp;
+        if (penalty >= newMaxHp - RELIC_MIN_MAX_HP) {
+            newMaxHp = RELIC_MIN_MAX_HP;
+        } else {
+            newMaxHp -= penalty;
         }
 
-        emit RelicChosen(msg.sender, relic, _maxHp(msg.sender));
+        if (newMaxHp != currentMaxHp) {
+            playerMaxHp[msg.sender] = newMaxHp;
+            if (bonus > 0) {
+                uint256 newHp = player.hp + bonus;
+                player.hp = newHp > newMaxHp ? newMaxHp : newHp;
+            } else if (player.hp > newMaxHp) {
+                player.hp = newMaxHp;
+            }
+        }
+
+        emit RelicChosen(msg.sender, relic, rarity, _maxHp(msg.sender));
     }
 
     function maxHp(address playerAddress) external view returns (uint256) {
@@ -844,6 +913,12 @@ contract Delveworn is IVRFConsumer {
         snapshot.supplyOpen = _supplyAvailable(playerAddress);
         snapshot.bandageUsed = supplyBandageUsed[playerAddress];
         snapshot.supplyPotionPurchases = supplyPotionsBought[playerAddress];
+        snapshot.equippedRelic = equippedRelic[playerAddress];
+        snapshot.relicOfferAvailable = relicOfferAvailable[playerAddress];
+        snapshot.relicOfferRarity = relicOfferRarity[playerAddress];
+        snapshot.maxHp = _maxHp(playerAddress);
+        snapshot.criticalChance = _criticalChance(playerAddress);
+        snapshot.relicReviveUsed = relicReviveUsed[playerAddress];
     }
 
     /*
@@ -927,7 +1002,7 @@ contract Delveworn is IVRFConsumer {
         bool critical = (randomNumbers[1] % 100) < _criticalChance(playerAddress);
 
         if (critical) {
-            rolledDamage *= 2;
+            rolledDamage *= RelicRules.criticalMultiplier(uint8(equippedRelic[playerAddress]));
         }
 
         rolledDamage = _applyOutgoingRelicDamage(playerAddress, rolledDamage, false);
@@ -951,10 +1026,10 @@ contract Delveworn is IVRFConsumer {
 
         player.monsterHp -= rolledDamage;
 
-        uint256 monsterDamage = _rollMonsterDamage(player, randomNumbers[2]);
+        uint256 monsterDamage = _rollMonsterDamage(playerAddress, player, randomNumbers[2]);
         lastMonsterDamage[playerAddress] = monsterDamage;
 
-        _takeDamage(player, monsterDamage);
+        _takeDamage(playerAddress, player, monsterDamage);
 
         emit CombatResolved(playerAddress, RequestKind.Attack, actualDamage, monsterDamage, critical, false);
     }
@@ -992,10 +1067,10 @@ contract Delveworn is IVRFConsumer {
 
         player.monsterHp -= rolledDamage;
 
-        uint256 monsterDamage = _rollMonsterDamage(player, randomNumbers[1]);
+        uint256 monsterDamage = _rollMonsterDamage(playerAddress, player, randomNumbers[1]);
         lastMonsterDamage[playerAddress] = monsterDamage;
 
-        _takeDamage(player, monsterDamage);
+        _takeDamage(playerAddress, player, monsterDamage);
 
         emit CombatResolved(playerAddress, RequestKind.Storm, actualDamage, monsterDamage, false, false);
     }
@@ -1019,7 +1094,7 @@ contract Delveworn is IVRFConsumer {
         combatPotionsUsed[playerAddress] += 1;
         player.potions -= 1;
 
-        uint256 monsterDamage = _rollMonsterDamage(player, randomNumber);
+        uint256 monsterDamage = _rollMonsterDamage(playerAddress, player, randomNumber);
         uint256 incomingDamage = (monsterDamage + 1) / 2;
 
         uint256 newHp = player.hp + 25;
@@ -1041,7 +1116,7 @@ contract Delveworn is IVRFConsumer {
         lastCritical[playerAddress] = false;
 
         if (player.hp == 0) {
-            player.active = false;
+            _handleLethalDamage(playerAddress, player);
         }
 
         emit CombatResolved(playerAddress, RequestKind.Potion, 0, incomingDamage, false, false);
@@ -1059,13 +1134,18 @@ contract Delveworn is IVRFConsumer {
         uint256 room = player.roomsCleared + 1;
 
         player.monsterHp = 0;
-        player.gold += _scaledGoldReward(player.monsterType, room);
+        uint256 roomGold = _scaledGoldReward(player.monsterType, room);
+        player.gold += RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), roomGold);
         player.roomsCleared += 1;
 
         _grantLoot(playerAddress, player, lootRoll, amountRoll);
+        _applyKillRelic(playerAddress, player);
 
         if (player.roomsCleared == RELIC_OFFER_ROOM && equippedRelic[playerAddress] == Relic.None) {
+            RelicRarity rarity = RelicRarity(RelicRules.rollRarity(amountRoll));
+            relicOfferRarity[playerAddress] = rarity;
             relicOfferAvailable[playerAddress] = true;
+            emit RelicOfferRolled(playerAddress, rarity);
             emit RelicOffered(playerAddress, player.roomsCleared);
         }
 
@@ -1141,9 +1221,10 @@ contract Delveworn is IVRFConsumer {
 
         if (lootRoll < 30) {
             if (player.potions >= MAX_POTIONS) {
-                player.gold += FULL_POTION_LOOT_GOLD;
+                uint256 convertedGold = RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), FULL_POTION_LOOT_GOLD);
+                player.gold += convertedGold;
                 player.lastLootType = LootType.BonusGold;
-                player.lastLootAmount = FULL_POTION_LOOT_GOLD;
+                player.lastLootAmount = convertedGold;
             } else {
                 player.potions += 1;
                 player.lastLootType = LootType.Potion;
@@ -1152,6 +1233,7 @@ contract Delveworn is IVRFConsumer {
         } else if (lootRoll < 80) {
             uint256 bonusGold = 5 + (randomAmount % 16) + (player.roomsCleared / 5);
 
+            bonusGold = RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), bonusGold);
             player.gold += bonusGold;
             player.lastLootType = LootType.BonusGold;
             player.lastLootAmount = bonusGold;
@@ -1180,11 +1262,7 @@ contract Delveworn is IVRFConsumer {
     }
 
     function _criticalChance(address playerAddress) internal view returns (uint256) {
-        if (equippedRelic[playerAddress] == Relic.EchoLens) {
-            return BASE_CRITICAL_CHANCE + ECHO_LENS_CRITICAL_BONUS_PERCENT;
-        }
-
-        return BASE_CRITICAL_CHANCE;
+        return BASE_CRITICAL_CHANCE + RelicRules.criticalChanceBonus(uint8(equippedRelic[playerAddress]));
     }
 
     function _applyOutgoingRelicDamage(address playerAddress, uint256 damage, bool storm)
@@ -1192,47 +1270,45 @@ contract Delveworn is IVRFConsumer {
         view
         returns (uint256)
     {
-        Relic relic = equippedRelic[playerAddress];
-
-        if (relic == Relic.BloodPrice) {
-            return (damage * (100 + BLOOD_PRICE_DAMAGE_BONUS_PERCENT)) / 100;
-        }
-
-        if (relic == Relic.IronShell) {
-            return (damage * (100 - IRON_SHELL_DAMAGE_PENALTY_PERCENT) + 99) / 100;
-        }
-
-        if (relic == Relic.EchoLens && storm) {
-            return (damage * (100 - ECHO_LENS_STORM_DAMAGE_PENALTY_PERCENT)) / 100;
-        }
-
-        return damage;
+        return RelicRules.scaleOutgoing(uint8(equippedRelic[playerAddress]), damage, storm);
     }
 
     function _applyRoomEntryRelic(address playerAddress, Player storage player) internal {
-        if (equippedRelic[playerAddress] != Relic.BloodPrice) {
-            return;
-        }
+        uint256 hpLoss = RelicRules.roomMaxHpLoss(uint8(equippedRelic[playerAddress]));
+        if (hpLoss == 0) return;
 
         uint256 currentMaxHp = _maxHp(playerAddress);
-        if (currentMaxHp <= RELIC_MIN_MAX_HP) {
+        if (currentMaxHp <= RELIC_MIN_MAX_HP) return;
+
+        uint256 newMaxHp = currentMaxHp <= RELIC_MIN_MAX_HP + hpLoss ? RELIC_MIN_MAX_HP : currentMaxHp - hpLoss;
+
+        playerMaxHp[playerAddress] = newMaxHp;
+        if (player.hp > newMaxHp) player.hp = newMaxHp;
+
+        emit BloodPricePaid(playerAddress, newMaxHp, player.hp);
+    }
+
+    function _applyKillRelic(address playerAddress, Player storage player) internal {
+        uint256 healing = RelicRules.killHeal(uint8(equippedRelic[playerAddress]));
+        if (healing == 0 || player.hp == 0) return;
+
+        uint256 maximumHp = _maxHp(playerAddress);
+        uint256 newHp = player.hp + healing;
+        player.hp = newHp > maximumHp ? maximumHp : newHp;
+    }
+
+    function _handleLethalDamage(address playerAddress, Player storage player) internal {
+        uint8 revive = RelicRules.revivePercent(uint8(equippedRelic[playerAddress]));
+        if (revive == 0 || relicReviveUsed[playerAddress]) {
+            player.active = false;
             return;
         }
 
-        uint256 newMaxHp;
-        if (currentMaxHp <= RELIC_MIN_MAX_HP + BLOOD_PRICE_ROOM_MAX_HP_LOSS) {
-            newMaxHp = RELIC_MIN_MAX_HP;
-        } else {
-            newMaxHp = currentMaxHp - BLOOD_PRICE_ROOM_MAX_HP_LOSS;
-        }
-
-        playerMaxHp[playerAddress] = newMaxHp;
-
-        if (player.hp > newMaxHp) {
-            player.hp = newMaxHp;
-        }
-
-        emit BloodPricePaid(playerAddress, newMaxHp, player.hp);
+        relicReviveUsed[playerAddress] = true;
+        uint256 restoredHp = (_maxHp(playerAddress) * revive) / 100;
+        player.hp = restoredHp == 0 ? 1 : restoredHp;
+        player.active = true;
+        emit RelicRevived(playerAddress, equippedRelic[playerAddress], player.hp);
     }
 
     /*
@@ -1303,12 +1379,17 @@ contract Delveworn is IVRFConsumer {
         return NORMAL_COMBAT_POTION_LIMIT;
     }
 
-    function _rollMonsterDamage(Player storage player, uint256 randomNumber) internal view returns (uint256) {
+    function _rollMonsterDamage(address playerAddress, Player storage player, uint256 randomNumber)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 room = player.roomsCleared + 1;
         uint256 baseDamage = _scaledMonsterDamage(player.monsterType, room);
         uint256 rawDamage = (baseDamage - 1) + (randomNumber % 3);
+        uint256 armoredDamage = _applyArmor(player, rawDamage);
 
-        return _applyArmor(player, rawDamage);
+        return RelicRules.scaleIncoming(uint8(equippedRelic[playerAddress]), armoredDamage);
     }
 
     function _scaledMonsterHp(MonsterType monsterType, uint256 room) internal pure returns (uint256) {
@@ -1350,10 +1431,10 @@ contract Delveworn is IVRFConsumer {
         return flatReducedDamage;
     }
 
-    function _takeDamage(Player storage player, uint256 damage) internal {
+    function _takeDamage(address playerAddress, Player storage player, uint256 damage) internal {
         if (player.hp <= damage) {
             player.hp = 0;
-            player.active = false;
+            _handleLethalDamage(playerAddress, player);
         } else {
             player.hp -= damage;
         }
