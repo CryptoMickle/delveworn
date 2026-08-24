@@ -9,7 +9,7 @@ import {DevRandomnessAdapter} from "../src/adapters/DevRandomnessAdapter.sol";
 ///         but selects one V1 relic as soon as the room-5 offer appears.
 /// @dev The pre-relic control remains in BalanceBaseline.t.sol.
 contract RelicBalanceTest is Test {
-    uint256 internal constant RUNS = 32;
+    uint256 internal constant RUNS = 128;
     uint256 internal constant MAX_ROOMS = 30;
     uint256 internal constant SAFETY_ACTION_LIMIT = 500;
 
