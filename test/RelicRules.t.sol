@@ -120,23 +120,23 @@ contract RelicRulesTest is Test {
     }
 
     function testRareIdentity() public view {
-        assertEq(rules.outgoing(7, 100, false), 90); // Gilded Hunger
-        assertEq(rules.gold(7, 100), 160);
-        assertEq(rules.outgoing(8, 100, false), 90); // Grave Pact
-        assertEq(rules.revivePercent(8), 25);
-        assertEq(rules.outgoing(9, 100, false), 90); // Stormheart
+        assertEq(rules.outgoing(7, 100, false), 95); // Gilded Hunger
+        assertEq(rules.gold(7, 100), 175);
+        assertEq(rules.outgoing(8, 100, false), 95); // Grave Pact
+        assertEq(rules.revivePercent(8), 35);
+        assertEq(rules.outgoing(9, 100, false), 95); // Stormheart
         assertEq(rules.outgoing(9, 100, true), 145);
     }
 
     function testEpicIdentity() public view {
         assertEq(rules.maxHpBonus(10), 50); // Titan Bone
-        assertEq(rules.outgoing(10, 100, false), 90);
+        assertEq(rules.outgoing(10, 100, false), 95);
         assertEq(rules.outgoing(11, 100, false), 85); // Black Mirror
         assertEq(rules.criticalBonus(11), 15);
         assertEq(rules.criticalMultiplier(11), 3);
-        assertEq(rules.outgoing(12, 100, false), 110); // Blood Engine
-        assertEq(rules.maxHpPenalty(12), 15);
-        assertEq(rules.killHeal(12), 8);
+        assertEq(rules.outgoing(12, 100, false), 105); // Blood Engine
+        assertEq(rules.maxHpPenalty(12), 20);
+        assertEq(rules.killHeal(12), 5);
     }
 
     function testLegendaryIdentity() public view {
@@ -144,8 +144,8 @@ contract RelicRulesTest is Test {
         assertEq(rules.maxHpPenalty(13), 40);
         assertEq(rules.maxHpPenalty(14), 15); // Undying Flame
         assertEq(rules.revivePercent(14), 50);
-        assertEq(rules.outgoing(15, 100, false), 125); // Worldbreaker
+        assertEq(rules.outgoing(15, 100, false), 130); // Worldbreaker
         assertEq(rules.criticalBonus(15), 10);
-        assertEq(rules.incoming(15, 100), 125);
+        assertEq(rules.incoming(15, 100), 115);
     }
 }
