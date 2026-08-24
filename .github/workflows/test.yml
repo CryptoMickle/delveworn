@@ -46,8 +46,18 @@ jobs:
       - name: Run legacy VRF adapter tests
         run: forge test --match-path test/LegacyVRFAdapter.t.sol -vv
 
-      - name: Run relic balance tests
-        run: forge test --match-path test/RelicBalance.t.sol -vv
+      - name: Diagnose Blood Price balance
+        if: always()
+        run: forge test --match-path test/RelicBalance.t.sol --match-test testBloodPriceBalance -vv
+
+      - name: Diagnose Iron Shell balance
+        if: always()
+        run: forge test --match-path test/RelicBalance.t.sol --match-test testIronShellBalance -vv
+
+      - name: Diagnose Echo Lens balance
+        if: always()
+        run: forge test --match-path test/RelicBalance.t.sol --match-test testEchoLensBalance -vv
 
       - name: Run Relics V1 tests
+        if: always()
         run: forge test --match-path test/RelicsV1.t.sol -vv
