@@ -103,7 +103,7 @@ contract RelicsV2Test is Test {
         assertEq(stormMax, 26);
     }
 
-    function testGravePactRevivesOnceAtQuarterHp() public {
+    function testGravePactRevivesOnceAtThirtyFivePercentHp() public {
         _reachRoomFiveOffer();
         _choose(Delveworn.RelicRarity.Rare, Delveworn.Relic.GravePact);
         _enterRoomSix();
@@ -115,7 +115,7 @@ contract RelicsV2Test is Test {
         _fulfill(_attackWords(0, 99, 2, 50, 0));
 
         assertTrue(dungeon.getPlayer(player).active);
-        assertEq(dungeon.getPlayer(player).hp, 25);
+        assertEq(dungeon.getPlayer(player).hp, 35);
         assertTrue(dungeon.relicReviveUsed(player));
 
         dungeon.forceHp(player, 1);
@@ -152,10 +152,10 @@ contract RelicsV2Test is Test {
         assertEq(dungeon.lastPlayerDamage(player), 21);
     }
 
-    function testBloodEngineHealsEightOnKillAndCostsMaxHp() public {
+    function testBloodEngineHealsFiveOnKillAndCostsMaxHp() public {
         _reachRoomFiveOffer();
         _choose(Delveworn.RelicRarity.Epic, Delveworn.Relic.BloodEngine);
-        assertEq(dungeon.maxHp(player), 85);
+        assertEq(dungeon.maxHp(player), 80);
 
         _enterRoomSix();
         dungeon.forceHp(player, 50);
@@ -165,7 +165,7 @@ contract RelicsV2Test is Test {
         dungeon.attack();
         _fulfill(_attackWords(0, 99, 0, 50, 0));
 
-        assertEq(dungeon.getPlayer(player).hp, 58);
+        assertEq(dungeon.getPlayer(player).hp, 55);
     }
 
     function testCrownOfRuinIsHighDamageLowHpLegendary() public {
@@ -210,8 +210,8 @@ contract RelicsV2Test is Test {
         _fulfill(_attackWords(0, 99, 2, 50, 0));
 
         assertEq(dungeon.lastPlayerDamage(player), 10);
-        assertEq(dungeon.lastMonsterDamage(player), 8);
-        assertEq(dungeon.getPlayer(player).hp, 92);
+        assertEq(dungeon.lastMonsterDamage(player), 7);
+        assertEq(dungeon.getPlayer(player).hp, 93);
     }
 
     function _reachRoomFiveOffer() internal {
