@@ -61,13 +61,13 @@ contract RelicsV1Test is Test {
         assertEq(dungeon.playerCriticalChance(player), 15);
 
         (uint256 minDamage, uint256 maxDamage) = dungeon.playerAttackRange(player);
-        assertEq(minDamage, 10);
-        assertEq(maxDamage, 15);
+        assertEq(minDamage, 9);
+        assertEq(maxDamage, 13);
 
         vm.prank(player);
         dungeon.enterNextRoom();
 
-        assertEq(dungeon.maxHp(player), 98);
+        assertEq(dungeon.maxHp(player), 97);
         assertLe(dungeon.getPlayer(player).hp, 98);
 
         _fulfill(_one(0));
@@ -76,7 +76,7 @@ contract RelicsV1Test is Test {
         dungeon.attack();
         _fulfill(_attackWords(0, 99, 0, 50, 0));
 
-        assertEq(dungeon.lastPlayerDamage(player), 10);
+        assertEq(dungeon.lastPlayerDamage(player), 9);
     }
 
     function testBloodPriceRetryDoesNotChargeRoomPenaltyTwice() public {
@@ -87,7 +87,7 @@ contract RelicsV1Test is Test {
         vm.prank(player);
         dungeon.enterNextRoom();
 
-        assertEq(dungeon.maxHp(player), 98);
+        assertEq(dungeon.maxHp(player), 97);
 
         uint256 requestedAt = dungeon.pendingRequestTimestamp(player);
         vm.warp(requestedAt + dungeon.VRF_TIMEOUT());
@@ -95,7 +95,7 @@ contract RelicsV1Test is Test {
         vm.prank(player);
         dungeon.retryRandomness();
 
-        assertEq(dungeon.maxHp(player), 98);
+        assertEq(dungeon.maxHp(player), 97);
     }
 
     function testIronShellAddsMaxHpAndTradesDamageForDurability() public {
@@ -109,8 +109,8 @@ contract RelicsV1Test is Test {
         assertEq(dungeon.getPlayer(player).hp, _min(hpBefore + 20, 120));
 
         (uint256 minDamage, uint256 maxDamage) = dungeon.playerAttackRange(player);
-        assertEq(minDamage, 7);
-        assertEq(maxDamage, 10);
+        assertEq(minDamage, 8);
+        assertEq(maxDamage, 11);
 
         (uint256 stormMin, uint256 stormMax) = dungeon.stormAttackRange(player);
         assertEq(stormMin, 0);
@@ -139,7 +139,7 @@ contract RelicsV1Test is Test {
         _clearThroughRoomFive();
         _choose(Delveworn.Relic.EchoLens);
 
-        assertEq(dungeon.playerCriticalChance(player), 25);
+        assertEq(dungeon.playerCriticalChance(player), 20);
 
         (uint256 normalMin, uint256 normalMax) = dungeon.playerAttackRange(player);
         assertEq(normalMin, 8);
@@ -150,7 +150,7 @@ contract RelicsV1Test is Test {
         assertEq(stormMax, 16);
     }
 
-    function testEchoLensTwentyFourRollBecomesCritical() public {
+    function testEchoLensNineteenRollBecomesCritical() public {
         _start();
         _clearThroughRoomFive();
         _choose(Delveworn.Relic.EchoLens);
@@ -161,7 +161,7 @@ contract RelicsV1Test is Test {
 
         vm.prank(player);
         dungeon.attack();
-        _fulfill(_attackWords(0, 24, 0, 50, 0));
+        _fulfill(_attackWords(0, 19, 0, 50, 0));
 
         assertTrue(dungeon.lastCritical(player));
         assertEq(dungeon.lastPlayerDamage(player), 16);

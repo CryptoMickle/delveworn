@@ -161,28 +161,28 @@ contract Delveworn is IVRFConsumer {
         remains possible against the exact same contract version.
 
         Blood Price:
-        +25% outgoing damage, but entering a new room permanently
-        reduces max HP for the current run by 2 (minimum 20).
+        +15% outgoing damage, but entering a new room permanently
+        reduces max HP for the current run by 3 (minimum 20).
 
         Iron Shell:
         +20 max HP immediately, but -10% outgoing damage.
 
         Echo Lens:
-        +10 percentage points normal-attack critical chance,
+        +5 percentage points normal-attack critical chance,
         but -20% Storm damage.
     */
     uint256 public constant BASE_MAX_HP = 100;
     uint256 public constant RELIC_OFFER_ROOM = 5;
     uint256 public constant RELIC_MIN_MAX_HP = 20;
 
-    uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 25;
-    uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 2;
+    uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 15;
+    uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 3;
 
     uint256 public constant IRON_SHELL_MAX_HP_BONUS = 20;
     uint256 public constant IRON_SHELL_DAMAGE_PENALTY_PERCENT = 10;
 
     uint256 public constant BASE_CRITICAL_CHANCE = 15;
-    uint256 public constant ECHO_LENS_CRITICAL_BONUS_PERCENT = 10;
+    uint256 public constant ECHO_LENS_CRITICAL_BONUS_PERCENT = 5;
     uint256 public constant ECHO_LENS_STORM_DAMAGE_PENALTY_PERCENT = 20;
 
     /*
@@ -1199,7 +1199,7 @@ contract Delveworn is IVRFConsumer {
         }
 
         if (relic == Relic.IronShell) {
-            return (damage * (100 - IRON_SHELL_DAMAGE_PENALTY_PERCENT)) / 100;
+            return (damage * (100 - IRON_SHELL_DAMAGE_PENALTY_PERCENT) + 99) / 100;
         }
 
         if (relic == Relic.EchoLens && storm) {
