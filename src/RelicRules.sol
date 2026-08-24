@@ -63,19 +63,19 @@ library RelicRules {
         if (relic == 6) return storm ? 130 : 95; // Stormglass
 
         // Rare
-        if (relic == 7) return 90; // Gilded Hunger
-        if (relic == 8) return 90; // Grave Pact
-        if (relic == 9) return storm ? 145 : 90; // Stormheart
+        if (relic == 7) return 95; // Gilded Hunger
+        if (relic == 8) return 95; // Grave Pact
+        if (relic == 9) return storm ? 145 : 95; // Stormheart
 
         // Epic
-        if (relic == 10) return 90; // Titan Bone
+        if (relic == 10) return 95; // Titan Bone
         if (relic == 11) return storm ? 100 : 85; // Black Mirror
-        if (relic == 12) return 110; // Blood Engine
+        if (relic == 12) return 105; // Blood Engine
 
         // Legendary
         if (relic == 13) return 135; // Crown of Ruin
         if (relic == 14) return 100; // Undying Flame
-        return 125; // Worldbreaker
+        return 130; // Worldbreaker
     }
 
     function criticalChanceBonus(uint8 relic) internal pure returns (uint8) {
@@ -105,7 +105,7 @@ library RelicRules {
         if (relic > RELIC_COUNT) revert InvalidRelic();
         if (relic == 4) return 20; // Glass Edge
         if (relic == 5) return 10; // Ashen Fang
-        if (relic == 12) return 15; // Blood Engine
+        if (relic == 12) return 20; // Blood Engine
         if (relic == 13) return 40; // Crown of Ruin -> 60 base max HP
         if (relic == 14) return 15; // Undying Flame
         return 0;
@@ -121,26 +121,26 @@ library RelicRules {
         if (relic == 0) return 0;
         if (relic > RELIC_COUNT) revert InvalidRelic();
         if (relic == 5) return 4; // Ashen Fang
-        if (relic == 12) return 8; // Blood Engine
+        if (relic == 12) return 5; // Blood Engine
         return 0;
     }
 
     function goldBonusPercent(uint8 relic) internal pure returns (uint8) {
         if (relic == 0) return 0;
         if (relic > RELIC_COUNT) revert InvalidRelic();
-        return relic == 7 ? 60 : 0; // Gilded Hunger
+        return relic == 7 ? 75 : 0; // Gilded Hunger
     }
 
     function incomingDamagePercent(uint8 relic) internal pure returns (uint16) {
         if (relic == 0) return 100;
         if (relic > RELIC_COUNT) revert InvalidRelic();
-        return relic == 15 ? 125 : 100; // Worldbreaker
+        return relic == 15 ? 115 : 100; // Worldbreaker
     }
 
     function revivePercent(uint8 relic) internal pure returns (uint8) {
         if (relic == 0) return 0;
         if (relic > RELIC_COUNT) revert InvalidRelic();
-        if (relic == 8) return 25; // Grave Pact
+        if (relic == 8) return 35; // Grave Pact
         if (relic == 14) return 50; // Undying Flame
         return 0;
     }
