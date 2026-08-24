@@ -46,26 +46,15 @@ jobs:
       - name: Run legacy VRF adapter tests
         run: forge test --match-path test/LegacyVRFAdapter.t.sol -vv
 
-      - name: Capture failing relic balance diagnostics
+      - name: Diagnose Blood Price without block gas limit
         if: always()
-        run: |
-          set +e
-          forge test --match-path test/RelicBalance.t.sol --match-test testBloodPriceBalance -vvvv > blood-price.txt 2>&1
-          echo $? > blood-price.exit
-          forge test --match-path test/RelicBalance.t.sol --match-test testEchoLensBalance -vvvv > echo-lens.txt 2>&1
-          echo $? > echo-lens.exit
-          exit 0
+        run: forge test --disable-block-gas-limit --match-path test/RelicBalance.t.sol --match-test testBloodPriceBalance -vv
 
-      - name: Upload relic balance diagnostics
+      - name: Diagnose Echo Lens with raised gas limit
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: relic-balance-diagnostics
-          path: |
-            blood-price.txt
-            blood-price.exit
-            echo-lens.txt
-            echo-lens.exit
+        env:
+          FOUNDRY_GAS_LIMIT: 18446744073709551615
+        run: forge test --match-path test/RelicBalance.t.sol --match-test testEchoLensBalance -vv
 
       - name: Run Iron Shell balance
         if: always()
