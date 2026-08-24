@@ -1,0 +1,66 @@
+name: Apply Relic Balance Iteration 2
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - balance/relics-v1-calibration
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: balance/relics-v1-calibration
+
+      - name: Apply second balance iteration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("src/Delveworn.sol")
+          text = source.read_text()
+          replacements = [
+              ("+15% outgoing damage, but entering a new room permanently", "+10% outgoing damage, but entering a new room permanently"),
+              ("reduces max HP for the current run by 3 (minimum 20).", "reduces max HP for the current run by 2 (minimum 20)."),
+              ("+20 max HP immediately, but -10% outgoing damage.", "+20 max HP immediately, but -5% outgoing damage."),
+              ("uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 15;", "uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 10;"),
+              ("uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 3;", "uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 2;"),
+              ("uint256 public constant IRON_SHELL_DAMAGE_PENALTY_PERCENT = 10;", "uint256 public constant IRON_SHELL_DAMAGE_PENALTY_PERCENT = 5;"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"Expected source pattern missing: {old}")
+              text = text.replace(old, new, 1)
+          source.write_text(text)
+
+          tests = Path("test/RelicsV1.t.sol")
+          text = tests.read_text()
+          replacements = [
+              ("assertEq(minDamage, 9);\n        assertEq(maxDamage, 13);", "assertEq(minDamage, 8);\n        assertEq(maxDamage, 13);"),
+              ("assertEq(dungeon.maxHp(player), 97);", "assertEq(dungeon.maxHp(player), 98);"),
+              ("assertEq(dungeon.lastPlayerDamage(player), 9);", "assertEq(dungeon.lastPlayerDamage(player), 8);"),
+              ("assertEq(minDamage, 8);\n        assertEq(maxDamage, 11);", "assertEq(minDamage, 8);\n        assertEq(maxDamage, 12);"),
+              ("assertEq(stormMax, 18);", "assertEq(stormMax, 19);"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"Expected test pattern missing: {old}")
+              text = text.replace(old, new, 1)
+          tests.write_text(text)
+          PY
+
+      - name: Commit second balance iteration
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Delveworn.sol test/RelicsV1.t.sol
+          git commit -m "Tune Blood Price and Iron Shell balance"
+          git push origin HEAD:balance/relics-v1-calibration
