@@ -31,17 +31,23 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Diagnose Relics V1 tests
-        continue-on-error: true
-        run: forge test --match-path test/RelicsV1.t.sol -vv
+      - name: Run Balance baseline tests
+        run: forge test --match-path test/BalanceBaseline.t.sol -vv
 
-      - name: Diagnose relic balance tests
-        continue-on-error: true
+      - name: Run Chainlink V2.5 adapter tests
+        run: forge test --match-path test/ChainlinkV25DirectFundingAdapter.t.sol -vv
+
+      - name: Run Delveworn core tests
+        run: forge test --match-path test/Delveworn.t.sol -vv
+
+      - name: Run dev randomness adapter tests
+        run: forge test --match-path test/DevRandomnessAdapter.t.sol -vv
+
+      - name: Run legacy VRF adapter tests
+        run: forge test --match-path test/LegacyVRFAdapter.t.sol -vv
+
+      - name: Run relic balance tests
         run: forge test --match-path test/RelicBalance.t.sol -vv
 
-      - name: Diagnose existing test suite
-        continue-on-error: true
-        run: forge test --no-match-path 'test/(RelicsV1|RelicBalance)\.t\.sol' -vv
-
-      - name: Run Forge tests serially
-        run: forge test --threads 1 -vvv
+      - name: Run Relics V1 tests
+        run: forge test --match-path test/RelicsV1.t.sol -vv
