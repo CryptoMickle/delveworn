@@ -1,0 +1,82 @@
+name: Apply Relic Balance Iteration
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - balance/relics-v1-calibration
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: balance/relics-v1-calibration
+
+      - name: Apply balance iteration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("src/Delveworn.sol")
+          text = source.read_text()
+
+          replacements = [
+              ("+25% outgoing damage, but entering a new room permanently", "+15% outgoing damage, but entering a new room permanently"),
+              ("reduces max HP for the current run by 2 (minimum 20).", "reduces max HP for the current run by 3 (minimum 20)."),
+              ("+10 percentage points normal-attack critical chance,", "+5 percentage points normal-attack critical chance,"),
+              ("uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 25;", "uint256 public constant BLOOD_PRICE_DAMAGE_BONUS_PERCENT = 15;"),
+              ("uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 2;", "uint256 public constant BLOOD_PRICE_ROOM_MAX_HP_LOSS = 3;"),
+              ("uint256 public constant ECHO_LENS_CRITICAL_BONUS_PERCENT = 10;", "uint256 public constant ECHO_LENS_CRITICAL_BONUS_PERCENT = 5;"),
+              (
+                  "return (damage * (100 - IRON_SHELL_DAMAGE_PENALTY_PERCENT)) / 100;",
+                  "return (damage * (100 - IRON_SHELL_DAMAGE_PENALTY_PERCENT) + 99) / 100;",
+              ),
+          ]
+
+          changed = False
+          for old, new in replacements:
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  changed = True
+              elif new not in text:
+                  raise SystemExit(f"Expected source pattern missing: {old}")
+          source.write_text(text)
+
+          tests = Path("test/RelicsV1.t.sol")
+          text = tests.read_text()
+          test_replacements = [
+              ("assertEq(minDamage, 10);\n        assertEq(maxDamage, 15);", "assertEq(minDamage, 9);\n        assertEq(maxDamage, 13);"),
+              ("assertEq(dungeon.maxHp(player), 98);", "assertEq(dungeon.maxHp(player), 97);"),
+              ("assertEq(dungeon.lastPlayerDamage(player), 10);", "assertEq(dungeon.lastPlayerDamage(player), 9);"),
+              ("assertEq(minDamage, 7);\n        assertEq(maxDamage, 10);", "assertEq(minDamage, 8);\n        assertEq(maxDamage, 11);"),
+              ("assertEq(dungeon.playerCriticalChance(player), 25);", "assertEq(dungeon.playerCriticalChance(player), 20);"),
+              ("function testEchoLensTwentyFourRollBecomesCritical() public", "function testEchoLensNineteenRollBecomesCritical() public"),
+              ("_fulfill(_attackWords(0, 24, 0, 50, 0));", "_fulfill(_attackWords(0, 19, 0, 50, 0));"),
+          ]
+          for old, new in test_replacements:
+              if old in text:
+                  text = text.replace(old, new)
+                  changed = True
+              elif new not in text:
+                  raise SystemExit(f"Expected test pattern missing: {old}")
+          tests.write_text(text)
+
+          if not changed:
+              print("Balance iteration already applied")
+          PY
+
+      - name: Commit balance iteration
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Delveworn.sol test/RelicsV1.t.sol
+          git commit -m "Tune Relics V1 first balance pass"
+          git push origin HEAD:balance/relics-v1-calibration
