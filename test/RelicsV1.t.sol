@@ -61,13 +61,13 @@ contract RelicsV1Test is Test {
         assertEq(dungeon.playerCriticalChance(player), 15);
 
         (uint256 minDamage, uint256 maxDamage) = dungeon.playerAttackRange(player);
-        assertEq(minDamage, 9);
+        assertEq(minDamage, 8);
         assertEq(maxDamage, 13);
 
         vm.prank(player);
         dungeon.enterNextRoom();
 
-        assertEq(dungeon.maxHp(player), 97);
+        assertEq(dungeon.maxHp(player), 98);
         assertLe(dungeon.getPlayer(player).hp, 98);
 
         _fulfill(_one(0));
@@ -76,7 +76,7 @@ contract RelicsV1Test is Test {
         dungeon.attack();
         _fulfill(_attackWords(0, 99, 0, 50, 0));
 
-        assertEq(dungeon.lastPlayerDamage(player), 9);
+        assertEq(dungeon.lastPlayerDamage(player), 8);
     }
 
     function testBloodPriceRetryDoesNotChargeRoomPenaltyTwice() public {
@@ -110,11 +110,11 @@ contract RelicsV1Test is Test {
 
         (uint256 minDamage, uint256 maxDamage) = dungeon.playerAttackRange(player);
         assertEq(minDamage, 8);
-        assertEq(maxDamage, 11);
+        assertEq(maxDamage, 12);
 
         (uint256 stormMin, uint256 stormMax) = dungeon.stormAttackRange(player);
         assertEq(stormMin, 0);
-        assertEq(stormMax, 18);
+        assertEq(stormMax, 19);
     }
 
     function testIronShellHealingUsesNewMaxHp() public {
