@@ -33,3 +33,7 @@ Relics are run-only and occupy one slot. The room-5 relic offer rolls exactly on
 | Legendary | Worldbreaker | +25% outgoing damage and +10 percentage points crit; +25% incoming damage |
 
 The Common tier preserves the calibrated Relics V1 balance. Higher rarities are intentionally more run-defining, but each keeps an explicit cost or specialization rather than becoming a universally correct choice.
+
+## Balance testing
+
+The legacy Common telemetry suite remains a Common-only comparison. Its test-only Delveworn subclass pins the room-5 offer to Common after the genuine VRF callback, preserving the original combat and loot randomness while production offers remain strictly rarity-locked.
