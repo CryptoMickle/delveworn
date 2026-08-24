@@ -1221,8 +1221,7 @@ contract Delveworn is IVRFConsumer {
 
         if (lootRoll < 30) {
             if (player.potions >= MAX_POTIONS) {
-                uint256 convertedGold =
-                    RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), FULL_POTION_LOOT_GOLD);
+                uint256 convertedGold = RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), FULL_POTION_LOOT_GOLD);
                 player.gold += convertedGold;
                 player.lastLootType = LootType.BonusGold;
                 player.lastLootAmount = convertedGold;
@@ -1281,9 +1280,7 @@ contract Delveworn is IVRFConsumer {
         uint256 currentMaxHp = _maxHp(playerAddress);
         if (currentMaxHp <= RELIC_MIN_MAX_HP) return;
 
-        uint256 newMaxHp = currentMaxHp <= RELIC_MIN_MAX_HP + hpLoss
-            ? RELIC_MIN_MAX_HP
-            : currentMaxHp - hpLoss;
+        uint256 newMaxHp = currentMaxHp <= RELIC_MIN_MAX_HP + hpLoss ? RELIC_MIN_MAX_HP : currentMaxHp - hpLoss;
 
         playerMaxHp[playerAddress] = newMaxHp;
         if (player.hp > newMaxHp) player.hp = newMaxHp;
