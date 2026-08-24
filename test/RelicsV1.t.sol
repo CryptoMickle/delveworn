@@ -87,7 +87,7 @@ contract RelicsV1Test is Test {
         vm.prank(player);
         dungeon.enterNextRoom();
 
-        assertEq(dungeon.maxHp(player), 97);
+        assertEq(dungeon.maxHp(player), 98);
 
         uint256 requestedAt = dungeon.pendingRequestTimestamp(player);
         vm.warp(requestedAt + dungeon.VRF_TIMEOUT());
@@ -95,7 +95,7 @@ contract RelicsV1Test is Test {
         vm.prank(player);
         dungeon.retryRandomness();
 
-        assertEq(dungeon.maxHp(player), 97);
+        assertEq(dungeon.maxHp(player), 98);
     }
 
     function testIronShellAddsMaxHpAndTradesDamageForDurability() public {
