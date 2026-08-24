@@ -167,7 +167,7 @@ contract RelicBalanceTest is Test {
     }
 
     function _shouldUseCombatPotion(address playerAddress, Delveworn.Player memory state) internal view returns (bool) {
-        if (state.hp > 35 || state.potions == 0) {
+        if (state.hp > 35 || state.potions == 0 || state.hp >= dungeon.maxHp(playerAddress)) {
             return false;
         }
 
@@ -186,7 +186,10 @@ contract RelicBalanceTest is Test {
         Delveworn.Player memory state = dungeon.getPlayer(playerAddress);
         (uint256 bandageCost, uint256 potionCost) = dungeon.supplyPricesForStop(state.roomsCleared);
 
-        if (state.hp <= 70 && !dungeon.supplyBandageUsed(playerAddress) && state.gold >= bandageCost) {
+        if (
+            state.hp <= 70 && state.hp < dungeon.maxHp(playerAddress) && !dungeon.supplyBandageUsed(playerAddress)
+                && state.gold >= bandageCost
+        ) {
             vm.prank(playerAddress);
             dungeon.supplyBuyBandage();
             supplyBandagesBought++;
@@ -213,7 +216,10 @@ contract RelicBalanceTest is Test {
         (uint256 restCost, uint256 potionCost, uint256 weaponCost, uint256 armorCost) =
             dungeon.shopPricesForBossRoom(state.roomsCleared + 1);
 
-        if (state.hp <= 70 && !dungeon.campRestUsed(playerAddress) && state.gold >= restCost) {
+        if (
+            state.hp <= 70 && state.hp < dungeon.maxHp(playerAddress) && !dungeon.campRestUsed(playerAddress)
+                && state.gold >= restCost
+        ) {
             vm.prank(playerAddress);
             dungeon.campRest();
             campRestsBought++;
@@ -247,7 +253,9 @@ contract RelicBalanceTest is Test {
     function _useBetweenRoomPotion(address playerAddress) internal {
         Delveworn.Player memory state = dungeon.getPlayer(playerAddress);
 
-        if (state.monsterHp != 0 || state.hp > 35 || state.potions <= 1) {
+        if (
+            state.monsterHp != 0 || state.hp > 35 || state.potions <= 1 || state.hp >= dungeon.maxHp(playerAddress)
+        ) {
             return;
         }
 
