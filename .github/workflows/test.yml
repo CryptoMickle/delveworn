@@ -43,5 +43,5 @@ jobs:
         continue-on-error: true
         run: forge test --no-match-path 'test/(RelicsV1|RelicBalance)\.t\.sol' -vv
 
-      - name: Run Forge tests
-        run: forge test -vvv
+      - name: Run Forge tests serially
+        run: forge test --threads 1 -vvv
