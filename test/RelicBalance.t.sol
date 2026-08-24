@@ -253,9 +253,7 @@ contract RelicBalanceTest is Test {
     function _useBetweenRoomPotion(address playerAddress) internal {
         Delveworn.Player memory state = dungeon.getPlayer(playerAddress);
 
-        if (
-            state.monsterHp != 0 || state.hp > 35 || state.potions <= 1 || state.hp >= dungeon.maxHp(playerAddress)
-        ) {
+        if (state.monsterHp != 0 || state.hp > 35 || state.potions <= 1 || state.hp >= dungeon.maxHp(playerAddress)) {
             return;
         }
 
