@@ -20,7 +20,9 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Run Relics V2 telemetry
-        run: forge test --match-path test/RelicsV2Balance.t.sol -vv > relics-v2-balance.txt 2>&1
+        run: |
+          sed -i 's/uint256 internal constant RUNS = 32;/uint256 internal constant RUNS = 64;/' test/RelicsV2Balance.t.sol
+          forge test --match-path test/RelicsV2Balance.t.sol -vv > relics-v2-balance.txt 2>&1
       - name: Upload Relics V2 telemetry
         uses: actions/upload-artifact@v4
         with:
