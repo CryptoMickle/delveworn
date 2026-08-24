@@ -3,9 +3,7 @@ name: Relics V2 Balance
 permissions: {}
 
 on:
-  push:
-    branches:
-      - feature/relics-v2-rarities
+  pull_request:
   workflow_dispatch:
 
 jobs:
