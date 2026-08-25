@@ -24,9 +24,10 @@ echo "Reading its coordinator from $RPC_URL ..."
 CURRENT_COORDINATOR="$(cast call "$CURRENT_DUNGEON" 'coordinator()(address)' --rpc-url "$RPC_URL")"
 CURRENT_COORDINATOR="$(cast to-check-sum-address "$CURRENT_COORDINATOR")"
 
-# A chain-agnostic Delveworn deployment may already point at a
-# LegacyVRFAdapter. If so, reuse the actual provider-facing coordinator
-# rather than stacking a second compatibility adapter on top of the first.
+# A previous deployment may already point at a LegacyVRFAdapter. In that
+# case, recover the provider-facing coordinator and deploy the new core
+# directly against it. RISE currently fulfills direct consumers but did not
+# fulfill requests routed through the extra adapter callback hop.
 UPSTREAM_COORDINATOR="$(cast call "$CURRENT_COORDINATOR" 'upstreamCoordinator()(address)' --rpc-url "$RPC_URL" 2>/dev/null || true)"
 
 if [[ -n "$UPSTREAM_COORDINATOR" ]]; then
@@ -40,7 +41,7 @@ fi
 
 export RISE_VRF_COORDINATOR
 
-echo "Deploying fresh LegacyVRFAdapter + Delveworn V2 ..."
+echo "Deploying Delveworn V2 directly against the RISE VRF coordinator ..."
 
 forge script script/DeployRiseTestnet.s.sol:DeployRiseTestnet \
   --rpc-url "$RPC_URL" \
