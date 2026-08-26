@@ -148,6 +148,15 @@ contract Delveworn is IVRFConsumer {
         bool relicReviveUsed;
     }
 
+    struct FrontendSnapshotV3 {
+        FrontendSnapshot base;
+        Relic relicOffer;
+        uint16 ownedRelicsMask;
+        uint16[15] relicCounts;
+        uint256 baseMaxHp;
+        uint256 stormMax;
+    }
+
     /*
         ========================================================
         BALANCE
@@ -189,9 +198,10 @@ contract Delveworn is IVRFConsumer {
     /*
         Relics V2
 
-        Relics are run-only and occupy one slot. After room 5 the killing
-        VRF callback rolls one rarity tier without an extra randomness
-        request, then offers all three relics in that tier.
+        Relics are run-only and occupy one active slot. Every defeated boss
+        drops one randomly selected relic. The player always owns the drop,
+        including duplicates, and decides whether to equip it or keep the
+        currently active relic.
 
         Rarity odds:
         Common 55%, Uncommon 25%, Rare 12%, Epic 6%, Legendary 2%.
@@ -201,7 +211,6 @@ contract Delveworn is IVRFConsumer {
         progressively more run-defining while preserving explicit tradeoffs.
     */
     uint256 public constant BASE_MAX_HP = 100;
-    uint256 public constant RELIC_OFFER_ROOM = 5;
     uint256 public constant RELIC_MIN_MAX_HP = 20;
     uint256 public constant BASE_CRITICAL_CHANCE = 15;
 
@@ -236,6 +245,10 @@ contract Delveworn is IVRFConsumer {
     mapping(address => Relic) public equippedRelic;
     mapping(address => bool) public relicOfferAvailable;
     mapping(address => RelicRarity) public relicOfferRarity;
+    mapping(address => Relic) public relicOfferId;
+    mapping(address => uint16) public ownedRelicsMask;
+    mapping(address => uint16[15]) internal relicDropCounts;
+    mapping(address => uint256) public playerBaseMaxHp;
     mapping(address => uint256) public playerMaxHp;
     mapping(address => bool) public relicReviveUsed;
 
@@ -279,6 +292,12 @@ contract Delveworn is IVRFConsumer {
     event RelicOffered(address indexed player, uint256 indexed roomCleared);
 
     event RelicOfferRolled(address indexed player, RelicRarity rarity);
+
+    event RelicDropped(address indexed player, Relic relic, RelicRarity rarity, uint256 copyCount);
+
+    event RelicClaimed(address indexed player, Relic relic, uint256 copyCount, bool equipped);
+
+    event RelicEquipped(address indexed player, Relic previousRelic, Relic relic, uint256 maxHp);
 
     event RelicChosen(address indexed player, Relic relic, RelicRarity rarity, uint256 maxHp);
 
@@ -353,6 +372,10 @@ contract Delveworn is IVRFConsumer {
         equippedRelic[msg.sender] = Relic.None;
         relicOfferAvailable[msg.sender] = false;
         relicOfferRarity[msg.sender] = RelicRarity.None;
+        relicOfferId[msg.sender] = Relic.None;
+        ownedRelicsMask[msg.sender] = 0;
+        delete relicDropCounts[msg.sender];
+        playerBaseMaxHp[msg.sender] = BASE_MAX_HP;
         playerMaxHp[msg.sender] = BASE_MAX_HP;
         relicReviveUsed[msg.sender] = false;
 
@@ -397,43 +420,33 @@ contract Delveworn is IVRFConsumer {
         return RelicRarity(RelicRules.rollRarity(entropy));
     }
 
+    function ownsRelic(address playerAddress, Relic relic) public view returns (bool) {
+        if (relic == Relic.None || uint256(relic) > uint256(Relic.Worldbreaker)) return false;
+        uint16 bit = uint16(1) << (uint8(relic) - 1);
+        return ownedRelicsMask[playerAddress] & bit != 0;
+    }
+
     function chooseRelic(Relic relic) external noPending(msg.sender) {
+        require(relic == relicOfferId[msg.sender], "Relic not in offer");
+        _claimRelic(msg.sender, true);
+    }
+
+    function claimRelic(bool equip) external noPending(msg.sender) {
+        _claimRelic(msg.sender, equip);
+    }
+
+    function equipOwnedRelic(Relic relic) external noPending(msg.sender) {
         Player storage player = players[msg.sender];
 
         require(player.active, "Game is not active");
-        require(player.monsterHp == 0, "Choose relic between rooms");
-        require(relicOfferAvailable[msg.sender], "No relic offer");
-        require(equippedRelic[msg.sender] == Relic.None, "Relic slot occupied");
-        require(relic != Relic.None && uint256(relic) <= uint256(Relic.Worldbreaker), "Invalid relic");
+        require(player.monsterHp == 0, "Equip relic between rooms");
+        require(!relicOfferAvailable[msg.sender], "Claim boss relic first");
+        require(
+            relic == Relic.None || (uint256(relic) <= uint256(Relic.Worldbreaker) && ownsRelic(msg.sender, relic)),
+            "Relic not owned"
+        );
 
-        RelicRarity rarity = relicRarityOf(relic);
-        require(rarity == relicOfferRarity[msg.sender], "Relic not in offer");
-
-        equippedRelic[msg.sender] = relic;
-        relicOfferAvailable[msg.sender] = false;
-
-        uint256 currentMaxHp = _maxHp(msg.sender);
-        uint256 bonus = RelicRules.maxHpBonus(uint8(relic));
-        uint256 penalty = RelicRules.maxHpPenalty(uint8(relic));
-        uint256 newMaxHp = currentMaxHp + bonus;
-
-        if (penalty >= newMaxHp - RELIC_MIN_MAX_HP) {
-            newMaxHp = RELIC_MIN_MAX_HP;
-        } else {
-            newMaxHp -= penalty;
-        }
-
-        if (newMaxHp != currentMaxHp) {
-            playerMaxHp[msg.sender] = newMaxHp;
-            if (bonus > 0) {
-                uint256 newHp = player.hp + bonus;
-                player.hp = newHp > newMaxHp ? newMaxHp : newHp;
-            } else if (player.hp > newMaxHp) {
-                player.hp = newMaxHp;
-            }
-        }
-
-        emit RelicChosen(msg.sender, relic, rarity, _maxHp(msg.sender));
+        _equipRelic(msg.sender, relic, false);
     }
 
     function maxHp(address playerAddress) external view returns (uint256) {
@@ -503,6 +516,7 @@ contract Delveworn is IVRFConsumer {
 
         require(player.active, "Game over");
         require(player.monsterHp == 0, "Defeat monster first");
+        require(!relicOfferAvailable[msg.sender], "Claim boss relic first");
 
         _applyRoomEntryRelic(msg.sender, player);
         _requestRandomness(msg.sender, RequestKind.Monster, 1);
@@ -724,6 +738,16 @@ contract Delveworn is IVRFConsumer {
     function frontendSnapshot(address playerAddress) external view returns (FrontendSnapshot memory) {
         Player storage player = players[playerAddress];
         return _frontendSnapshot(playerAddress, player);
+    }
+
+    function frontendSnapshotV3(address playerAddress) external view returns (FrontendSnapshotV3 memory snapshot) {
+        Player storage player = players[playerAddress];
+        snapshot.base = _frontendSnapshot(playerAddress, player);
+        snapshot.relicOffer = relicOfferId[playerAddress];
+        snapshot.ownedRelicsMask = ownedRelicsMask[playerAddress];
+        snapshot.relicCounts = relicDropCounts[playerAddress];
+        snapshot.baseMaxHp = _baseMaxHp(playerAddress);
+        snapshot.stormMax = _applyOutgoingRelicDamage(playerAddress, _playerBaseDamage(player) * 2, true);
     }
 
     function playerAttackDamage(address playerAddress) external view returns (uint256) {
@@ -1141,11 +1165,17 @@ contract Delveworn is IVRFConsumer {
         _grantLoot(playerAddress, player, lootRoll, amountRoll);
         _applyKillRelic(playerAddress, player);
 
-        if (player.roomsCleared == RELIC_OFFER_ROOM && equippedRelic[playerAddress] == Relic.None) {
-            RelicRarity rarity = RelicRarity(RelicRules.rollRarity(amountRoll));
+        if (player.monsterType == MonsterType.DungeonLord) {
+            uint256 bossTier = room / 10;
+            RelicRarity rarity = RelicRarity(RelicRules.rollRarityForBossTier(amountRoll, bossTier));
+            Relic relic = Relic(RelicRules.rollRelic(uint8(rarity), amountRoll / 10_000));
             relicOfferRarity[playerAddress] = rarity;
+            relicOfferId[playerAddress] = relic;
             relicOfferAvailable[playerAddress] = true;
             emit RelicOfferRolled(playerAddress, rarity);
+            emit RelicDropped(
+                playerAddress, relic, rarity, uint256(relicDropCounts[playerAddress][uint8(relic) - 1]) + 1
+            );
             emit RelicOffered(playerAddress, player.roomsCleared);
         }
 
@@ -1175,7 +1205,8 @@ contract Delveworn is IVRFConsumer {
         Player storage player = players[playerAddress];
 
         return player.hasStarted && player.active && player.monsterHp == 0 && player.roomsCleared >= 5
-            && (player.roomsCleared % 5) == 0 && pendingRequestId[playerAddress] == 0;
+            && (player.roomsCleared % 5) == 0 && pendingRequestId[playerAddress] == 0
+            && !relicOfferAvailable[playerAddress];
     }
 
     /*
@@ -1256,6 +1287,67 @@ contract Delveworn is IVRFConsumer {
         ========================================================
     */
 
+    function _claimRelic(address playerAddress, bool equip) internal {
+        Player storage player = players[playerAddress];
+
+        require(player.active, "Game is not active");
+        require(player.monsterHp == 0, "Claim relic between rooms");
+        require(relicOfferAvailable[playerAddress], "No relic offer");
+
+        Relic relic = relicOfferId[playerAddress];
+        require(relic != Relic.None && uint256(relic) <= uint256(Relic.Worldbreaker), "Invalid relic offer");
+        require(relicRarityOf(relic) == relicOfferRarity[playerAddress], "Relic offer mismatch");
+
+        bool alreadyOwned = ownsRelic(playerAddress, relic);
+        uint8 relicIndex = uint8(relic) - 1;
+        uint16 newCount = relicDropCounts[playerAddress][relicIndex] + 1;
+        relicDropCounts[playerAddress][relicIndex] = newCount;
+
+        if (!alreadyOwned) {
+            ownedRelicsMask[playerAddress] |= uint16(1) << relicIndex;
+        }
+
+        relicOfferAvailable[playerAddress] = false;
+        relicOfferRarity[playerAddress] = RelicRarity.None;
+        relicOfferId[playerAddress] = Relic.None;
+
+        if (equip) {
+            _equipRelic(playerAddress, relic, !alreadyOwned);
+            emit RelicChosen(playerAddress, relic, relicRarityOf(relic), _maxHp(playerAddress));
+        }
+
+        emit RelicClaimed(playerAddress, relic, newCount, equip);
+    }
+
+    function _equipRelic(address playerAddress, Relic relic, bool healPositiveModifier) internal {
+        Player storage player = players[playerAddress];
+        Relic previousRelic = equippedRelic[playerAddress];
+        uint256 newMaxHp = _maxHpForRelic(_baseMaxHp(playerAddress), relic);
+        uint256 bonusHealing = healPositiveModifier ? RelicRules.maxHpBonus(uint8(relic)) : 0;
+
+        equippedRelic[playerAddress] = relic;
+        playerMaxHp[playerAddress] = newMaxHp;
+
+        uint256 newHp = player.hp + bonusHealing;
+        player.hp = newHp > newMaxHp ? newMaxHp : newHp;
+
+        emit RelicEquipped(playerAddress, previousRelic, relic, newMaxHp);
+    }
+
+    function _baseMaxHp(address playerAddress) internal view returns (uint256) {
+        uint256 configuredBaseMaxHp = playerBaseMaxHp[playerAddress];
+        return configuredBaseMaxHp == 0 ? BASE_MAX_HP : configuredBaseMaxHp;
+    }
+
+    function _maxHpForRelic(uint256 baseMaxHp, Relic relic) internal pure returns (uint256) {
+        uint256 bonus = RelicRules.maxHpBonus(uint8(relic));
+        uint256 penalty = RelicRules.maxHpPenalty(uint8(relic));
+        uint256 modifiedMaxHp = baseMaxHp + bonus;
+
+        if (penalty >= modifiedMaxHp - RELIC_MIN_MAX_HP) return RELIC_MIN_MAX_HP;
+        return modifiedMaxHp - penalty;
+    }
+
     function _maxHp(address playerAddress) internal view returns (uint256) {
         uint256 configuredMaxHp = playerMaxHp[playerAddress];
         return configuredMaxHp == 0 ? BASE_MAX_HP : configuredMaxHp;
@@ -1277,11 +1369,14 @@ contract Delveworn is IVRFConsumer {
         uint256 hpLoss = RelicRules.roomMaxHpLoss(uint8(equippedRelic[playerAddress]));
         if (hpLoss == 0) return;
 
-        uint256 currentMaxHp = _maxHp(playerAddress);
-        if (currentMaxHp <= RELIC_MIN_MAX_HP) return;
+        uint256 currentBaseMaxHp = _baseMaxHp(playerAddress);
+        if (currentBaseMaxHp <= RELIC_MIN_MAX_HP) return;
 
-        uint256 newMaxHp = currentMaxHp <= RELIC_MIN_MAX_HP + hpLoss ? RELIC_MIN_MAX_HP : currentMaxHp - hpLoss;
+        uint256 newBaseMaxHp =
+            currentBaseMaxHp <= RELIC_MIN_MAX_HP + hpLoss ? RELIC_MIN_MAX_HP : currentBaseMaxHp - hpLoss;
+        uint256 newMaxHp = _maxHpForRelic(newBaseMaxHp, equippedRelic[playerAddress]);
 
+        playerBaseMaxHp[playerAddress] = newBaseMaxHp;
         playerMaxHp[playerAddress] = newMaxHp;
         if (player.hp > newMaxHp) player.hp = newMaxHp;
 

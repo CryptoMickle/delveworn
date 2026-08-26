@@ -1055,6 +1055,12 @@ contract DelvewornTest is Test {
 
         assertEq(afterBoss.roomsCleared, 10);
 
+        assertTrue(dungeon.relicOfferAvailable(player));
+        assertFalse(dungeon.supplyAvailable(player));
+
+        vm.prank(player);
+        dungeon.claimRelic(false);
+
         assertTrue(dungeon.supplyAvailable(player));
     }
 

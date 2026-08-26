@@ -5,46 +5,57 @@ import {Test} from "forge-std/Test.sol";
 import {Delveworn} from "../src/Delveworn.sol";
 import {MockVRFCoordinator} from "../src/MockVRFCoordinator.sol";
 
+contract RelicsV1Dungeon is Delveworn {
+    constructor(address coordinatorAddress) Delveworn(coordinatorAddress) {}
+
+    function forceOffer(address playerAddress, Relic relic) external {
+        relicOfferId[playerAddress] = relic;
+        relicOfferRarity[playerAddress] = relicRarityOf(relic);
+        relicOfferAvailable[playerAddress] = true;
+    }
+}
+
 contract RelicsV1Test is Test {
-    Delveworn internal dungeon;
+    RelicsV1Dungeon internal dungeon;
     MockVRFCoordinator internal mockVRF;
 
     address internal player = address(0xA11CE);
 
     function setUp() public {
         mockVRF = new MockVRFCoordinator();
-        dungeon = new Delveworn(address(mockVRF));
+        dungeon = new RelicsV1Dungeon(address(mockVRF));
     }
 
-    function testRelicOfferAppearsAfterRoomFiveWithThreeStableChoices() public {
+    function testOneRandomRelicOfferAppearsAfterFirstBoss() public {
         _start();
 
         assertFalse(dungeon.relicOfferAvailable(player));
 
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
 
-        assertEq(dungeon.getPlayer(player).roomsCleared, 5);
+        assertEq(dungeon.getPlayer(player).roomsCleared, 10);
         assertTrue(dungeon.relicOfferAvailable(player));
         assertEq(uint256(dungeon.equippedRelic(player)), uint256(Delveworn.Relic.None));
-
-        (Delveworn.Relic first, Delveworn.Relic second, Delveworn.Relic third) = dungeon.relicChoices();
-
-        assertEq(uint256(first), uint256(Delveworn.Relic.BloodPrice));
-        assertEq(uint256(second), uint256(Delveworn.Relic.IronShell));
-        assertEq(uint256(third), uint256(Delveworn.Relic.EchoLens));
+        assertEq(uint256(dungeon.relicOfferId(player)), uint256(Delveworn.Relic.BloodPrice));
     }
 
-    function testControlRunCanSkipRelicOffer() public {
+    function testBossRelicMustBeClaimedBeforeContinuing() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
 
+        vm.expectRevert("Claim boss relic first");
         vm.prank(player);
         dungeon.enterNextRoom();
 
-        assertTrue(dungeon.relicOfferAvailable(player));
+        vm.prank(player);
+        dungeon.claimRelic(false);
+
+        assertFalse(dungeon.relicOfferAvailable(player));
         assertEq(dungeon.maxHp(player), 100);
         assertEq(uint256(dungeon.equippedRelic(player)), uint256(Delveworn.Relic.None));
 
+        vm.prank(player);
+        dungeon.enterNextRoom();
         _fulfill(_one(0));
 
         (uint256 minDamage, uint256 maxDamage) = dungeon.playerAttackRange(player);
@@ -54,7 +65,7 @@ contract RelicsV1Test is Test {
 
     function testBloodPriceBoostsDamageAndPaysMaxHpOnRoomEntry() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
         _choose(Delveworn.Relic.BloodPrice);
 
         assertEq(dungeon.maxHp(player), 100);
@@ -81,7 +92,7 @@ contract RelicsV1Test is Test {
 
     function testBloodPriceRetryDoesNotChargeRoomPenaltyTwice() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
         _choose(Delveworn.Relic.BloodPrice);
 
         vm.prank(player);
@@ -100,7 +111,7 @@ contract RelicsV1Test is Test {
 
     function testIronShellAddsMaxHpAndTradesDamageForDurability() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
 
         uint256 hpBefore = dungeon.getPlayer(player).hp;
         _choose(Delveworn.Relic.IronShell);
@@ -119,7 +130,7 @@ contract RelicsV1Test is Test {
 
     function testIronShellHealingUsesNewMaxHp() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
         _choose(Delveworn.Relic.IronShell);
 
         Delveworn.Player memory before = dungeon.getPlayer(player);
@@ -136,7 +147,7 @@ contract RelicsV1Test is Test {
 
     function testEchoLensRaisesCritChanceButCutsStormDamage() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
         _choose(Delveworn.Relic.EchoLens);
 
         assertEq(dungeon.playerCriticalChance(player), 20);
@@ -152,7 +163,7 @@ contract RelicsV1Test is Test {
 
     function testEchoLensNineteenRollBecomesCritical() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
         _choose(Delveworn.Relic.EchoLens);
 
         vm.prank(player);
@@ -167,16 +178,24 @@ contract RelicsV1Test is Test {
         assertEq(dungeon.lastPlayerDamage(player), 16);
     }
 
-    function testRelicSlotCannotBeReplaced() public {
+    function testOwnedRelicsCanBeSwitchedAndUnequippedBetweenRooms() public {
         _start();
-        _clearThroughRoomFive();
+        _clearThroughFirstBoss();
         _choose(Delveworn.Relic.BloodPrice);
 
-        vm.expectRevert("No relic offer");
+        dungeon.forceOffer(player, Delveworn.Relic.IronShell);
         vm.prank(player);
-        dungeon.chooseRelic(Delveworn.Relic.IronShell);
+        dungeon.claimRelic(false);
 
         assertEq(uint256(dungeon.equippedRelic(player)), uint256(Delveworn.Relic.BloodPrice));
+
+        vm.prank(player);
+        dungeon.equipOwnedRelic(Delveworn.Relic.IronShell);
+        assertEq(uint256(dungeon.equippedRelic(player)), uint256(Delveworn.Relic.IronShell));
+
+        vm.prank(player);
+        dungeon.equipOwnedRelic(Delveworn.Relic.None);
+        assertEq(uint256(dungeon.equippedRelic(player)), uint256(Delveworn.Relic.None));
     }
 
     function _start() internal {
@@ -185,11 +204,11 @@ contract RelicsV1Test is Test {
         _fulfill(_one(0));
     }
 
-    function _clearThroughRoomFive() internal {
-        while (dungeon.getPlayer(player).roomsCleared < 5) {
+    function _clearThroughFirstBoss() internal {
+        while (dungeon.getPlayer(player).roomsCleared < 10) {
             _clearCurrentMonster();
 
-            if (dungeon.getPlayer(player).roomsCleared < 5) {
+            if (dungeon.getPlayer(player).roomsCleared < 10) {
                 vm.prank(player);
                 dungeon.enterNextRoom();
                 _fulfill(_one(0));
@@ -209,6 +228,7 @@ contract RelicsV1Test is Test {
     }
 
     function _choose(Delveworn.Relic relic) internal {
+        dungeon.forceOffer(player, relic);
         vm.prank(player);
         dungeon.chooseRelic(relic);
 

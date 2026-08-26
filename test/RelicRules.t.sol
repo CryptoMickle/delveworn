@@ -21,6 +21,18 @@ contract RelicRulesHarness {
         return RelicRules.rollRarity(entropy);
     }
 
+    function lateWeight(uint8 rarity) external pure returns (uint16) {
+        return RelicRules.rarityWeightBpsAfterTierFour(rarity);
+    }
+
+    function rollForBossTier(uint256 entropy, uint256 bossTier) external pure returns (uint8) {
+        return RelicRules.rollRarityForBossTier(entropy, bossTier);
+    }
+
+    function rollRelic(uint8 rarity, uint256 entropy) external pure returns (uint8) {
+        return RelicRules.rollRelic(rarity, entropy);
+    }
+
     function outgoing(uint8 relic, uint256 damage, bool storm) external pure returns (uint256) {
         return RelicRules.scaleOutgoing(relic, damage, storm);
     }
@@ -100,6 +112,29 @@ contract RelicRulesTest is Test {
         assertEq(rules.roll(9_799), 4);
         assertEq(rules.roll(9_800), 5);
         assertEq(rules.roll(9_999), 5);
+    }
+
+    function testTierFiveAndLaterSlightlyIncreaseRareDrops() public view {
+        uint256 total;
+        for (uint8 rarity = 1; rarity <= 5; rarity++) {
+            total += rules.lateWeight(rarity);
+        }
+
+        assertEq(total, 10_000);
+        assertEq(rules.lateWeight(1), 5_000);
+        assertEq(rules.lateWeight(2), 2_500);
+        assertEq(rules.lateWeight(3), 1_400);
+        assertEq(rules.lateWeight(4), 800);
+        assertEq(rules.lateWeight(5), 300);
+        assertEq(rules.rollForBossTier(9_700, 4), 4);
+        assertEq(rules.rollForBossTier(9_700, 5), 5);
+    }
+
+    function testOneRelicIsRolledInsideTheSelectedRarity() public view {
+        assertEq(rules.rollRelic(1, 0), 1);
+        assertEq(rules.rollRelic(1, 1), 2);
+        assertEq(rules.rollRelic(1, 2), 3);
+        assertEq(rules.rollRelic(5, 2), 15);
     }
 
     function testCommonCalibrationIsPreserved() public view {

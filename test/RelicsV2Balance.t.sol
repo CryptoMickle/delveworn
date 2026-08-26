@@ -5,14 +5,15 @@ import {Test, console2} from "forge-std/Test.sol";
 import {Delveworn} from "../src/Delveworn.sol";
 import {DevRandomnessAdapter} from "../src/adapters/DevRandomnessAdapter.sol";
 
-/// @dev Test-only hook that pins an already-open room-5 offer to the relic's
-///      rarity. Combat/loot randomness and all pre-relic state stay genuine.
+/// @dev Test-only hook that pins an already-open boss drop to a specific relic.
+///      Combat/loot randomness and all pre-relic state stay genuine.
 contract RelicsV2BalanceDungeon is Delveworn {
     constructor(address coordinatorAddress) Delveworn(coordinatorAddress) {}
 
-    function forceRelicOfferRarity(address playerAddress, RelicRarity rarity) external {
+    function forceRelicOffer(address playerAddress, Relic relic) external {
         require(relicOfferAvailable[playerAddress], "Offer not open");
-        relicOfferRarity[playerAddress] = rarity;
+        relicOfferId[playerAddress] = relic;
+        relicOfferRarity[playerAddress] = relicRarityOf(relic);
     }
 }
 
@@ -174,13 +175,15 @@ contract RelicsV2BalanceTest is Test {
                 continue;
             }
 
-            if (
-                relic != Delveworn.Relic.None && dungeon.relicOfferAvailable(playerAddress)
-                    && dungeon.equippedRelic(playerAddress) == Delveworn.Relic.None
-            ) {
-                dungeon.forceRelicOfferRarity(playerAddress, dungeon.relicRarityOf(relic));
-                vm.prank(playerAddress);
-                dungeon.chooseRelic(relic);
+            if (dungeon.relicOfferAvailable(playerAddress)) {
+                if (relic != Delveworn.Relic.None && dungeon.equippedRelic(playerAddress) == Delveworn.Relic.None) {
+                    dungeon.forceRelicOffer(playerAddress, relic);
+                    vm.prank(playerAddress);
+                    dungeon.chooseRelic(relic);
+                } else {
+                    vm.prank(playerAddress);
+                    dungeon.claimRelic(false);
+                }
             }
 
             _useSupplyStop(dungeon, playerAddress);

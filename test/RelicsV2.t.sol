@@ -8,8 +8,9 @@ import {MockVRFCoordinator} from "../src/MockVRFCoordinator.sol";
 contract RelicsV2Dungeon is Delveworn {
     constructor(address coordinatorAddress) Delveworn(coordinatorAddress) {}
 
-    function forceOfferRarity(address playerAddress, RelicRarity rarity) external {
-        relicOfferRarity[playerAddress] = rarity;
+    function forceOffer(address playerAddress, Relic relic) external {
+        relicOfferId[playerAddress] = relic;
+        relicOfferRarity[playerAddress] = relicRarityOf(relic);
         relicOfferAvailable[playerAddress] = true;
     }
 
@@ -55,8 +56,57 @@ contract RelicsV2Test is Test {
         assertEq(uint256(dungeon.previewRelicRarity(9_800)), uint256(Delveworn.RelicRarity.Legendary));
     }
 
+    function testDuplicateDropsIncrementCounterWithoutStackingEffects() public {
+        _reachRoomFiveOffer();
+        dungeon.forceOffer(player, Delveworn.Relic.IronShell);
+
+        uint256 hpBefore = dungeon.getPlayer(player).hp;
+        vm.prank(player);
+        dungeon.claimRelic(true);
+
+        assertEq(dungeon.frontendSnapshotV3(player).relicCounts[1], 1);
+        assertEq(dungeon.maxHp(player), 120);
+        assertEq(dungeon.getPlayer(player).hp, hpBefore + 20);
+
+        dungeon.forceOffer(player, Delveworn.Relic.IronShell);
+        vm.prank(player);
+        dungeon.claimRelic(true);
+
+        assertEq(dungeon.frontendSnapshotV3(player).relicCounts[1], 2);
+        assertEq(dungeon.maxHp(player), 120);
+        assertEq(dungeon.getPlayer(player).hp, hpBefore + 20);
+    }
+
+    function testClaimCanKeepCurrentRelicAndAddDropToCollection() public {
+        _reachRoomFiveOffer();
+        _choose(Delveworn.RelicRarity.Common, Delveworn.Relic.BloodPrice);
+
+        dungeon.forceOffer(player, Delveworn.Relic.IronShell);
+        vm.prank(player);
+        dungeon.claimRelic(false);
+
+        assertEq(uint256(dungeon.equippedRelic(player)), uint256(Delveworn.Relic.BloodPrice));
+        assertTrue(dungeon.ownsRelic(player, Delveworn.Relic.IronShell));
+        assertEq(dungeon.frontendSnapshotV3(player).relicCounts[1], 1);
+    }
+
+    function testFrontendSnapshotV3ExposesOfferCollectionAndBaseMaxHp() public {
+        _reachRoomFiveOffer();
+        dungeon.forceOffer(player, Delveworn.Relic.EchoLens);
+
+        vm.prank(player);
+        dungeon.claimRelic(false);
+
+        Delveworn.FrontendSnapshotV3 memory snapshot = dungeon.frontendSnapshotV3(player);
+        assertEq(uint256(snapshot.relicOffer), uint256(Delveworn.Relic.None));
+        assertEq(snapshot.ownedRelicsMask, 4);
+        assertEq(snapshot.relicCounts[2], 1);
+        assertEq(snapshot.baseMaxHp, 100);
+    }
+
     function testWrongTierRelicCannotBeChosen() public {
         _reachRoomFiveOffer();
+        dungeon.forceOffer(player, Delveworn.Relic.BloodPrice);
         assertEq(uint256(dungeon.relicOfferRarity(player)), uint256(Delveworn.RelicRarity.Common));
 
         vm.expectRevert("Relic not in offer");
@@ -235,11 +285,12 @@ contract RelicsV2Test is Test {
             }
         }
 
-        assertTrue(dungeon.relicOfferAvailable(player));
+        assertFalse(dungeon.relicOfferAvailable(player));
     }
 
     function _choose(Delveworn.RelicRarity rarity, Delveworn.Relic relic) internal {
-        dungeon.forceOfferRarity(player, rarity);
+        assertEq(uint256(dungeon.relicRarityOf(relic)), uint256(rarity));
+        dungeon.forceOffer(player, relic);
         vm.prank(player);
         dungeon.chooseRelic(relic);
         assertEq(uint256(dungeon.equippedRelic(player)), uint256(relic));

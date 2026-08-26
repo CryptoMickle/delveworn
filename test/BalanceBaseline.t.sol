@@ -126,6 +126,11 @@ contract BalanceBaselineTest is Test {
                 continue;
             }
 
+            if (dungeon.relicOfferAvailable(playerAddress)) {
+                vm.prank(playerAddress);
+                dungeon.claimRelic(false);
+            }
+
             _useSupplyStop(playerAddress);
             _useCamp(playerAddress);
             _useBetweenRoomPotion(playerAddress);
