@@ -14,6 +14,12 @@ library RelicRules {
     uint16 internal constant EPIC_WEIGHT_BPS = 600;
     uint16 internal constant LEGENDARY_WEIGHT_BPS = 200;
 
+    uint16 internal constant LATE_COMMON_WEIGHT_BPS = 5_000;
+    uint16 internal constant LATE_UNCOMMON_WEIGHT_BPS = 2_500;
+    uint16 internal constant LATE_RARE_WEIGHT_BPS = 1_400;
+    uint16 internal constant LATE_EPIC_WEIGHT_BPS = 800;
+    uint16 internal constant LATE_LEGENDARY_WEIGHT_BPS = 300;
+
     error InvalidRelic();
     error InvalidRarity();
 
@@ -45,6 +51,34 @@ library RelicRules {
         if (roll < 9_200) return 3;
         if (roll < 9_800) return 4;
         return 5;
+    }
+
+    function rarityWeightBpsAfterTierFour(uint8 rarity) internal pure returns (uint16) {
+        if (rarity == 1) return LATE_COMMON_WEIGHT_BPS;
+        if (rarity == 2) return LATE_UNCOMMON_WEIGHT_BPS;
+        if (rarity == 3) return LATE_RARE_WEIGHT_BPS;
+        if (rarity == 4) return LATE_EPIC_WEIGHT_BPS;
+        if (rarity == 5) return LATE_LEGENDARY_WEIGHT_BPS;
+        revert InvalidRarity();
+    }
+
+    function rollRarityAfterTierFour(uint256 entropy) internal pure returns (uint8) {
+        uint256 roll = entropy % 10_000;
+        if (roll < 5_000) return 1;
+        if (roll < 7_500) return 2;
+        if (roll < 8_900) return 3;
+        if (roll < 9_700) return 4;
+        return 5;
+    }
+
+    function rollRarityForBossTier(uint256 entropy, uint256 bossTier) internal pure returns (uint8) {
+        return bossTier > 4 ? rollRarityAfterTierFour(entropy) : rollRarity(entropy);
+    }
+
+    function rollRelic(uint8 rarity, uint256 entropy) internal pure returns (uint8) {
+        if (rarity == 0 || rarity > RARITY_COUNT) revert InvalidRarity();
+        uint8 first = ((rarity - 1) * 3) + 1;
+        return first + uint8(entropy % 3);
     }
 
     /// @dev Percent of normal outgoing damage after the relic modifier.

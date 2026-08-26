@@ -5,13 +5,15 @@ import {Test, console2} from "forge-std/Test.sol";
 import {Delveworn} from "../src/Delveworn.sol";
 import {DevRandomnessAdapter} from "../src/adapters/DevRandomnessAdapter.sol";
 
-/// @dev Test-only subclass used to keep the legacy Common balance comparison
-///      pinned to Common without changing any production offer rules or VRF words.
+/// @dev Test-only subclass used to pin the first boss drop to a Common relic
+///      without changing production offer rules or VRF words.
 contract RelicBalanceDungeon is Delveworn {
     constructor(address coordinatorAddress) Delveworn(coordinatorAddress) {}
 
-    function forceRelicOfferRarity(address playerAddress, RelicRarity rarity) external {
-        relicOfferRarity[playerAddress] = rarity;
+    function forceRelicOffer(address playerAddress, Relic relic) external {
+        relicOfferId[playerAddress] = relic;
+        relicOfferRarity[playerAddress] = relicRarityOf(relic);
+        relicOfferAvailable[playerAddress] = true;
     }
 }
 
@@ -135,13 +137,15 @@ contract RelicBalanceTest is Test {
                 continue;
             }
 
-            if (
-                dungeon.relicOfferAvailable(playerAddress)
-                    && dungeon.equippedRelic(playerAddress) == Delveworn.Relic.None
-            ) {
-                dungeon.forceRelicOfferRarity(playerAddress, Delveworn.RelicRarity.Common);
-                vm.prank(playerAddress);
-                dungeon.chooseRelic(relic);
+            if (dungeon.relicOfferAvailable(playerAddress)) {
+                if (dungeon.equippedRelic(playerAddress) == Delveworn.Relic.None) {
+                    dungeon.forceRelicOffer(playerAddress, relic);
+                    vm.prank(playerAddress);
+                    dungeon.chooseRelic(relic);
+                } else {
+                    vm.prank(playerAddress);
+                    dungeon.claimRelic(false);
+                }
             }
 
             _useSupplyStop(playerAddress);

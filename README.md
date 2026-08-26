@@ -22,6 +22,8 @@ Delveworn currently includes:
 - Weapon and armor upgrades
 - Supply stops and camps
 - Boss encounters
+- One random relic drop after every boss
+- Relic collection, duplicate counters and between-room relic switching
 - Scaling enemy stats
 - Randomness-backed gameplay resolution
 
@@ -54,6 +56,13 @@ Randomness is used for:
 - Normal attacks
 - Storm attacks
 - Potion-related combat outcomes
+- Boss relic drops and rarity
+
+The current frontend integration uses `frontendSnapshotV3()` together with
+`claimRelic(bool)` and `equipOwnedRelic(Relic)`. Deploy this contract version
+before enabling the collection UI in production; older deployments remain
+readable through the frontend's compatibility fallback but do not provide the
+new relic progression.
 
 ### `VRFProbe.sol`
 
