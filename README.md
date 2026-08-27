@@ -223,3 +223,10 @@ This roadmap describes technical direction, not committed dates or a claim of pr
 This project is experimental. Do not use the contracts with funds or assets of material value without appropriate review and auditing.
 
 Never commit private keys, seed phrases, `.env` files or other signing credentials. Only documented `.env.example`, `.env.sample` and `.env.template` files belong in Git.
+
+
+## License
+
+The source code in this repository is available under the [MIT License](LICENSE).
+
+The Delveworn name and logos are not licensed for trademark use. Original artwork and other visual assets are excluded from the MIT grant unless an asset is explicitly marked otherwise; rights remain with their respective owners.
