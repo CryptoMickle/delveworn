@@ -36,6 +36,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/onchain",
+        destination: "/",
+      },
+      {
         source: "/rise-testnet-demo",
         destination: "/",
       },
