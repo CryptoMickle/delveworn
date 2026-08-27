@@ -22,15 +22,16 @@ Last updated: 27 August 2026
 
 - Closed obsolete frontend draft PR #44 as superseded by PRs #45–#65.
 - Created both working branches.
+- Imported `CryptoMickle/rise-dungeon-frontend@781563891a13e4e8ab7b09888b8deed55c2d0da9` as a clean snapshot.
 
 ## Delveworn monorepo checklist
 
-- [ ] Import the clean frontend snapshot under `frontend/`.
-- [ ] Exclude nested Git metadata, `.next`, `node_modules`, `.vercel` and local environment files.
-- [ ] Run a secret and oversized-file check before pushing.
-- [ ] Add root-level, path-filtered contract and frontend CI workflows.
-- [ ] Update the root README for the monorepo structure and Practice/onchain trust boundaries.
-- [ ] Verify `forge fmt --check`, `forge build`, `forge test`, frontend lint and frontend production build.
+- [x] Import the clean frontend snapshot under `frontend/`.
+- [x] Exclude nested Git metadata, `.next`, `node_modules`, `.vercel` and local environment files.
+- [x] Run a secret and oversized-file check before pushing.
+- [x] Add root-level, path-filtered contract and frontend CI workflows.
+- [x] Update the root README for the monorepo structure and Practice/onchain trust boundaries.
+- [x] Verify `forge fmt --check`, `forge build`, `forge test`, frontend lint and frontend production build.
 - [ ] Open and review the monorepo PR.
 - [ ] Rename `CryptoMickle/rise-dungeon` to `CryptoMickle/delveworn` after the PR is ready.
 - [ ] Point the existing Vercel project to `CryptoMickle/delveworn` with Root Directory `frontend`.

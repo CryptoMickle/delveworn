@@ -1,12 +1,44 @@
 # Delveworn
 
-Delveworn is an experimental fully onchain dungeon crawler built in Solidity.
+Delveworn is an experimental dungeon crawler with a Solidity/Foundry game core and a Next.js frontend in one monorepo.
 
-The game core is chain-agnostic. Gameplay, balance, player state and progression live in a single core contract, while chain/provider-specific randomness is isolated behind adapters.
+The onchain game keeps gameplay, balance, player state and progression in the `Delveworn` contract. Chain- and provider-specific randomness is isolated behind adapters. The frontend also includes a separate local Practice Mode for learning the game without a wallet or transactions.
 
-The game uses verifiable randomness for gameplay actions such as monster generation, combat and special attacks.
+> **Status:** Public testnet beta. The contracts have not been audited and are not production-ready.
 
-> **Status:** Work in progress. The contracts have not been audited and are not production-ready.
+## Repository structure
+
+```text
+.
+├── .github/workflows/
+│   ├── frontend.yml
+│   └── test.yml
+├── docs/
+├── frontend/              # Next.js application
+├── lib/                   # Foundry dependencies
+├── script/                # Deployment scripts
+├── scripts/               # Contract development utilities
+├── src/                   # Solidity contracts and adapters
+├── test/                  # Foundry test suite
+├── foundry.toml
+└── README.md
+```
+
+The Foundry project remains at the repository root. All frontend commands run from `frontend/`.
+
+## Game modes and trust boundaries
+
+### Practice Mode
+
+Practice Mode runs locally in the browser and requires no wallet, RPC calls, transactions or VRF. Its randomness and game state are client-side simulations intended for learning encounters, testing builds and previewing the gameplay loop.
+
+Practice Mode is not onchain, does not persist authoritative state and does not provide verifiable randomness.
+
+### Onchain Mode
+
+Onchain Mode connects a wallet to a configured deployment. Player state and game actions are handled by the deployed `Delveworn` contract, and randomness-backed actions resolve through the configured provider and callback adapter.
+
+Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. The current public deployment targets RISE Testnet.
 
 ## Project overview
 
@@ -15,10 +47,8 @@ Delveworn currently includes:
 - Fully onchain player state
 - Procedurally selected enemies
 - Zombie, Goblin, Orc and Dungeon Lord encounters
-- Normal attacks and Storm attacks
-- Critical hits
-- Potions
-- Gold and loot
+- Normal and Storm attacks
+- Critical hits, potions, gold and loot
 - Weapon and armor upgrades
 - Supply stops and camps
 - Boss encounters
@@ -27,7 +57,7 @@ Delveworn currently includes:
 - Scaling enemy stats
 - Randomness-backed gameplay resolution
 
-## Architecture
+## Contract architecture
 
 ```text
 Delveworn -> randomness adapter -> provider
@@ -44,53 +74,26 @@ Current adapter implementations include:
 
 See `docs/CHAIN_AGNOSTIC_ARCHITECTURE.md` for the architecture rules.
 
-## Main contracts
+The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedRelic(Relic)` for full relic parity. Older deployments remain readable through a compatibility fallback but do not provide the complete relic progression.
 
-### `Delveworn.sol`
+## Requirements
 
-The main game contract. Only one randomness request may be pending for a player at a time.
+- Foundry
+- Node.js 22
+- npm
 
-Randomness is used for:
+Clone the repository with its Foundry dependencies:
 
-- Monster generation
-- Normal attacks
-- Storm attacks
-- Potion-related combat outcomes
-- Boss relic drops and rarity
-
-The current frontend integration uses `frontendSnapshotV3()` together with
-`claimRelic(bool)` and `equipOwnedRelic(Relic)`. Deploy this contract version
-before enabling the collection UI in production; older deployments remain
-readable through the frontend's compatibility fallback but do not provide the
-new relic progression.
-
-### `VRFProbe.sol`
-
-A minimal randomness consumer for measuring request-to-fulfillment latency independently of game logic.
-
-### `DevRandomnessAdapter.sol`
-
-A deterministic development adapter that preserves the production-like two-transaction request/callback lifecycle without depending on an external VRF service. It can derive repeatable words from stored request data or accept explicit words for exact scenario reproduction.
-
-This adapter is operator-controlled and must never be used as a production or competitive randomness source.
-
-### `MockVRFCoordinator.sol`
-
-A deterministic local mock used by the Foundry test suite.
-
-## Timeout and retry
-
-The core currently uses:
-
-```solidity
-uint256 public constant VRF_TIMEOUT = 30 seconds;
+```bash
+git clone --recurse-submodules https://github.com/CryptoMickle/rise-dungeon.git
+cd rise-dungeon
 ```
 
-If fulfillment has not arrived after the timeout, the player can call `retryRandomness()`. The superseded request is invalidated, so a late callback from the old request cannot resolve the action.
+The repository keeps its original GitHub slug while the monorepo migration and product rename are reviewed.
 
-## Testing
+## Contract development
 
-The project uses Foundry:
+Run the contract checks from the repository root:
 
 ```bash
 forge fmt --check
@@ -98,7 +101,7 @@ forge build --sizes
 forge test -vvv
 ```
 
-The suite covers gameplay, progression, randomness fulfillment, timeout/retry behavior and rejection of superseded callbacks.
+The suite covers gameplay, progression, randomness fulfillment, timeout/retry behavior, relic rules and rejection of superseded callbacks.
 
 The deterministic pre-relic balance control can be rerun with:
 
@@ -106,13 +109,42 @@ The deterministic pre-relic balance control can be rerun with:
 forge test --match-contract BalanceBaselineTest -vvv
 ```
 
-See `docs/BALANCE_BASELINE.md` for the strategy definition, recorded baseline and interpretation rules.
+See `docs/BALANCE_BASELINE.md` for the recorded baseline and interpretation rules.
 
-## Local development without external VRF
+## Frontend development
 
-External testnet VRF availability should not block combat, relic or balance development.
+Install the locked dependencies:
 
-Deploy a local development stack against Anvil:
+```bash
+cd frontend
+npm ci
+```
+
+Create `frontend/.env.local` from the committed template and set the deployed contract address:
+
+```bash
+cp .env.example .env.local
+```
+
+The preferred deployment-specific key is:
+
+```text
+NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS=0x...
+```
+
+`NEXT_PUBLIC_DUNGEON_ADDRESS` remains supported as a legacy fallback.
+
+Start the development server or run the production checks:
+
+```bash
+npm run dev
+npm run lint
+npm run build
+```
+
+## Local contract development without external VRF
+
+External testnet VRF availability should not block contract, relic or balance development. Start Anvil:
 
 ```bash
 anvil
@@ -127,7 +159,7 @@ forge script script/DeployDev.s.sol:DeployDev \
   --private-key "$DEV_PRIVATE_KEY"
 ```
 
-Copy the deployed `DevRandomnessAdapter` address and start the auto-fulfiller:
+Then start the deterministic auto-fulfiller with the deployed adapter address:
 
 ```bash
 DEV_RANDOMNESS_ADAPTER=0x... \
@@ -135,63 +167,22 @@ DEV_PRIVATE_KEY="$DEV_PRIVATE_KEY" \
 bash scripts/dev-autofulfill.sh
 ```
 
-The watcher polls the local adapter and fulfills pending requests in separate transactions. This keeps Delveworn's asynchronous request/callback semantics while removing the external provider dependency.
+The development adapter preserves the two-transaction request/callback lifecycle. It is operator-controlled and must never be used as a production or competitive randomness source.
 
-`DEV_OWNER_ADDRESS` can be used instead of `DEV_PRIVATE_KEY` when the local RPC exposes an unlocked adapter-owner account.
+## Deployment
 
-## Local development
+The existing Vercel project should use this repository with `frontend` as its Root Directory. Configure the production deployment variables in Vercel rather than committing `.env.local`.
 
-The GitHub repository still uses its original repository slug while the product/code naming is being migrated:
-
-```bash
-git clone --recurse-submodules https://github.com/CryptoMickle/rise-dungeon.git
-cd rise-dungeon
-forge build
-forge test
-```
-
-## Repository structure
+At minimum, the selected public deployment needs its contract address. RISE Testnet uses:
 
 ```text
-.
-├── .github/workflows/test.yml
-├── docs/
-│   ├── BALANCE_BASELINE.md
-│   └── CHAIN_AGNOSTIC_ARCHITECTURE.md
-├── lib/forge-std/
-├── script/
-│   ├── DeployDev.s.sol
-│   └── DeploySomniaShannon.s.sol
-├── scripts/
-│   └── dev-autofulfill.sh
-├── src/
-│   ├── adapters/
-│   ├── interfaces/
-│   ├── Delveworn.sol
-│   ├── MockVRFCoordinator.sol
-│   └── VRFProbe.sol
-├── test/
-│   ├── BalanceBaseline.t.sol
-│   ├── ChainlinkV25DirectFundingAdapter.t.sol
-│   ├── Delveworn.t.sol
-│   ├── DevRandomnessAdapter.t.sol
-│   └── LegacyVRFAdapter.t.sol
-└── foundry.toml
+NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
 ```
 
-## Deployment philosophy
-
-A new chain deployment should normally require only:
-
-1. Selecting or implementing the appropriate randomness adapter.
-2. Deploying that adapter with chain/provider configuration.
-3. Deploying the same `Delveworn` core against the adapter.
-4. Configuring the frontend deployment registry.
-
-The game core should not be forked per chain.
+Changes must pass the path-filtered contract and frontend workflows before production configuration is changed.
 
 ## Security
 
 This project is experimental. Do not use the contracts with funds or assets of material value without appropriate review and auditing.
 
-Never commit private keys, seed phrases, `.env` files or other signing credentials.
+Never commit private keys, seed phrases, `.env` files or other signing credentials. Only documented `.env.example`, `.env.sample` and `.env.template` files belong in Git.
