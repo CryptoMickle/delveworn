@@ -1,20 +1,43 @@
-name: CI
+name: Contracts CI
 
 permissions: {}
 
 on:
   push:
+    paths:
+      - ".github/workflows/test.yml"
+      - ".gitmodules"
+      - "foundry.toml"
+      - "foundry.lock"
+      - "remappings.txt"
+      - "lib/**"
+      - "script/**"
+      - "scripts/**"
+      - "src/**"
+      - "test/**"
   pull_request:
+    paths:
+      - ".github/workflows/test.yml"
+      - ".gitmodules"
+      - "foundry.toml"
+      - "foundry.lock"
+      - "remappings.txt"
+      - "lib/**"
+      - "script/**"
+      - "scripts/**"
+      - "src/**"
+      - "test/**"
   workflow_dispatch:
 
 jobs:
   check:
-    name: Foundry project
+    name: Foundry checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - name: Check out repository
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           submodules: recursive
@@ -25,11 +48,11 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
-      - name: Run Forge fmt
+      - name: Check formatting
         run: forge fmt --check
 
-      - name: Run Forge build
+      - name: Build contracts
         run: forge build --sizes
 
-      - name: Run Forge tests
+      - name: Run contract tests
         run: forge test -vvv

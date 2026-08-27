@@ -1,0 +1,34 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@metamask/connect-evm": "^2.1.1",
+    "@tanstack/react-query": "^5.101.4",
+    "@vercel/analytics": "^2.0.1",
+    "next": "16.3.1",
+    "ox": "^0.14.33",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "rise-wallet": "^0.3.5",
+    "shreds": "^0.3.0",
+    "viem": "^2.55.18",
+    "wagmi": "^3.7.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
