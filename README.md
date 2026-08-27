@@ -11,7 +11,7 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 | Experience | Link | What it demonstrates |
 | --- | --- | --- |
 | Practice Mode | [Play without a wallet](https://delveworn.vercel.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
-| Onchain beta | [Open the RISE Testnet game](https://delveworn.vercel.app) | Wallet-connected gameplay against the public testnet deployment. |
+| Onchain beta | [Open the RISE Testnet game](https://delveworn.vercel.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
 
 The production frontend is currently configured for RISE Testnet contract [`0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA).
 
