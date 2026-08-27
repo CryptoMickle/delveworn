@@ -8218,9 +8218,9 @@ function DelvewornGame() {
 
             <div>
               <RoomProgressLine room={currentRoom} isBoss={isBoss} />
-              <div className="practice-combat-card min-h-[610px] lg:grid lg:min-h-[480px] lg:grid-cols-[3fr_2fr]">
+              <div className="practice-combat-card min-h-[610px] lg:grid lg:min-h-[480px] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
 
-              <div className="practice-monster-stage relative h-[355px] min-w-0 overflow-hidden bg-gradient-to-b from-black/20 to-black/70 lg:h-full lg:min-h-[480px] lg:border-r lg:border-zinc-800">
+              <div className="practice-monster-stage relative h-[355px] w-full min-w-0 overflow-hidden bg-gradient-to-b from-black/20 to-black/70 lg:h-full lg:min-h-[480px] lg:border-r lg:border-zinc-800">
 
                 <img
                   src={
