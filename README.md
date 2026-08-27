@@ -1,10 +1,21 @@
 # Delveworn
 
-Delveworn is an experimental dungeon crawler with a Solidity/Foundry game core and a Next.js frontend in one monorepo.
+Delveworn is an experimental onchain dungeon crawler with a Solidity/Foundry game core and a Next.js frontend in one public monorepo.
 
 The onchain game keeps gameplay, balance, player state and progression in the `Delveworn` contract. Chain- and provider-specific randomness is isolated behind adapters. The frontend also includes a separate local Practice Mode for learning the game without a wallet or transactions.
 
 > **Status:** Public testnet beta. The contracts have not been audited and are not production-ready.
+
+## Try Delveworn
+
+| Experience | Link | What it demonstrates |
+| --- | --- | --- |
+| Practice Mode | [Play without a wallet](https://delveworn.vercel.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
+| Onchain beta | [Open the RISE Testnet game](https://delveworn.vercel.app) | Wallet-connected gameplay against the public testnet deployment. |
+
+The production frontend is currently configured for RISE Testnet contract [`0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA).
+
+Practice Mode is the fastest way to review the complete gameplay loop. Onchain Mode demonstrates the contract-backed state, wallet flow and randomness lifecycle, but depends on testnet and wallet availability.
 
 ## Repository structure
 
@@ -75,6 +86,15 @@ Current adapter implementations include:
 See `docs/CHAIN_AGNOSTIC_ARCHITECTURE.md` for the architecture rules.
 
 The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedRelic(Relic)` for full relic parity. Older deployments remain readable through a compatibility fallback but do not provide the complete relic progression.
+
+## Supported and tested environments
+
+| Environment | Status | Scope |
+| --- | --- | --- |
+| RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
+| Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
+| Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
+| Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |
 
 ## Requirements
 
@@ -181,8 +201,32 @@ NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
 
 Changes must pass the path-filtered contract and frontend workflows before they are merged to `main`.
 
+## Roadmap
+
+1. **Public beta hardening:** continue gameplay QA, deployment documentation and frontend reliability work.
+2. **Audit readiness:** expand security review, invariants and operational documentation before any production-value deployment.
+3. **Deployment registry:** move chain IDs, RPCs, explorers, contract addresses and wallet capabilities into a shared deployment configuration.
+4. **Additional networks and randomness providers:** deploy the same game core with network-appropriate adapters rather than forking combat logic.
+5. **Production readiness:** consider a mainnet release only after independent review, an audit and explicit asset-risk controls.
+
+This roadmap describes technical direction, not committed dates or a claim of production readiness.
+
+## Related project: Market Dungeon
+
+[Market Dungeon](https://github.com/CryptoMickle/market-dungeon) is a separate read-only hackathon experiment that turns live dreamDEX Event Contracts on Somnia into a roguelite prediction mechanic. It shares some visual language with Delveworn, but it is a separate repository, deployment and trust model; it is not a Delveworn package or onchain integration.
+
+- [Play Market Dungeon](https://market-dungeon.vercel.app)
+- [Review its judge flow and onchain verification](https://github.com/CryptoMickle/market-dungeon#two-minute-judge-demo)
+
 ## Security
 
 This project is experimental. Do not use the contracts with funds or assets of material value without appropriate review and auditing.
 
 Never commit private keys, seed phrases, `.env` files or other signing credentials. Only documented `.env.example`, `.env.sample` and `.env.template` files belong in Git.
+
+
+## License
+
+The source code in this repository is available under the [MIT License](LICENSE).
+
+The Delveworn name and logos are not licensed for trademark use. Original artwork and other visual assets are excluded from the MIT grant unless an asset is explicitly marked otherwise; rights remain with their respective owners.
