@@ -85,11 +85,11 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 Clone the repository with its Foundry dependencies:
 
 ```bash
-git clone --recurse-submodules https://github.com/CryptoMickle/rise-dungeon.git
-cd rise-dungeon
+git clone --recurse-submodules https://github.com/CryptoMickle/delveworn.git
+cd delveworn
 ```
 
-The repository keeps its original GitHub slug while the monorepo migration and product rename are reviewed.
+The former standalone frontend repository is archived as rollback history. Current contract and frontend development happens in this monorepo.
 
 ## Contract development
 
@@ -171,7 +171,7 @@ The development adapter preserves the two-transaction request/callback lifecycle
 
 ## Deployment
 
-The existing Vercel project should use this repository with `frontend` as its Root Directory. Configure the production deployment variables in Vercel rather than committing `.env.local`.
+Vercel is connected to this repository with `frontend` as its Root Directory. Changes merged to `main` trigger the production deployment. Configure deployment variables in Vercel rather than committing `.env.local`.
 
 At minimum, the selected public deployment needs its contract address. RISE Testnet uses:
 
@@ -179,7 +179,7 @@ At minimum, the selected public deployment needs its contract address. RISE Test
 NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
 ```
 
-Changes must pass the path-filtered contract and frontend workflows before production configuration is changed.
+Changes must pass the path-filtered contract and frontend workflows before they are merged to `main`.
 
 ## Security
 
