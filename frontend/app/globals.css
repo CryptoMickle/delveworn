@@ -624,6 +624,16 @@ img[src^="/monsters/boss-"] {
     aspect-ratio: 16 / 9;
   }
 
+  .practice-in-run img[src^="/monsters/orc-"] {
+    transform: scale(1.22);
+    transform-origin: center 48%;
+  }
+
+  .practice-in-run img[src^="/monsters/zombie-"] {
+    transform: scale(1.12);
+    transform-origin: center 48%;
+  }
+
   .practice-in-run .practice-monster-info {
     padding: 1px 12px 11px;
   }
@@ -817,13 +827,31 @@ img[src^="/monsters/boss-"] {
     -webkit-line-clamp: 2;
   }
 
-  .practice-in-run .practice-potion-action {
-    min-height: 37px;
-    padding: 7px 10px !important;
+  .practice-in-run .practice-combat-actions .practice-potion-action {
+    min-height: 42px;
+    padding: 6px 12px !important;
+  }
+
+  .practice-in-run .practice-potion-action > div {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
   }
 
   .practice-in-run .practice-potion-action p:first-child {
     font-size: 10px;
+  }
+
+  .practice-in-run .practice-potion-action > div > div {
+    margin-top: 0;
+    flex: 0 0 auto;
+    font-size: 10px;
+  }
+
+  .practice-in-run .practice-potion-action > div > div span {
+    display: none;
   }
 
   .practice-in-run .practice-between-actions {
