@@ -28,8 +28,10 @@ npm install
 Create `.env.local` and point the frontend at the deployed Delveworn contract:
 
 ```bash
-NEXT_PUBLIC_DUNGEON_ADDRESS=0x...
+NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS=0x...
 ```
+
+`NEXT_PUBLIC_DUNGEON_ADDRESS` remains supported as a legacy fallback.
 
 Start the development server:
 
@@ -47,21 +49,21 @@ npm run build
 
 ## Deployment
 
-Vercel is connected to this GitHub repository. Changes merged to `main` trigger a production deployment automatically.
+Vercel is connected to this GitHub repository with `frontend` as its Root Directory. Changes merged to `main` trigger a production deployment automatically.
 
-The Vercel project must have this environment variable configured:
+The preferred production variable for the current RISE Testnet deployment is:
 
 ```text
-NEXT_PUBLIC_DUNGEON_ADDRESS
+NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
 ```
 
-The environment-variable name is retained for deployment compatibility even though the product and core contract are now named Delveworn.
+The legacy `NEXT_PUBLIC_DUNGEON_ADDRESS` variable is retained for deployment compatibility.
 
 The current UI expects the contract's `frontendSnapshotV3()`,
 `claimRelic(bool)` and `equipOwnedRelic(Relic)` functions for full Practice
 Mode parity. It falls back to older snapshots so an existing deployment still
 loads, but random boss relics, duplicate counters and collection switching are
-enabled only after `NEXT_PUBLIC_DUNGEON_ADDRESS` points to the upgraded
+enabled only after the selected deployment address points to the upgraded
 Delveworn contract.
 
 ## VRF diagnostics
