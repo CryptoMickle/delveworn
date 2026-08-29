@@ -1,4 +1,4 @@
-import { metaMask } from "wagmi/connectors";
+import { metaMask } from "wagmi/connectors/metaMask";
 import { RiseWallet } from "rise-wallet";
 import { riseWallet } from "rise-wallet/wagmi";
 import { supportsWallet } from "./chain-runtime";

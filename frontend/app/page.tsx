@@ -26,7 +26,7 @@ import {
   useDisconnect,
   useConnectors,
 } from "wagmi";
-import { metaMask } from "wagmi/connectors";
+import { metaMask } from "wagmi/connectors/metaMask";
 import { Chains, RiseWallet } from "rise-wallet";
 import { Hooks, riseWallet } from "rise-wallet/wagmi";
 import { P256, PublicKey, Signature } from "ox";
@@ -47,6 +47,7 @@ import {
   GameHud,
   GoldAmount,
   RelicArtwork,
+  RelicCollection,
   RoomProgressLine,
   SmallStat,
 } from "./game-ui";
@@ -88,6 +89,7 @@ const VRF_DELAYED_NOTICE_MS = 5_000;
 const VRF_CANONICAL_FALLBACK_MS = 20_000;
 const ACTION_READY_TIMEOUT_MS = 45_000;
 const ACTION_READY_POLL_MS = 250;
+const FRONTEND_SNAPSHOT_V3_RETRY_MS = 5_000;
 
 const SESSION_DURATION_SECONDS = 8 * 60 * 60;
 const SESSION_STATUS_TIMEOUT_MS = 12_000;
@@ -877,8 +879,37 @@ const dungeonAbi = [
   },
 ] as const;
 
-let supportsFrontendSnapshotV3:
-  boolean | null = null;
+type FrontendSnapshotV3Availability = {
+  supported: boolean | null;
+  retryAfter: number;
+};
+
+const frontendSnapshotV3Availability: Record<
+  "realtime" | "canonical",
+  FrontendSnapshotV3Availability
+> = {
+  realtime: {
+    supported: null,
+    retryAfter: 0,
+  },
+  canonical: {
+    supported: null,
+    retryAfter: 0,
+  },
+};
+
+type CachedRelicSnapshot =
+  NonNullable<
+    Parameters<
+      typeof playerStateFromFrontendSnapshot
+    >[1]
+  >;
+
+const lastRelicSnapshotByPlayer =
+  new Map<
+    string,
+    CachedRelicSnapshot
+  >();
 
 
 
@@ -2072,10 +2103,20 @@ async function fetchPlayerState(
       : publicClient;
 
   let snapshot: unknown;
+  const v3Availability =
+    frontendSnapshotV3Availability[
+      source
+    ];
+  const playerCacheKey =
+    playerAddress.toLowerCase();
+  const shouldTryV3 =
+    v3Availability.supported !==
+      false ||
+    runtimeNowMs() >=
+      v3Availability.retryAfter;
 
   if (
-    supportsFrontendSnapshotV3 !==
-    false
+    shouldTryV3
   ) {
     try {
       const relicSnapshot =
@@ -2104,16 +2145,25 @@ async function fetchPlayerState(
         ),
         });
 
-      supportsFrontendSnapshotV3 =
+      v3Availability.supported =
         true;
+      v3Availability.retryAfter =
+        0;
+      lastRelicSnapshotByPlayer.set(
+        playerCacheKey,
+        relicSnapshot
+      );
       return playerStateFromFrontendSnapshot(
         relicSnapshot.base,
         relicSnapshot
       );
     } catch {
-      supportsFrontendSnapshotV3 =
+      v3Availability.supported =
         false;
-      // The currently deployed contract remains readable during the V3 rollout.
+      v3Availability.retryAfter =
+        runtimeNowMs() +
+        FRONTEND_SNAPSHOT_V3_RETRY_MS;
+      // Fall back for this read, then retry V3 after a short cooldown.
     }
   }
 
@@ -2178,7 +2228,10 @@ async function fetchPlayerState(
   }
 
   return playerStateFromFrontendSnapshot(
-    snapshot
+    snapshot,
+    lastRelicSnapshotByPlayer.get(
+      playerCacheKey
+    )
   );
 }
 
@@ -8456,62 +8509,24 @@ function DelvewornGame() {
           </div>
         )}
 
-        {player.supportsRelicCollection &&
-          player.ownedRelics.length > 0 &&
-          player.monsterHp === 0 &&
+        {player.hasStarted &&
           !player.relicOfferAvailable && (
-            <section className="mb-4 rounded-2xl border border-zinc-700 bg-zinc-950 p-4">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-[10px] tracking-[0.25em] text-orange-400">
-                    RELIC COLLECTION · {player.ownedRelics.length}/15 UNIQUE · {totalRelicDrops} {totalRelicDrops === 1 ? "DROP" : "DROPS"}
-                  </p>
-                  <h2 className="mt-1 text-xl font-black">CHOOSE ACTIVE RELIC</h2>
-                </div>
-                <p className="max-w-48 text-right text-[10px] text-zinc-500">
-                  Switch or unequip between rooms. Duplicate effects do not stack.
-                </p>
-              </div>
-              <div className="mt-3 grid gap-2 lg:grid-cols-3">
-                {[0, ...player.ownedRelics].map((relicId) => {
-                  const ownedRelic = getRelicDefinition(relicId);
-                  const activeRelic = relicId === player.equippedRelic;
-                  return (
-                    <button
-                      key={relicId}
-                      onClick={() => runEquipRelicTransaction(relicId)}
-                      disabled={busy || activeRelic}
-                      aria-pressed={activeRelic}
-                      className={`rounded-xl border p-3 text-left transition hover:brightness-125 disabled:cursor-not-allowed ${ownedRelic.borderClass} ${ownedRelic.backgroundClass}${activeRelic ? " ring-2 ring-orange-400" : ""}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <RelicArtwork imageSrc={ownedRelic.imageSrc} name={ownedRelic.name} className="h-12 w-12" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className={`font-black ${ownedRelic.accentClass}`}>
-                              {ownedRelic.name}
-                              {relicId !== 0 && (
-                                <span className="ml-1 text-xs text-zinc-400">×{player.relicCounts[relicId] ?? 1}</span>
-                              )}
-                            </p>
-                            <span className={activeRelic ? "text-[9px] font-black text-orange-400" : "text-[9px] font-bold text-zinc-500"}>
-                              {activeRelic ? "ACTIVE" : relicId === 0 ? "UNEQUIP" : "EQUIP"}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[10px] text-zinc-400">{ownedRelic.effect}</p>
-                          {relicId !== 0 && (
-                            <p className="mt-2 text-[10px] font-bold text-red-300">Tradeoff: {ownedRelic.tradeoff}</p>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-3 text-[10px] text-zinc-600">
-                Revive use and Blood Price max-HP costs remain spent for the full run after switching.
-              </p>
-            </section>
+            <RelicCollection
+              idPrefix="onchain"
+              ownedRelics={player.ownedRelics}
+              relicCounts={player.relicCounts}
+              equippedRelic={player.equippedRelic}
+              canChangeRelic={
+                player.supportsRelicCollection &&
+                player.active &&
+                player.monsterHp === 0 &&
+                !busy
+              }
+              dataAvailable={player.supportsRelicCollection}
+              lockedLabel={player.active ? "BETWEEN ROOMS" : "RUN ENDED"}
+              onSelectRelic={runEquipRelicTransaction}
+              className="mb-4"
+            />
           )}
 
         {/* ===================================================
