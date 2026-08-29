@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ReactNode, Ref } from "react";
-import type { RelicDefinition } from "./relics";
+import { getRelicDefinition, type RelicDefinition } from "./relics";
 
 export type DelvewornMode = "practice" | "onchain";
 
@@ -106,6 +106,145 @@ export function RelicArtwork({
         <div className="grid h-full w-full place-items-center text-2xl text-zinc-600" aria-hidden="true">◇</div>
       )}
     </div>
+  );
+}
+
+export function RelicCollection({
+  idPrefix,
+  ownedRelics,
+  relicCounts,
+  equippedRelic,
+  canChangeRelic,
+  dataAvailable = true,
+  lockedLabel = "BETWEEN ROOMS",
+  onSelectRelic,
+  className = "",
+}: {
+  idPrefix: string;
+  ownedRelics: readonly number[];
+  relicCounts: readonly number[];
+  equippedRelic: number;
+  canChangeRelic: boolean;
+  dataAvailable?: boolean;
+  lockedLabel?: string;
+  onSelectRelic: (relicId: number) => void;
+  className?: string;
+}) {
+  const titleId = `${idPrefix}-relic-collection-title`;
+  const totalRelicDrops = relicCounts.reduce(
+    (total, count) => total + count,
+    0
+  );
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={`relic-collection rounded-2xl border border-zinc-700 bg-zinc-950 p-4 ${className}`}
+    >
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] tracking-[0.25em] text-orange-400">
+            RELIC INVENTORY · {ownedRelics.length}/15 UNIQUE · {totalRelicDrops}{" "}
+            {totalRelicDrops === 1 ? "DROP" : "DROPS"}
+          </p>
+          <h2 id={titleId} className="mt-1 text-xl font-black">
+            RELIC LOADOUT
+          </h2>
+        </div>
+        <p className="max-w-52 text-right text-[10px] text-zinc-500">
+          Always visible during the run. Switch or unequip between rooms.
+        </p>
+      </div>
+
+      {!dataAvailable && (
+        <div className="mt-3 rounded-xl border border-amber-800/70 bg-amber-950/25 px-3 py-2 text-left">
+          <p className="text-[10px] font-bold text-amber-200">
+            Collection data is temporarily unavailable. Onchain state will retry automatically on the next sync.
+          </p>
+        </div>
+      )}
+
+      {ownedRelics.length === 0 ? (
+        <div className="mt-3 rounded-xl border border-dashed border-zinc-700 bg-black/25 p-4 text-center">
+          <p className="text-sm font-black text-zinc-300">
+            {dataAvailable ? "NO RELICS COLLECTED" : "RELIC INVENTORY SYNCING"}
+          </p>
+          <p className="mt-1 text-[10px] text-zinc-500">
+            {dataAvailable
+              ? "Defeat the boss in Room 10 to add the first relic to this run."
+              : "No collection data is shown until the next successful V3 snapshot."}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 grid gap-2 lg:grid-cols-3">
+          {[0, ...ownedRelics].map((relicId) => {
+            const ownedRelic = getRelicDefinition(relicId);
+            const activeRelic = relicId === equippedRelic;
+            const actionLabel = activeRelic
+              ? "ACTIVE"
+              : canChangeRelic
+                ? relicId === 0
+                  ? "UNEQUIP"
+                  : "EQUIP"
+                : dataAvailable
+                  ? lockedLabel
+                  : "SYNCING";
+
+            return (
+              <button
+                key={relicId}
+                type="button"
+                onClick={() => onSelectRelic(relicId)}
+                disabled={!dataAvailable || !canChangeRelic || activeRelic}
+                aria-pressed={activeRelic}
+                className={`rounded-xl border p-3 text-left transition hover:brightness-125 disabled:cursor-not-allowed ${ownedRelic.borderClass} ${ownedRelic.backgroundClass}${activeRelic ? " ring-2 ring-orange-400" : ""}`}
+              >
+                <div className="flex items-start gap-3">
+                  <RelicArtwork
+                    imageSrc={ownedRelic.imageSrc}
+                    name={ownedRelic.name}
+                    className="h-12 w-12"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`font-black ${ownedRelic.accentClass}`}>
+                        {ownedRelic.name}
+                        {relicId !== 0 && (
+                          <span className="ml-1 text-xs text-zinc-400">
+                            ×{relicCounts[relicId] ?? 1}
+                          </span>
+                        )}
+                      </p>
+                      <span
+                        className={
+                          activeRelic
+                            ? "text-[9px] font-black text-orange-400"
+                            : "text-[9px] font-bold text-zinc-500"
+                        }
+                      >
+                        {actionLabel}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-zinc-400">
+                      {ownedRelic.effect}
+                    </p>
+                    {relicId !== 0 && (
+                      <p className="mt-2 text-[10px] font-bold text-red-300">
+                        Tradeoff: {ownedRelic.tradeoff}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="mt-3 text-[10px] text-zinc-600">
+        Duplicate effects do not stack. Revive use and permanent max-HP costs remain spent for the full run.
+      </p>
+    </section>
   );
 }
 

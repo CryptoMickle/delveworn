@@ -11,6 +11,7 @@ import {
   GameHud,
   GoldAmount,
   RelicArtwork,
+  RelicCollection,
   RoomProgressLine,
   SmallStat,
 } from "../game-ui";
@@ -42,6 +43,7 @@ import {
   describeRelicEquipImpact,
   getRelicDefinition,
 } from "../relics";
+import { loadPracticeRun, savePracticeRun } from "./storage";
 
 const MAX_POTIONS = 5;
 const SHOP_POTION_STOCK = 2;
@@ -151,6 +153,7 @@ function ShopButton({
 
 export default function PracticePage() {
   const [game, setGame] = useState<PracticeGame>(EMPTY_GAME);
+  const [practiceStorageReady, setPracticeStorageReady] = useState(false);
   const [rolling, setRolling] = useState<LocalAction | null>(null);
   const [mobileLogOpen, setMobileLogOpen] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -161,6 +164,21 @@ export default function PracticePage() {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      const restored = loadPracticeRun(window.localStorage);
+      if (restored) setGame(restored);
+      setPracticeStorageReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!practiceStorageReady) return;
+    savePracticeRun(window.localStorage, game);
+  }, [game, practiceStorageReady]);
 
   const busy = rolling !== null;
   const room = game.roomsCleared + 1;
@@ -600,53 +618,19 @@ export default function PracticePage() {
           </section>
         )}
 
-        {game.ownedRelics.length > 0 && !bossRewardActive && (
-          <section className="mt-4 rounded-2xl border border-zinc-700 bg-zinc-950 p-4">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-[10px] tracking-[0.25em] text-orange-400">
-                  RELIC COLLECTION · {game.ownedRelics.length}/15 UNIQUE · {totalRelicDrops} {totalRelicDrops === 1 ? "DROP" : "DROPS"}
-                </p>
-                <h2 className="mt-1 text-xl font-black">CHOOSE ACTIVE RELIC</h2>
-              </div>
-              <p className="max-w-48 text-right text-[10px] text-zinc-500">Switch or unequip between rooms. One relic can be active at a time.</p>
-            </div>
-            <div className="mt-3 grid gap-2 lg:grid-cols-3">
-              {[0, ...game.ownedRelics].map((relicId) => {
-                const ownedRelic = getRelicDefinition(relicId);
-                const activeRelic = relicId === game.equippedRelic;
-                return (
-                  <button
-                    key={relicId}
-                    type="button"
-                    onClick={() => setGame((current) => equipOwnedRelic(current, relicId))}
-                    disabled={!canChangeRelic || activeRelic}
-                    aria-pressed={activeRelic}
-                    className={"rounded-xl border p-3 text-left transition hover:brightness-125 disabled:cursor-not-allowed " + ownedRelic.borderClass + " " + ownedRelic.backgroundClass + (activeRelic ? " ring-2 ring-orange-400" : "")}
-                  >
-                    <div className="flex items-start gap-3">
-                      <RelicArtwork imageSrc={ownedRelic.imageSrc} name={ownedRelic.name} className="h-12 w-12" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className={"font-black " + ownedRelic.accentClass}>
-                            {ownedRelic.name}{relicId !== 0 && <span className="ml-1 text-xs text-zinc-400">×{game.relicCounts[relicId] ?? 1}</span>}
-                          </p>
-                          <span className={activeRelic ? "text-[9px] font-black text-orange-400" : "text-[9px] font-bold text-zinc-500"}>
-                            {activeRelic ? "ACTIVE" : canChangeRelic ? relicId === 0 ? "UNEQUIP" : "EQUIP" : "BETWEEN ROOMS"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[10px] text-zinc-400">{ownedRelic.effect}</p>
-                        {relicId !== 0 && (
-                          <p className="mt-2 text-[10px] font-bold text-red-300">Tradeoff: {ownedRelic.tradeoff}</p>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-[10px] text-zinc-600">Revive use and permanent max-HP costs remain spent for the full run, even after switching relics.</p>
-          </section>
+        {game.hasStarted && !bossRewardActive && (
+          <RelicCollection
+            idPrefix="practice"
+            ownedRelics={game.ownedRelics}
+            relicCounts={game.relicCounts}
+            equippedRelic={game.equippedRelic}
+            canChangeRelic={canChangeRelic}
+            lockedLabel={game.active ? "BETWEEN ROOMS" : "RUN ENDED"}
+            onSelectRelic={(relicId) =>
+              setGame((current) => equipOwnedRelic(current, relicId))
+            }
+            className="mt-4"
+          />
         )}
 
         {game.hasStarted && (
