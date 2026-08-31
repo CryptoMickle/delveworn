@@ -81,6 +81,7 @@ Current adapter implementations include:
 
 - `LegacyVRFAdapter.sol`
 - `ChainlinkV25DirectFundingAdapter.sol`
+- `SomniaNativeVRFAdapter.sol` — Somnia Reactivity-native, drand-mixed VRF
 - `DevRandomnessAdapter.sol` — deterministic and **DEV/TEST ONLY**
 
 See `docs/CHAIN_AGNOSTIC_ARCHITECTURE.md` for the architecture rules.
@@ -92,6 +93,7 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 | Environment | Status | Scope |
 | --- | --- | --- |
 | RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
+| Somnia Shannon Testnet | Adapter and deployment path test-covered | Native verifiable VRF requests use Somnia's coordinator-funded Reactivity/drand flow. No public Delveworn deployment is advertised until its address and live fulfillment are verified. |
 | Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
 | Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
 | Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |
@@ -188,6 +190,22 @@ bash scripts/dev-autofulfill.sh
 ```
 
 The development adapter preserves the two-transaction request/callback lifecycle. It is operator-controlled and must never be used as a production or competitive randomness source.
+
+## Somnia Shannon deployment
+
+`SomniaNativeVRFAdapter` translates Delveworn's provider-neutral request and callback interface to Somnia's native `requestRandomWords` / `rawFulfillRandomWords` ABI. Requests always set `useVerifiableEntropy: true`. The default Shannon coordinator is `0x0834459256bbb8d2efee23dc6c3f1722266182dd`.
+
+Deploy the adapter and a fresh Delveworn core with the native coordinator:
+
+```bash
+forge script script/DeploySomniaShannon.s.sol:DeploySomniaShannon \
+  --rpc-url https://dream-rpc.somnia.network \
+  --gas-limit 150000000 \
+  --broadcast \
+  --private-key "$SOMNIA_DEPLOYER_PRIVATE_KEY"
+```
+
+The high transaction gas limit accommodates Shannon's deployment gas accounting; unused gas is not charged. The script deliberately defaults to Somnia's maximum `2_500_000` callback gas and minimum `16`-block commit delay. Override them only within Somnia's documented bounds with `SOMNIA_VRF_CALLBACK_GAS_LIMIT` and `SOMNIA_VRF_COMMIT_DELAY_BLOCKS`. The native coordinator pays entropy-delivery costs; the adapter requires no subscription or prefunding.
 
 ## Deployment
 

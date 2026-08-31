@@ -23,6 +23,7 @@ Current adapters include:
 
 - `LegacyVRFAdapter` for compatibility with the original VRF-style request/callback interface.
 - `ChainlinkV25DirectFundingAdapter` for Chainlink VRF v2.5 wrapper direct funding with the chain's native token.
+- `SomniaNativeVRFAdapter` for Somnia's Reactivity-native, drand-mixed request and callback interface.
 
 ## Deployment strategy
 

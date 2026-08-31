@@ -2,30 +2,46 @@
 pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
 import {Delveworn} from "../src/Delveworn.sol";
-import {ChainlinkV25DirectFundingAdapter} from "../src/adapters/ChainlinkV25DirectFundingAdapter.sol";
+import {SomniaNativeVRFAdapter} from "../src/adapters/SomniaNativeVRFAdapter.sol";
 
 contract DeploySomniaShannon is Script {
-    address internal constant DEFAULT_VRF_WRAPPER = 0x763cC914d5CA79B04dC4787aC14CcAd780a16BD2;
+    address internal constant DEFAULT_VRF_COORDINATOR = 0x0834459256bBB8D2EFEe23dc6C3F1722266182dD;
+    uint256 internal constant MAX_CALLBACK_GAS_LIMIT = 2_500_000;
+    uint256 internal constant MIN_COMMIT_DELAY_BLOCKS = 16;
+    uint256 internal constant MAX_COMMIT_DELAY_BLOCKS = 200;
 
-    function run() external returns (ChainlinkV25DirectFundingAdapter adapter, Delveworn dungeon) {
-        address wrapper = vm.envOr("SOMNIA_SHANNON_VRF_WRAPPER", DEFAULT_VRF_WRAPPER);
-        uint32 callbackGasLimit = uint32(vm.envOr("SOMNIA_VRF_CALLBACK_GAS_LIMIT", uint256(500_000)));
-        uint16 requestConfirmations = uint16(vm.envOr("SOMNIA_VRF_REQUEST_CONFIRMATIONS", uint256(3)));
-        uint256 prefundWei = vm.envOr("SOMNIA_VRF_PREFUND_WEI", uint256(0));
+    function run() external returns (SomniaNativeVRFAdapter adapter, Delveworn dungeon) {
+        address coordinator = vm.envOr("SOMNIA_SHANNON_VRF_COORDINATOR", DEFAULT_VRF_COORDINATOR);
+        uint256 callbackGasLimitValue = vm.envOr("SOMNIA_VRF_CALLBACK_GAS_LIMIT", uint256(2_500_000));
+        uint256 commitDelayBlocksValue = vm.envOr("SOMNIA_VRF_COMMIT_DELAY_BLOCKS", uint256(16));
+
+        require(coordinator != address(0), "Invalid Somnia VRF coordinator");
+        require(
+            callbackGasLimitValue > 0 && callbackGasLimitValue <= MAX_CALLBACK_GAS_LIMIT, "Invalid callback gas limit"
+        );
+        require(
+            commitDelayBlocksValue >= MIN_COMMIT_DELAY_BLOCKS && commitDelayBlocksValue <= MAX_COMMIT_DELAY_BLOCKS,
+            "Invalid commit delay"
+        );
+
+        uint32 callbackGasLimit = uint32(callbackGasLimitValue);
+        uint16 commitDelayBlocks = uint16(commitDelayBlocksValue);
 
         vm.startBroadcast();
 
-        adapter = new ChainlinkV25DirectFundingAdapter(wrapper, callbackGasLimit, requestConfirmations);
+        adapter = new SomniaNativeVRFAdapter(coordinator, callbackGasLimit, commitDelayBlocks);
 
         dungeon = new Delveworn(address(adapter));
         adapter.setConsumer(address(dungeon));
 
-        if (prefundWei > 0) {
-            (bool success,) = address(adapter).call{value: prefundWei}("");
-            require(success, "Adapter prefund failed");
-        }
-
         vm.stopBroadcast();
+
+        console2.log("Somnia native VRF coordinator:", coordinator);
+        console2.log("Somnia native VRF adapter:", address(adapter));
+        console2.log("Delveworn:", address(dungeon));
+        console2.log("Callback gas limit:", callbackGasLimit);
+        console2.log("Commit delay blocks:", commitDelayBlocks);
     }
 }
