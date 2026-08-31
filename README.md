@@ -195,17 +195,41 @@ The development adapter preserves the two-transaction request/callback lifecycle
 
 `SomniaNativeVRFAdapter` translates Delveworn's provider-neutral request and callback interface to Somnia's native `requestRandomWords` / `rawFulfillRandomWords` ABI. Requests always set `useVerifiableEntropy: true`. The default Shannon coordinator is `0x0834459256bbb8d2efee23dc6c3f1722266182dd`.
 
-Deploy the adapter and a fresh Delveworn core with the native coordinator:
+Deploy the adapter first:
 
 ```bash
-forge script script/DeploySomniaShannon.s.sol:DeploySomniaShannon \
+forge create src/adapters/SomniaNativeVRFAdapter.sol:SomniaNativeVRFAdapter \
   --rpc-url https://dream-rpc.somnia.network \
-  --gas-limit 150000000 \
+  --private-key "$SOMNIA_DEPLOYER_PRIVATE_KEY" \
   --broadcast \
-  --private-key "$SOMNIA_DEPLOYER_PRIVATE_KEY"
+  --gas-limit 20000000 \
+  --constructor-args \
+    0x0834459256bbb8d2efee23dc6c3f1722266182dd \
+    2500000 \
+    16
 ```
 
-The high transaction gas limit accommodates Shannon's deployment gas accounting; unused gas is not charged. The script deliberately defaults to Somnia's maximum `2_500_000` callback gas and minimum `16`-block commit delay. Override them only within Somnia's documented bounds with `SOMNIA_VRF_CALLBACK_GAS_LIMIT` and `SOMNIA_VRF_COMMIT_DELAY_BLOCKS`. The native coordinator pays entropy-delivery costs; the adapter requires no subscription or prefunding.
+Set the returned adapter address, deploy a fresh Delveworn core, then bind the adapter to that core exactly once:
+
+```bash
+export SOMNIA_VRF_ADAPTER=0x...
+
+forge create src/Delveworn.sol:Delveworn \
+  --rpc-url https://dream-rpc.somnia.network \
+  --private-key "$SOMNIA_DEPLOYER_PRIVATE_KEY" \
+  --broadcast \
+  --gas-limit 150000000 \
+  --constructor-args "$SOMNIA_VRF_ADAPTER"
+
+export SOMNIA_DUNGEON=0x...
+
+cast send "$SOMNIA_VRF_ADAPTER" "setConsumer(address)" "$SOMNIA_DUNGEON" \
+  --rpc-url https://dream-rpc.somnia.network \
+  --private-key "$SOMNIA_DEPLOYER_PRIVATE_KEY" \
+  --gas-limit 5000000
+```
+
+The high Delveworn deployment gas limit accommodates Shannon's deployment gas accounting; unused gas is not charged. The adapter uses Somnia's maximum `2_500_000` callback gas and minimum `16`-block commit delay. The native coordinator pays entropy-delivery costs; the adapter requires no subscription or prefunding. `script/DeploySomniaShannon.s.sol` contains the equivalent atomic deployment configuration for RPC environments that support Foundry script simulation.
 
 ## Deployment
 
