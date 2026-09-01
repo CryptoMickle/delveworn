@@ -3046,6 +3046,7 @@ function DelvewornGame() {
     useRef<{
       name: string;
       startedAt: number;
+      lastStageAt: number;
     } | null>(null);
 
   const bossRewardRef =
@@ -3067,9 +3068,15 @@ function DelvewornGame() {
       return;
     }
 
+    const now =
+      runtimeNowMs();
+
     console.info(
-      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} TIMING] ${timing.name} ${stage}: +${runtimeNowMs() - timing.startedAt}ms`
+      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} TIMING] ${timing.name} ${stage}: +${now - timing.startedAt}ms total, +${now - timing.lastStageAt}ms stage`
     );
+
+    timing.lastStageAt =
+      now;
   }
 
   useEffect(() => {
@@ -3580,7 +3587,10 @@ function DelvewornGame() {
         },
 
         pollingInterval:
-          500,
+          Math.max(
+            TESTNET_POLLING_MS,
+            250
+          ),
 
         onLogs:
           (
@@ -5799,6 +5809,9 @@ function DelvewornGame() {
     functionName:
       SessionAction,
 
+    waitForStatus =
+      true,
+
     args:
       readonly unknown[] = []
   ): Promise<
@@ -5834,6 +5847,27 @@ function DelvewornGame() {
         somniaSessionHandle.account,
         data
       );
+
+    timingLog(
+      "Somnia smart-account transaction confirmed"
+    );
+
+    if (!waitForStatus) {
+      /*
+        Thirdweb's smart-account sender has already waited for the ERC-4337
+        user operation receipt before returning the transaction hash. VRF
+        actions are completed by the lean RandomnessFulfilled watcher, so a
+        second HTTP receipt lookup only delays the animation without adding a
+        stronger confirmation signal.
+      */
+      return {
+        hash:
+          result.transactionHash,
+        logs: [],
+        bundleId:
+          "",
+      };
+    }
 
     const receipt =
       await waitForReceipt(
@@ -5898,6 +5932,7 @@ function DelvewornGame() {
       ) {
         return sendDungeonSomniaSessionCall(
           functionName,
+          waitForStatus,
           args
         );
       }
@@ -6736,9 +6771,15 @@ function DelvewornGame() {
       return;
     }
 
+    const actionStartedAt =
+      runtimeNowMs();
+
     actionTimingRef.current = {
       name: functionName,
-      startedAt: runtimeNowMs(),
+      startedAt:
+        actionStartedAt,
+      lastStageAt:
+        actionStartedAt,
     };
 
     timingLog(
@@ -6856,7 +6897,10 @@ function DelvewornGame() {
         );
 
       timingLog(
-        "sendDungeonSessionCall returned"
+        expectedRequestKind ===
+          RequestKind.None
+          ? "transaction flow completed"
+          : "transaction confirmed; VRF wait active"
       );
 
       transactionSubmitted =
