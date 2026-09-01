@@ -2076,9 +2076,20 @@ type LatencyBenchmarkSample = {
   id: string;
   action: string;
   mode: string;
+  smartAccount: SmartAccountLatencyBreakdown | null;
   submissionMs: number;
   vrfMs: number;
   stateSyncMs: number;
+  totalMs: number;
+};
+
+type SmartAccountLatencyBreakdown = {
+  preparationMs: number;
+  gasEstimationMs: number;
+  paymasterMs: number;
+  bundlerSubmissionMs: number;
+  inclusionWaitMs: number;
+  receiptPollCount: number;
   totalMs: number;
 };
 
@@ -2088,6 +2099,7 @@ type ActionTiming = {
   expectedRequestKind: number;
   startedAt: number;
   lastStageAt: number;
+  smartAccount: SmartAccountLatencyBreakdown | null;
   submissionConfirmedAt: number | null;
   vrfEventReceivedAt: number | null;
   stateReadStartedAt: number | null;
@@ -3149,6 +3161,8 @@ function DelvewornGame() {
           timing.name,
         mode:
           timing.mode,
+        smartAccount:
+          timing.smartAccount,
         submissionMs:
           Math.max(
             0,
@@ -5998,6 +6012,11 @@ function DelvewornGame() {
         data
       );
 
+    if (actionTimingRef.current) {
+      actionTimingRef.current.smartAccount =
+        result.benchmark;
+    }
+
     timingLog(
       "Somnia smart-account transaction confirmed"
     );
@@ -6939,6 +6958,8 @@ function DelvewornGame() {
         actionStartedAt,
       lastStageAt:
         actionStartedAt,
+      smartAccount:
+        null,
       submissionConfirmedAt:
         null,
       vrfEventReceivedAt:
@@ -8532,7 +8553,7 @@ function DelvewornGame() {
                   BUNDLER + VRF BENCHMARK
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Instant submit includes signing, sponsorship, bundler and confirmation. Standard submit also includes the wallet approval.
+                  Instant Play split follows Thirdweb&apos;s ERC-4337 flow. Prepare includes local work and gas estimation; inclusion is the wait after bundler submission.
                 </p>
               </div>
 
@@ -8559,25 +8580,35 @@ function DelvewornGame() {
               </p>
             ) : (
               <>
-                <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-6">
                   <SmallStat
-                    label="SUBMIT"
-                    value={`${(
-                      latencySamples[0].submissionMs /
-                      1_000
-                    ).toFixed(2)}s`}
+                    label="PREP + EST"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.preparationMs / 1_000).toFixed(2)}s`
+                      : "—"}
                   />
                   <SmallStat
-                    label="VRF + DETECTION"
+                    label="PAYMASTER"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.paymasterMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label="BUNDLER SEND"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.bundlerSubmissionMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label="INCLUSION"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.inclusionWaitMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label="VRF"
                     value={`${(
                       latencySamples[0].vrfMs /
-                      1_000
-                    ).toFixed(2)}s`}
-                  />
-                  <SmallStat
-                    label="STATE SYNC"
-                    value={`${(
-                      latencySamples[0].stateSyncMs /
                       1_000
                     ).toFixed(2)}s`}
                   />
@@ -8596,11 +8627,18 @@ function DelvewornGame() {
                   </summary>
                   <div className="mt-2 space-y-1 font-mono text-[10px]">
                     {latencySamples.map(
-                      (sample) => (
+                      (sample) => {
+                        const smart =
+                          sample.smartAccount;
+
+                        return (
                         <p key={sample.id}>
-                          {sample.mode} · {sample.action}: submit {(sample.submissionMs / 1_000).toFixed(2)}s · VRF {(sample.vrfMs / 1_000).toFixed(2)}s · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
+                          {sample.mode} · {sample.action}: {smart
+                            ? `prep ${(smart.preparationMs / 1_000).toFixed(2)}s (estimate ${(smart.gasEstimationMs / 1_000).toFixed(2)}s) · paymaster ${(smart.paymasterMs / 1_000).toFixed(2)}s · bundler ${(smart.bundlerSubmissionMs / 1_000).toFixed(2)}s · inclusion ${(smart.inclusionWaitMs / 1_000).toFixed(2)}s (${smart.receiptPollCount} polls) · `
+                            : `submit ${(sample.submissionMs / 1_000).toFixed(2)}s · `}VRF {(sample.vrfMs / 1_000).toFixed(2)}s · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
                         </p>
-                      )
+                        );
+                      }
                     )}
                   </div>
                 </details>
