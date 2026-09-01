@@ -2,33 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  createPublicClient,
   createWalletClient,
   custom,
   decodeEventLog,
   encodeFunctionData,
   getAddress,
-  http,
   keccak256,
   toHex,
-  webSocket,
   type Address,
 } from "viem";
-import { riseTestnet } from "viem/chains";
-import { shredActions } from "shreds/viem";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   WagmiProvider,
-  createConfig,
   useChainId,
   useConnect,
   useConnection,
   useDisconnect,
   useConnectors,
 } from "wagmi";
-import { metaMask } from "wagmi/connectors/metaMask";
-import { Chains, RiseWallet } from "rise-wallet";
-import { Hooks, riseWallet } from "rise-wallet/wagmi";
+import { Hooks } from "rise-wallet/wagmi";
 import { P256, PublicKey, Signature } from "ox";
 import {
   describeRelicEquipImpact,
@@ -51,6 +43,38 @@ import {
   RoomProgressLine,
   SmallStat,
 } from "./game-ui";
+import { createRiseShredsClient } from "./rise-shreds-client";
+import {
+  ACTION_READY_POLL_MS,
+  ACTION_READY_TIMEOUT_MS,
+  ACTIVE_CHAIN,
+  ACTIVE_CHAIN_ID,
+  ACTIVE_ECOSYSTEM_NAME,
+  ACTIVE_NETWORK_LABEL,
+  DUNGEON_ADDRESS,
+  DUNGEON_EXPLORER_URL,
+  METAMASK_CONNECTOR_ID,
+  METAMASK_CONNECTOR_NAME,
+  MIN_VRF_DISPLAY_MS,
+  RISE_WALLET_CONNECTOR_ID,
+  SESSION_DURATION_SECONDS,
+  TESTNET_POLLING_MS,
+  VRF_CANONICAL_FALLBACK_MS,
+  VRF_DELAYED_NOTICE_MS,
+  activeRandomnessProviderLabel,
+  connectedNetworkLabel,
+  delayedRandomnessText,
+  delayedRandomnessTitle,
+  ensureActiveChain,
+  isMetaMaskConnector,
+  isRiseWalletConnector,
+  publicClient,
+  runtimeFooterLabel,
+  sessionStorageKey,
+  supportsInstantPlay,
+  supportsRandomnessRetry,
+  wagmiConfig,
+} from "./page-runtime-bindings";
 
 /*
   ============================================================
@@ -59,89 +83,10 @@ import {
   ============================================================
 */
 
-const CONFIGURED_DUNGEON_ADDRESS =
-  process.env.NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS ??
-  process.env.NEXT_PUBLIC_DUNGEON_ADDRESS;
-
-if (!CONFIGURED_DUNGEON_ADDRESS) {
-  throw new Error(
-    "NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS or NEXT_PUBLIC_DUNGEON_ADDRESS is not set. Add the deployed Delveworn address to frontend/.env.local and restart Next.js."
-  );
-}
-
-const DUNGEON_ADDRESS =
-  getAddress(
-    CONFIGURED_DUNGEON_ADDRESS
-  );
-
-const DUNGEON_EXPLORER_URL =
-  `https://explorer.testnet.riselabs.xyz/address/${DUNGEON_ADDRESS}`;
-
-const RPC_URL =
-  "https://testnet.riselabs.xyz";
-
-const WS_URL =
-  "wss://testnet.riselabs.xyz/ws";
-
-const TESTNET_POLLING_MS = 50;
-const MIN_VRF_DISPLAY_MS = 300;
-const VRF_DELAYED_NOTICE_MS = 5_000;
-const VRF_CANONICAL_FALLBACK_MS = 20_000;
-const ACTION_READY_TIMEOUT_MS = 45_000;
-const ACTION_READY_POLL_MS = 250;
 const FRONTEND_SNAPSHOT_V3_RETRY_MS = 5_000;
 
-const SESSION_DURATION_SECONDS = 8 * 60 * 60;
 const SESSION_STATUS_TIMEOUT_MS = 12_000;
 const SESSION_STATUS_POLL_MS = 40;
-
-const RISE_WALLET_CONNECTOR_ID =
-  "com.risechain.wallet";
-
-const METAMASK_CONNECTOR_ID =
-  "metaMaskSDK";
-
-const METAMASK_CONNECTOR_NAME =
-  "MetaMask";
-
-const riseWalletConnector =
-  riseWallet(
-    RiseWallet.defaultConfig
-  );
-
-const metaMaskConnector =
-  metaMask({
-    dapp: {
-      name:
-        "RISE Dungeon",
-      url:
-        typeof window ===
-        "undefined"
-          ? "https://rise-dungeon-frontend.vercel.app"
-          : window.location.origin,
-    },
-  });
-
-const wagmiConfig =
-  createConfig({
-    ssr: true,
-
-    chains: [
-      Chains.riseTestnet,
-    ],
-
-    connectors: [
-      riseWalletConnector,
-      metaMaskConnector,
-    ],
-
-    transports: {
-      [Chains.riseTestnet.id]:
-        http(
-          RPC_URL
-        ),
-    },
-  });
 
 /*
   ============================================================
@@ -205,90 +150,6 @@ function asInjectedProvider(
     InjectedProvider;
 }
 
-function getErrorCode(
-  error: unknown
-) {
-  if (
-    typeof error ===
-      "object" &&
-    error !== null &&
-    "code" in error
-  ) {
-    return Number(
-      (
-        error as {
-          code: unknown;
-        }
-      ).code
-    );
-  }
-
-  return undefined;
-}
-
-async function ensureRiseTestnet(
-  provider:
-    InjectedProvider
-) {
-  const chainId =
-    `0x${riseTestnet.id.toString(16)}`;
-
-  try {
-    await provider.request({
-      method:
-        "wallet_switchEthereumChain",
-
-      params: [
-        {
-          chainId,
-        },
-      ],
-    });
-  } catch (
-    error
-  ) {
-    if (
-      getErrorCode(error) !==
-      4902
-    ) {
-      throw error;
-    }
-
-    await provider.request({
-      method:
-        "wallet_addEthereumChain",
-
-      params: [
-        {
-          chainId,
-
-          chainName:
-            "RISE Testnet",
-
-          nativeCurrency: {
-            name:
-              "Ether",
-
-            symbol:
-              "ETH",
-
-            decimals:
-              18,
-          },
-
-          rpcUrls: [
-            RPC_URL,
-          ],
-
-          blockExplorerUrls: [
-            "https://explorer.testnet.riselabs.xyz",
-          ],
-        },
-      ],
-    });
-  }
-}
-
 async function createConnectedWalletClient(
   account:
     Address,
@@ -296,7 +157,7 @@ async function createConnectedWalletClient(
   provider:
     InjectedProvider
 ) {
-  await ensureRiseTestnet(
+  await ensureActiveChain(
     provider
   );
 
@@ -304,7 +165,7 @@ async function createConnectedWalletClient(
     account,
 
     chain:
-      riseTestnet,
+      ACTIVE_CHAIN,
 
     transport:
       custom(
@@ -313,49 +174,8 @@ async function createConnectedWalletClient(
   });
 }
 
-const publicClient =
-  createPublicClient({
-    chain:
-      riseTestnet,
-
-    pollingInterval:
-      TESTNET_POLLING_MS,
-
-    cacheTime: 0,
-
-    transport: http(
-      RPC_URL
-    ),
-  });
-
 const realtimeClient =
-  createPublicClient({
-    chain:
-      riseTestnet,
-
-    cacheTime: 0,
-
-    transport:
-      webSocket(
-        WS_URL,
-        {
-          keepAlive: {
-            interval: 5_000,
-          },
-
-          reconnect: {
-            attempts: 100,
-            delay: 500,
-          },
-
-          retryCount: 5,
-          retryDelay: 100,
-          timeout: 15_000,
-        }
-      ),
-  }).extend(
-    shredActions
-  );
+  createRiseShredsClient();
 
 /*
   ============================================================
@@ -962,9 +782,6 @@ type SessionAction =
   | PendingAction
   | RecoveryAction;
 
-const SESSION_PERMISSION_VERSION =
-  "4";
-
 const SESSION_FUNCTION_SIGNATURES = [
   "startGame()",
   "attack()",
@@ -994,14 +811,6 @@ function selectorFor(
     0,
     10
   ) as `0x${string}`;
-}
-
-function sessionStorageKey(
-  address: Address
-) {
-  return (
-    `rise_dungeon_${DUNGEON_ADDRESS.toLowerCase()}_${address.toLowerCase()}_session_v${SESSION_PERMISSION_VERSION}_key`
-  );
 }
 
 /*
@@ -2099,7 +1908,7 @@ async function fetchPlayerState(
   const reader =
     source ===
     "realtime"
-      ? realtimeClient
+      ? realtimeClient ?? publicClient
       : publicClient;
 
   let snapshot: unknown;
@@ -2976,7 +2785,7 @@ function getLootMessage(
   ============================================================
 */
 
-function RiseProviders({
+function ChainProviders({
   children,
 }: {
   children:
@@ -3010,9 +2819,9 @@ function RiseProviders({
 
 export default function Home() {
   return (
-    <RiseProviders>
+    <ChainProviders>
       <DelvewornGame />
-    </RiseProviders>
+    </ChainProviders>
   );
 }
 
@@ -3044,7 +2853,12 @@ function DelvewornGame() {
     Hooks.useRevokePermissions();
 
   const permissionsQuery =
-    Hooks.usePermissions();
+    Hooks.usePermissions({
+      query: {
+        enabled:
+          supportsInstantPlay(),
+      },
+    });
 
   const [
     player,
@@ -3220,14 +3034,14 @@ function DelvewornGame() {
 
     if (!timing) {
       console.info(
-        `[RISE TIMING] ${stage}`
+        `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} TIMING] ${stage}`
       );
 
       return;
     }
 
     console.info(
-      `[RISE TIMING] ${timing.name} ${stage}: +${runtimeNowMs() - timing.startedAt}ms`
+      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} TIMING] ${timing.name} ${stage}: +${runtimeNowMs() - timing.startedAt}ms`
     );
   }
 
@@ -3295,14 +3109,14 @@ function DelvewornGame() {
     );
 
   const isRiseWallet =
-    connector?.id ===
-      RISE_WALLET_CONNECTOR_ID;
+    isRiseWalletConnector(
+      connector
+    );
 
   const isMetaMask =
-    connector?.id ===
-      METAMASK_CONNECTOR_ID ||
-    connector?.name ===
-      METAMASK_CONNECTOR_NAME;
+    isMetaMaskConnector(
+      connector
+    );
 
   const canPlay =
     Boolean(
@@ -3594,7 +3408,8 @@ function DelvewornGame() {
     };
 
     const unwatchShreds =
-      realtimeClient.watchShreds({
+      realtimeClient
+        ? realtimeClient.watchShreds({
         includeStateChanges:
           false,
 
@@ -3686,7 +3501,8 @@ function DelvewornGame() {
               error
             );
           },
-      });
+        })
+        : () => {};
 
     const unwatchHttpEvents =
       publicClient.watchContractEvent({
@@ -3753,7 +3569,7 @@ function DelvewornGame() {
             error
           ) => {
             console.warn(
-              "RISE HTTP event fallback issue:",
+              `${ACTIVE_NETWORK_LABEL} event polling issue:`,
               error
             );
           },
@@ -4143,6 +3959,7 @@ function DelvewornGame() {
       if (
         elapsed >=
           VRF_DELAYED_NOTICE_MS &&
+        supportsRandomnessRetry() &&
         runtimeNowMs() -
           lastRetryAvailabilityCheck >=
           1_000
@@ -4287,7 +4104,7 @@ function DelvewornGame() {
         Important: a frontend timeout must NEVER unlock the action while
         the contract still has pendingRequestId != 0. This preserves the
         original action context so the battle log can be generated even
-        when RISE Testnet fulfills VRF several minutes late.
+        when the active network fulfills VRF several minutes late.
       */
       if (
         elapsed >
@@ -4586,7 +4403,7 @@ function DelvewornGame() {
               recovered
             ) {
               addMessages([
-                "🎲 Pending RISE Fast VRF request resolved.",
+                `🎲 Pending ${activeRandomnessProviderLabel()} request resolved.`,
               ]);
             }
           } catch (
@@ -4631,7 +4448,7 @@ function DelvewornGame() {
       );
 
       setWalletMessage(
-        "Could not read Delveworn from RISE Testnet."
+        `Could not read Delveworn from ${ACTIVE_NETWORK_LABEL}.`
       );
 
       setLoading(
@@ -4688,7 +4505,7 @@ function DelvewornGame() {
           connector:
             connectorToUse,
           chainId:
-            riseTestnet.id,
+            ACTIVE_CHAIN_ID,
         });
     } catch (
       error
@@ -5569,7 +5386,7 @@ function DelvewornGame() {
           account:
             connectedAddress,
           chain:
-            riseTestnet,
+            ACTIVE_CHAIN,
           to:
             DUNGEON_ADDRESS,
           data,
@@ -5639,12 +5456,15 @@ function DelvewornGame() {
     }
 
     throw new Error(
-      "Connect RISE Wallet or MetaMask before continuing."
+      supportsInstantPlay()
+        ? "Connect RISE Wallet or MetaMask before continuing."
+        : "Connect MetaMask before continuing."
     );
   }
 
   async function retryVrf() {
     if (
+      !supportsRandomnessRetry() ||
       !connectedAddress ||
       !canPlay ||
       canonicalSyncing ||
@@ -5726,7 +5546,7 @@ function DelvewornGame() {
       }
 
       console.info(
-        `[RISE VRF] retrying request ${beforeRetry.pendingRequestId.toString()}`
+        `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} VRF] retrying request ${beforeRetry.pendingRequestId.toString()}`
       );
 
       await sendDungeonActionCall(
@@ -5791,7 +5611,7 @@ function DelvewornGame() {
       );
 
       console.info(
-        `[RISE VRF] request ${beforeRetry.pendingRequestId.toString()} replaced by ${afterRetry.pendingRequestId.toString()}`
+        `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} VRF] request ${beforeRetry.pendingRequestId.toString()} replaced by ${afterRetry.pendingRequestId.toString()}`
       );
     } catch (
       error
@@ -5876,7 +5696,7 @@ function DelvewornGame() {
           );
 
           console.info(
-            `[RISE VRF] retry landed despite wallet status error: ${originalRequestId.toString()} -> ${recovered.pendingRequestId.toString()}`
+            `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} VRF] retry landed despite wallet status error: ${originalRequestId.toString()} -> ${recovered.pendingRequestId.toString()}`
           );
 
           return;
@@ -6457,7 +6277,7 @@ function DelvewornGame() {
         BigInt(0)
     ) {
       setWalletMessage(
-        "Previous action is still finalizing on RISE. Please wait until the action buttons unlock."
+        `Previous action is still finalizing on ${ACTIVE_ECOSYSTEM_NAME}. Please wait until the action buttons unlock.`
       );
 
       return;
@@ -6484,7 +6304,9 @@ function DelvewornGame() {
         !canPlay
       ) {
         setWalletMessage(
-          "Connect RISE Wallet or MetaMask before continuing."
+          supportsInstantPlay()
+            ? "Connect RISE Wallet or MetaMask before continuing."
+            : "Connect MetaMask before continuing."
         );
 
         return;
@@ -7120,7 +6942,7 @@ function DelvewornGame() {
         );
 
         alert(
-          "Transaction failed. Check your wallet, RISE Testnet balance and browser console."
+          `Transaction failed. Check your wallet, ${ACTIVE_NETWORK_LABEL} balance and browser console.`
         );
       }
     } finally {
@@ -7163,12 +6985,12 @@ function DelvewornGame() {
     const supportedConnector =
       connector &&
       (
-        connector.id ===
-          RISE_WALLET_CONNECTOR_ID ||
-        connector.id ===
-          METAMASK_CONNECTOR_ID ||
-        connector.name ===
-          METAMASK_CONNECTOR_NAME
+        isRiseWalletConnector(
+          connector
+        ) ||
+        isMetaMaskConnector(
+          connector
+        )
       );
 
     if (
@@ -7187,7 +7009,9 @@ function DelvewornGame() {
       );
 
       setWalletMessage(
-        "Unsupported wallet connection. Connect RISE Wallet or MetaMask."
+        supportsInstantPlay()
+          ? "Unsupported wallet connection. Connect RISE Wallet or MetaMask."
+          : "Unsupported wallet connection. Connect MetaMask."
       );
 
       return;
@@ -7281,7 +7105,7 @@ function DelvewornGame() {
   ) {
     return (
       <main className="delveworn-onchain-mode min-h-screen bg-[#090909] text-white flex items-center justify-center">
-        Connecting to RISE Testnet...
+        Connecting to {ACTIVE_NETWORK_LABEL}...
       </main>
     );
   }
@@ -7295,16 +7119,18 @@ function DelvewornGame() {
         <div className="practice-column mx-auto w-full max-w-md lg:max-w-6xl">
           <GameHeader
             mode="onchain"
-            eyebrow="LIVE ON RISE TESTNET"
+            eyebrow={`LIVE ON ${ACTIVE_NETWORK_LABEL.toUpperCase()}`}
             subtitle="Enter the dungeon"
-            meta={`VERIFIABLE VRF · WALLET-SIGNED ACTIONS · CHAIN ID ${riseTestnet.id}`}
+            meta={`VERIFIABLE VRF · WALLET-SIGNED ACTIONS · CHAIN ID ${ACTIVE_CHAIN_ID}`}
           />
           <section className="practice-main-card relative mb-4 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
             <DungeonEntry
               mode="onchain"
               eyebrow={walletChoiceOpen ? "CHOOSE YOUR ENTRY" : "FULLY ONCHAIN EXPEDITION"}
               description={walletChoiceOpen
-                ? "Choose Instant Play with RISE Wallet, or Standard Play with MetaMask."
+                ? supportsInstantPlay()
+                  ? "Choose Instant Play with RISE Wallet, or Standard Play with MetaMask."
+                  : `Connect MetaMask for standard wallet-signed play on ${ACTIVE_NETWORK_LABEL}.`
                 : "Enter the live testnet game. Actions, randomness, progress and rewards are verifiable onchain."}
               proofFooter={
                 <a href={DUNGEON_EXPLORER_URL} target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2 transition hover:text-white">
@@ -7314,17 +7140,19 @@ function DelvewornGame() {
             >
               {walletChoiceOpen ? (
                 <div className="mt-6 w-full">
-                  <button
-                    type="button"
-                    onClick={() => connectWallet("rise")}
-                    className="delveworn-primary-cta w-full rounded-xl py-4 text-lg font-black transition"
-                  >
-                    ⚡ RISE WALLET · INSTANT PLAY
-                  </button>
+                  {supportsInstantPlay() && (
+                    <button
+                      type="button"
+                      onClick={() => connectWallet("rise")}
+                      className="delveworn-primary-cta w-full rounded-xl py-4 text-lg font-black transition"
+                    >
+                      ⚡ RISE WALLET · INSTANT PLAY
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => connectWallet("metamask")}
-                    className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-800 py-4 text-lg font-black text-white transition hover:bg-zinc-700"
+                    className={`${supportsInstantPlay() ? "mt-3 " : ""}w-full rounded-xl border border-zinc-700 bg-zinc-800 py-4 text-lg font-black text-white transition hover:bg-zinc-700`}
                   >
                     🦊 METAMASK · STANDARD PLAY
                   </button>
@@ -7335,7 +7163,11 @@ function DelvewornGame() {
                   >
                     back to entrance
                   </button>
-                  <p className="mt-3 text-[10px] text-zinc-600">MetaMask confirms each action. RISE Wallet enables popup-free play after one session approval.</p>
+                  <p className="mt-3 text-[10px] text-zinc-600">
+                    {supportsInstantPlay()
+                      ? "MetaMask confirms each action. RISE Wallet enables popup-free play after one session approval."
+                      : "MetaMask confirms each onchain action."}
+                  </p>
                 </div>
               ) : (
                 <>
@@ -7373,7 +7205,7 @@ function DelvewornGame() {
         <div className="w-full max-w-md mx-auto text-center">
 
           <p className="text-xs tracking-[0.35em] text-orange-400 mb-2">
-            LIVE ON RISE TESTNET
+            LIVE ON {ACTIVE_NETWORK_LABEL.toUpperCase()}
           </p>
 
           <h1 className="text-4xl font-black tracking-tight">
@@ -7456,7 +7288,7 @@ function DelvewornGame() {
             )}
 
             <p className="text-[10px] text-zinc-600 mt-5">
-              RISE Testnet · {connectedAddress.slice(0, 6)}…{connectedAddress.slice(-4)}
+              {connectedNetworkLabel(connectedAddress)}
             </p>
 
           </div>
@@ -7839,7 +7671,7 @@ function DelvewornGame() {
       "FINALIZING ACTION";
 
     rollingText =
-      "Randomness is resolved. Waiting until RISE is ready for your next transaction...";
+      `Randomness is resolved. Waiting until ${ACTIVE_ECOSYSTEM_NAME} is ready for your next transaction...`;
   }
 
   if (
@@ -7850,15 +7682,15 @@ function DelvewornGame() {
       "⏳";
 
     rollingLabel =
-      "RISE TESTNET";
+      ACTIVE_NETWORK_LABEL.toUpperCase();
 
     rollingTitle =
-      "WAITING FOR RISE VRF";
+      delayedRandomnessTitle();
 
     rollingText =
-      vrfRetryAvailable
-        ? "RISE has not fulfilled this request within the onchain timeout. You can safely replace it with a fresh VRF request."
-        : "Your action is submitted. RISE has not fulfilled the randomness request yet. The result will appear automatically.";
+      delayedRandomnessText(
+        vrfRetryAvailable
+      );
   }
 
   /*
@@ -7876,7 +7708,7 @@ function DelvewornGame() {
 
         <GameHeader
           mode="onchain"
-          eyebrow="LIVE ON RISE TESTNET"
+          eyebrow={`LIVE ON ${ACTIVE_NETWORK_LABEL.toUpperCase()}`}
           subtitle={subtitle}
           meta={<>ONCHAIN SESSION · {connectedAddress.slice(0, 6)}…{connectedAddress.slice(-4)}</>}
         >
@@ -8445,7 +8277,8 @@ function DelvewornGame() {
 
                 </div>
 
-                {vrfRetryAvailable &&
+                {supportsRandomnessRetry() &&
+                  vrfRetryAvailable &&
                   !canonicalSyncing && (
                     <>
                       <button
@@ -9304,7 +9137,7 @@ function DelvewornGame() {
         <footer className="practice-footer mt-6 pb-24 text-center">
 
           <p className="text-[10px] text-zinc-700">
-            V8.6.9b · RISE Testnet · RISE Instant Play · MetaMask Standard Play
+            V8.6.9b · {runtimeFooterLabel()} · {supportsInstantPlay() ? "RISE Instant Play · " : ""}MetaMask Standard Play
           </p>
 
           <p className="text-[10px] text-zinc-800 mt-1">

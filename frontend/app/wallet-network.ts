@@ -9,7 +9,9 @@ function getErrorCode(error: unknown) {
   return undefined;
 }
 
-export async function ensureActiveChain(provider: EIP1193Provider) {
+export async function ensureActiveChain(
+  provider: Pick<EIP1193Provider, "request">
+) {
   const chainId = activeChainIdHex();
 
   try {
