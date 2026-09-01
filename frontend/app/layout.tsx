@@ -16,33 +16,34 @@ const geistMono = Geist_Mono({
 });
 
 const description =
-  "A browser-playable dungeon crawler for learning the rooms, testing builds and surviving questionable management decisions.";
+  "A fully onchain dungeon crawler with wallet-signed actions, verifiable randomness and contract-backed progress.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://delveworn.vercel.app"),
-  title: "Delveworn · Local Practice Mode",
+  title: "Delveworn · Onchain Dungeon",
   description,
   applicationName: "Delveworn",
   alternates: {
-    canonical: "/practice",
+    canonical: "/onchain",
   },
   keywords: [
     "Delveworn",
     "dungeon crawler",
-    "browser game",
-    "practice mode",
+    "onchain game",
+    "verifiable randomness",
+    "testnet",
     "roguelite",
   ],
   openGraph: {
-    title: "Delveworn · Local Practice Mode",
+    title: "Delveworn · Onchain Dungeon",
     description,
     type: "website",
     siteName: "Delveworn",
-    url: "/practice",
+    url: "/onchain",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Delveworn · Local Practice Mode",
+    title: "Delveworn · Onchain Dungeon",
     description,
   },
 };
