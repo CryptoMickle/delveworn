@@ -12,6 +12,7 @@ import {
   isRiseWalletConnector,
   sessionStorageKey,
   supportsInstantPlay,
+  supportsThirdwebSessionKeys,
 } from "./session-provider-policy";
 import {
   activeRandomnessProvider,
@@ -90,6 +91,7 @@ export {
   runtimeFooterLabel,
   sessionStorageKey,
   supportsInstantPlay,
+  supportsThirdwebSessionKeys,
   supportsRandomnessRetry,
   wagmiConfig,
 };

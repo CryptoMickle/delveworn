@@ -1,0 +1,250 @@
+"use client";
+
+import type { ThirdwebClient } from "thirdweb";
+import { defineChain } from "thirdweb/chains";
+import { getContract } from "thirdweb/contract";
+import {
+  getPermissionsForSigner,
+  removeSessionKey,
+} from "thirdweb/extensions/erc4337";
+import { createWallet, type Account } from "thirdweb/wallets";
+import { privateKeyToAccount } from "thirdweb/wallets/private-key";
+import { smartWallet } from "thirdweb/wallets/smart";
+import {
+  prepareTransaction,
+  sendTransaction,
+} from "thirdweb/transaction";
+import {
+  getAddress,
+  type Address,
+  type Hex,
+} from "viem";
+import { generatePrivateKey } from "viem/accounts";
+import { activeDeployment } from "./chain-config";
+import { SESSION_DURATION_SECONDS } from "./session-provider-policy";
+import {
+  normalizeSomniaSessionRecord,
+  type SomniaSessionRecord,
+} from "./somnia-session-storage";
+
+const CLOCK_SKEW_MS = 30_000;
+
+export type SomniaSessionHandle = {
+  account: Account;
+  record: SomniaSessionRecord;
+};
+
+const somniaChain = defineChain({
+  id: activeDeployment.chain.id,
+  name: activeDeployment.chain.name,
+  rpc: activeDeployment.rpcUrl,
+  nativeCurrency: activeDeployment.chain.nativeCurrency,
+  blockExplorers: activeDeployment.chain.blockExplorers
+    ? [
+        {
+          name: activeDeployment.chain.blockExplorers.default.name,
+          url: activeDeployment.chain.blockExplorers.default.url,
+        },
+      ]
+    : undefined,
+  testnet: true,
+});
+
+let cachedClient: ThirdwebClient | null = null;
+
+function thirdwebClient() {
+  const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
+
+  if (!clientId) {
+    throw new Error(
+      "Somnia Instant Play requires NEXT_PUBLIC_THIRDWEB_CLIENT_ID."
+    );
+  }
+
+  cachedClient ??= {
+    clientId,
+    secretKey: undefined,
+  };
+
+  return cachedClient;
+}
+
+function sessionPermissions(expiresAt: number) {
+  return {
+    approvedTargets: [activeDeployment.dungeonAddress],
+    nativeTokenLimitPerTransaction: 0,
+    permissionStartTimestamp: new Date(Date.now() - CLOCK_SKEW_MS),
+    permissionEndTimestamp: new Date(expiresAt),
+  };
+}
+
+async function connectMetaMaskOwner(ownerAddress: Address) {
+  const wallet = createWallet("io.metamask");
+  const account = await wallet.connect({
+    client: thirdwebClient(),
+    chain: somniaChain,
+  });
+
+  if (account.address.toLowerCase() !== ownerAddress.toLowerCase()) {
+    throw new Error("Connected MetaMask account changed during session setup.");
+  }
+
+  return account;
+}
+
+async function connectSessionSigner(record: SomniaSessionRecord) {
+  const client = thirdwebClient();
+  const signer = privateKeyToAccount({
+    client,
+    privateKey: record.sessionPrivateKey,
+  });
+  const wallet = smartWallet({
+    chain: somniaChain,
+    sponsorGas: true,
+    overrides: {
+      accountAddress: record.smartAccountAddress,
+    },
+  });
+
+  return wallet.connect({
+    client,
+    personalAccount: signer,
+  });
+}
+
+async function verifyStoredPermissions(record: SomniaSessionRecord) {
+  const client = thirdwebClient();
+  const contract = getContract({
+    client,
+    chain: somniaChain,
+    address: record.smartAccountAddress,
+  });
+  const permissions = await getPermissionsForSigner({
+    contract,
+    signer: record.sessionKeyAddress,
+  });
+  const nowSeconds = BigInt(Math.floor(Date.now() / 1_000));
+  const targetAllowed = permissions.approvedTargets.some(
+    (target) =>
+      target.toLowerCase() === activeDeployment.dungeonAddress.toLowerCase()
+  );
+
+  if (
+    permissions.signer.toLowerCase() !== record.sessionKeyAddress.toLowerCase() ||
+    !targetAllowed ||
+    permissions.nativeTokenLimitPerTransaction !== BigInt(0) ||
+    permissions.startTimestamp > nowSeconds ||
+    permissions.endTimestamp <= nowSeconds
+  ) {
+    throw new Error("Stored Somnia session permission is no longer active.");
+  }
+}
+
+export async function restoreSomniaSession(
+  record: SomniaSessionRecord
+): Promise<SomniaSessionHandle> {
+  const normalized = normalizeSomniaSessionRecord(record);
+
+  if (normalized.expiresAt <= Date.now()) {
+    throw new Error("Stored Somnia session has expired.");
+  }
+
+  await verifyStoredPermissions(normalized);
+
+  return {
+    account: await connectSessionSigner(normalized),
+    record: normalized,
+  };
+}
+
+export async function createSomniaSession(
+  ownerAddress: Address
+): Promise<SomniaSessionHandle> {
+  const client = thirdwebClient();
+  const adminAccount = await connectMetaMaskOwner(ownerAddress);
+
+  const sessionPrivateKey = generatePrivateKey();
+  const sessionSigner = privateKeyToAccount({
+    client,
+    privateKey: sessionPrivateKey,
+  });
+  const expiresAt = Date.now() + SESSION_DURATION_SECONDS * 1_000;
+  const wallet = smartWallet({
+    chain: somniaChain,
+    sponsorGas: true,
+    sessionKey: {
+      address: sessionSigner.address,
+      permissions: sessionPermissions(expiresAt),
+    },
+  });
+  const adminSmartAccount = await wallet.connect({
+    client,
+    personalAccount: adminAccount,
+  });
+  const record: SomniaSessionRecord = normalizeSomniaSessionRecord({
+    version: 1,
+    ownerAddress,
+    smartAccountAddress: getAddress(adminSmartAccount.address),
+    sessionKeyAddress: getAddress(sessionSigner.address),
+    sessionPrivateKey,
+    dungeonAddress: activeDeployment.dungeonAddress,
+    expiresAt,
+  });
+
+  await verifyStoredPermissions(record);
+
+  return {
+    account: await connectSessionSigner(record),
+    record,
+  };
+}
+
+export async function sendSomniaSessionTransaction(
+  account: Account,
+  data: Hex
+) {
+  const client = thirdwebClient();
+  const transaction = prepareTransaction({
+    client,
+    chain: somniaChain,
+    to: activeDeployment.dungeonAddress,
+    data,
+    value: BigInt(0),
+  });
+
+  return sendTransaction({ account, transaction });
+}
+
+export async function revokeSomniaSession(
+  record: SomniaSessionRecord
+) {
+  const client = thirdwebClient();
+  const adminAccount = await connectMetaMaskOwner(record.ownerAddress);
+
+  const wallet = smartWallet({
+    chain: somniaChain,
+    sponsorGas: true,
+    overrides: {
+      accountAddress: record.smartAccountAddress,
+    },
+  });
+  const smartAccount = await wallet.connect({
+    client,
+    personalAccount: adminAccount,
+  });
+  const contract = getContract({
+    client,
+    chain: somniaChain,
+    address: record.smartAccountAddress,
+  });
+  const transaction = removeSessionKey({
+    account: adminAccount,
+    contract,
+    sessionKeyAddress: record.sessionKeyAddress,
+  });
+
+  return sendTransaction({
+    account: smartAccount,
+    transaction,
+  });
+}

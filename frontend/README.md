@@ -1,6 +1,6 @@
 # Delveworn
 
-Delveworn is a fully onchain dungeon crawler. The public frontend remains on RISE Testnet and supports RISE Wallet session keys for fast, popup-free gameplay, plus MetaMask standard transactions. A separately selectable Somnia Shannon configuration uses MetaMask and Somnia Native VRF without changing the public RISE experience.
+Delveworn is a fully onchain dungeon crawler. The public frontend remains on RISE Testnet and supports RISE Wallet session keys for fast, popup-free gameplay, plus MetaMask standard transactions. A separately selectable Somnia Shannon configuration uses MetaMask and Somnia Native VRF without changing the public RISE experience. Somnia ERC-4337 Instant Play is implemented behind an explicit, disabled-by-default feature flag.
 
 ## Status
 
@@ -13,6 +13,7 @@ Public testnet beta. The game is deployed through Vercel from the `main` branch 
 - TypeScript
 - RISE Wallet
 - MetaMask
+- Thirdweb ERC-4337 smart accounts
 - viem + wagmi
 - shreds
 - TanStack Query
@@ -37,6 +38,22 @@ To run the separately verified Somnia Shannon deployment instead:
 NEXT_PUBLIC_DEPLOYMENT=somniaShannon
 NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
 ```
+
+Standard MetaMask play remains the Somnia default. To test the separate
+ERC-4337 Instant Play path, create a public Thirdweb client for Shannon,
+configure its allowed development domain and sponsored-gas policy, then add:
+
+```bash
+NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_public_client_id
+```
+
+Instant Play uses MetaMask as the smart account owner. It creates a local
+8-hour session key whose onchain permissions allow only zero-value calls to the
+configured Delveworn contract. The key is stored in browser local storage and
+is never sent to Delveworn or the repository. The ERC-4337 smart account is a
+different onchain player address from the MetaMask EOA, so existing EOA game
+progress does not transfer between the two modes.
 
 `NEXT_PUBLIC_DUNGEON_ADDRESS` remains supported as a legacy fallback.
 
@@ -79,4 +96,4 @@ The repository includes `scripts/vrf-latency-monitor.mjs` for measuring request/
 
 ## Network
 
-The public frontend targets RISE Testnet. Somnia Shannon is available as an opt-in build configuration using chain ID `50312`, the official Dream RPC and Somnia Native VRF. Somnia supports ERC-4337-style smart accounts and session keys at the network/tooling layer, but Delveworn's Somnia configuration currently uses MetaMask standard transactions until a specific account-abstraction provider and smart-account flow are integrated and tested. Product naming remains chain-independent; contract addresses and network configuration must be selected per deployment before any mainnet release.
+The public frontend targets RISE Testnet. Somnia Shannon is available as an opt-in build configuration using chain ID `50312`, the official Dream RPC and Somnia Native VRF. Its Thirdweb ERC-4337 smart-account/session-key path is feature-flagged and must be explicitly configured and tested before public activation; MetaMask standard transactions remain available independently. Product naming remains chain-independent; contract addresses and network configuration must be selected per deployment before any mainnet release.

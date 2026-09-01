@@ -15,14 +15,24 @@ on:
 
 jobs:
   check:
-    name: Next.js checks (${{ matrix.deployment }})
+    name: Next.js checks (${{ matrix.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        deployment:
-          - riseTestnet
-          - somniaShannon
+        include:
+          - name: riseTestnet
+            deployment: riseTestnet
+            session_keys: "false"
+            thirdweb_client_id: ""
+          - name: somniaShannon-standard
+            deployment: somniaShannon
+            session_keys: "false"
+            thirdweb_client_id: ""
+          - name: somniaShannon-session-keys
+            deployment: somniaShannon
+            session_keys: "true"
+            thirdweb_client_id: "ci-public-client-id"
     permissions:
       contents: read
     defaults:
@@ -52,4 +62,6 @@ jobs:
           NEXT_PUBLIC_DEPLOYMENT: ${{ matrix.deployment }}
           NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS: "0x0000000000000000000000000000000000000001"
           NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS: "0x07c5D071132ae95C3708031790b3feC740F4c292"
+          NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED: ${{ matrix.session_keys }}
+          NEXT_PUBLIC_THIRDWEB_CLIENT_ID: ${{ matrix.thirdweb_client_id }}
         run: npm run build
