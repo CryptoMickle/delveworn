@@ -2072,6 +2072,29 @@ type VrfCacheEntry = {
   receivedAt: number;
 };
 
+type LatencyBenchmarkSample = {
+  id: string;
+  action: string;
+  mode: string;
+  submissionMs: number;
+  vrfMs: number;
+  stateSyncMs: number;
+  totalMs: number;
+};
+
+type ActionTiming = {
+  name: string;
+  mode: string;
+  expectedRequestKind: number;
+  startedAt: number;
+  lastStageAt: number;
+  submissionConfirmedAt: number | null;
+  vrfEventReceivedAt: number | null;
+  stateReadStartedAt: number | null;
+  stateReadCompletedAt: number | null;
+  sampleCompleted: boolean;
+};
+
 /*
   ============================================================
   GENERIC HELPERS
@@ -3017,6 +3040,14 @@ function DelvewornGame() {
   ] =
     useState(false);
 
+  const [
+    latencySamples,
+    setLatencySamples,
+  ] =
+    useState<
+      LatencyBenchmarkSample[]
+    >([]);
+
   const canonicalRecoveryRef =
     useRef(false);
 
@@ -3043,11 +3074,9 @@ function DelvewornGame() {
     >(null);
 
   const actionTimingRef =
-    useRef<{
-      name: string;
-      startedAt: number;
-      lastStageAt: number;
-    } | null>(null);
+    useRef<
+      ActionTiming | null
+    >(null);
 
   const bossRewardRef =
     useRef<HTMLDivElement | null>(
@@ -3077,6 +3106,92 @@ function DelvewornGame() {
 
     timing.lastStageAt =
       now;
+  }
+
+  function completeLatencyBenchmark() {
+    const timing =
+      actionTimingRef.current;
+
+    if (
+      !timing ||
+      timing.sampleCompleted ||
+      timing.expectedRequestKind ===
+        RequestKind.None
+    ) {
+      return;
+    }
+
+    const completedAt =
+      runtimeNowMs();
+
+    const submissionConfirmedAt =
+      timing.submissionConfirmedAt ??
+      completedAt;
+
+    const vrfEventReceivedAt =
+      timing.vrfEventReceivedAt ??
+      timing.stateReadCompletedAt ??
+      completedAt;
+
+    const stateReadStartedAt =
+      timing.stateReadStartedAt ??
+      vrfEventReceivedAt;
+
+    const stateReadCompletedAt =
+      timing.stateReadCompletedAt ??
+      completedAt;
+
+    const sample:
+      LatencyBenchmarkSample = {
+        id:
+          `${timing.startedAt}-${timing.name}`,
+        action:
+          timing.name,
+        mode:
+          timing.mode,
+        submissionMs:
+          Math.max(
+            0,
+            submissionConfirmedAt -
+              timing.startedAt
+          ),
+        vrfMs:
+          Math.max(
+            0,
+            vrfEventReceivedAt -
+              submissionConfirmedAt
+          ),
+        stateSyncMs:
+          Math.max(
+            0,
+            stateReadCompletedAt -
+              stateReadStartedAt
+          ),
+        totalMs:
+          Math.max(
+            0,
+            completedAt -
+              timing.startedAt
+          ),
+      };
+
+    timing.sampleCompleted =
+      true;
+
+    setLatencySamples(
+      (samples) => [
+        sample,
+        ...samples,
+      ].slice(
+        0,
+        8
+      )
+    );
+
+    console.info(
+      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} BENCHMARK]`,
+      sample
+    );
   }
 
   useEffect(() => {
@@ -3454,6 +3569,22 @@ function DelvewornGame() {
         cacheKey,
         entry
       );
+
+      const actionTiming =
+        actionTimingRef.current;
+
+      if (
+        actionTiming &&
+        actionTiming.vrfEventReceivedAt ===
+          null &&
+        actionTiming.expectedRequestKind ===
+          entry.kind &&
+        entry.receivedAt >=
+          actionTiming.startedAt
+      ) {
+        actionTiming.vrfEventReceivedAt =
+          entry.receivedAt;
+      }
 
       timingLog(
         `RandomnessFulfilled received via ${source} (request ${requestId.toString()}, kind ${Number(kind)})`
@@ -3875,6 +4006,8 @@ function DelvewornGame() {
       stage
     );
 
+    completeLatencyBenchmark();
+
     void finalizeCanonicalAction(
       playerAddress,
       displayStartedAt,
@@ -4116,6 +4249,18 @@ function DelvewornGame() {
           playerAddress.toLowerCase()
       ) {
         try {
+          const actionTiming =
+            actionTimingRef.current;
+
+          if (
+            actionTiming &&
+            actionTiming.stateReadStartedAt ===
+              null
+          ) {
+            actionTiming.stateReadStartedAt =
+              runtimeNowMs();
+          }
+
           timingLog(
             `starting state read via ${cached.source}`
           );
@@ -4129,6 +4274,11 @@ function DelvewornGame() {
           timingLog(
             `state read via ${cached.source} completed`
           );
+
+          if (actionTiming) {
+            actionTiming.stateReadCompletedAt =
+              runtimeNowMs();
+          }
 
           if (
             resolvedState.pendingRequestId ===
@@ -6776,10 +6926,29 @@ function DelvewornGame() {
 
     actionTimingRef.current = {
       name: functionName,
+      mode:
+        isRiseWallet
+          ? "RISE Instant Play"
+          : somniaSessionMode &&
+              hasSomniaSession
+            ? "Somnia Instant Play"
+            : "MetaMask Standard Play",
+      expectedRequestKind:
+        RequestKind.None,
       startedAt:
         actionStartedAt,
       lastStageAt:
         actionStartedAt,
+      submissionConfirmedAt:
+        null,
+      vrfEventReceivedAt:
+        null,
+      stateReadStartedAt:
+        null,
+      stateReadCompletedAt:
+        null,
+      sampleCompleted:
+        false,
     };
 
     timingLog(
@@ -6869,6 +7038,13 @@ function DelvewornGame() {
         expectedRequestKind !==
         RequestKind.None
       ) {
+        if (
+          actionTimingRef.current
+        ) {
+          actionTimingRef.current.expectedRequestKind =
+            expectedRequestKind;
+        }
+
         setActionReady(
           false
         );
@@ -6895,6 +7071,13 @@ function DelvewornGame() {
           expectedRequestKind ===
             RequestKind.None
         );
+
+      if (
+        actionTimingRef.current
+      ) {
+        actionTimingRef.current.submissionConfirmedAt =
+          runtimeNowMs();
+      }
 
       timingLog(
         expectedRequestKind ===
@@ -8339,6 +8522,92 @@ function DelvewornGame() {
             </div>
           )}
         </GameHeader>
+
+        {ACTIVE_ECOSYSTEM_NAME ===
+          "Somnia" && (
+          <section className="mb-4 rounded-xl border border-cyan-900/80 bg-cyan-950/20 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold tracking-[0.25em] text-cyan-400">
+                  BUNDLER + VRF BENCHMARK
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Instant submit includes signing, sponsorship, bundler and confirmation. Standard submit also includes the wallet approval.
+                </p>
+              </div>
+
+              {latencySamples.length >
+                0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLatencySamples(
+                      []
+                    )
+                  }
+                  className="text-[9px] text-zinc-500 underline transition hover:text-zinc-300"
+                >
+                  clear
+                </button>
+              )}
+            </div>
+
+            {latencySamples.length ===
+            0 ? (
+              <p className="mt-3 text-sm text-zinc-400">
+                Run Attack, Storm, Potion or enter a room to record the first sample.
+              </p>
+            ) : (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                  <SmallStat
+                    label="SUBMIT"
+                    value={`${(
+                      latencySamples[0].submissionMs /
+                      1_000
+                    ).toFixed(2)}s`}
+                  />
+                  <SmallStat
+                    label="VRF + DETECTION"
+                    value={`${(
+                      latencySamples[0].vrfMs /
+                      1_000
+                    ).toFixed(2)}s`}
+                  />
+                  <SmallStat
+                    label="STATE SYNC"
+                    value={`${(
+                      latencySamples[0].stateSyncMs /
+                      1_000
+                    ).toFixed(2)}s`}
+                  />
+                  <SmallStat
+                    label="TOTAL"
+                    value={`${(
+                      latencySamples[0].totalMs /
+                      1_000
+                    ).toFixed(2)}s`}
+                  />
+                </div>
+
+                <details className="mt-3 text-xs text-zinc-500">
+                  <summary className="cursor-pointer select-none hover:text-zinc-300">
+                    {latencySamples[0].mode} · {latencySamples[0].action} · show history
+                  </summary>
+                  <div className="mt-2 space-y-1 font-mono text-[10px]">
+                    {latencySamples.map(
+                      (sample) => (
+                        <p key={sample.id}>
+                          {sample.mode} · {sample.action}: submit {(sample.submissionMs / 1_000).toFixed(2)}s · VRF {(sample.vrfMs / 1_000).toFixed(2)}s · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
+                        </p>
+                      )
+                    )}
+                  </div>
+                </details>
+              </>
+            )}
+          </section>
+        )}
 
         {/* ===================================================
             COMPACT STICKY HUD
