@@ -23,8 +23,8 @@
     "rise-wallet": "^0.3.5",
     "shreds": "^0.3.0",
     "thirdweb": "^5.121.1",
-    "viem": "^2.55.18",
-    "wagmi": "^3.7.6"
+    "viem": "^2.56.1",
+    "wagmi": "^3.7.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,7 +33,17 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "js-yaml": "4.3.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@coinbase/cdp-sdk": {
+      "axios": "1.20.0"
+    },
+    "js-yaml": "$js-yaml",
+    "viem": {
+      "ws": "8.21.3"
+    }
   }
 }

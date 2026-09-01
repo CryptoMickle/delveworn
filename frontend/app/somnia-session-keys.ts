@@ -5,6 +5,7 @@ import { defineChain } from "thirdweb/chains";
 import { getContract } from "thirdweb/contract";
 import {
   getPermissionsForSigner,
+  isAdmin,
   removeSessionKey,
 } from "thirdweb/extensions/erc4337";
 import { createWallet, type Account } from "thirdweb/wallets";
@@ -119,24 +120,48 @@ async function verifyStoredPermissions(record: SomniaSessionRecord) {
     chain: somniaChain,
     address: record.smartAccountAddress,
   });
-  const permissions = await getPermissionsForSigner({
-    contract,
-    signer: record.sessionKeyAddress,
-  });
+  const [permissions, ownerIsAdmin, sessionSignerIsAdmin] = await Promise.all([
+    getPermissionsForSigner({
+      contract,
+      signer: record.sessionKeyAddress,
+    }),
+    isAdmin({
+      contract,
+      signer: record.ownerAddress,
+    }),
+    isAdmin({
+      contract,
+      signer: record.sessionKeyAddress,
+    }),
+  ]);
   const nowSeconds = BigInt(Math.floor(Date.now() / 1_000));
-  const targetAllowed = permissions.approvedTargets.some(
-    (target) =>
-      target.toLowerCase() === activeDeployment.dungeonAddress.toLowerCase()
+  const recordExpirySeconds = BigInt(
+    Math.floor(record.expiresAt / 1_000)
   );
+  const maximumPermissionDuration = BigInt(
+    SESSION_DURATION_SECONDS + Math.ceil(CLOCK_SKEW_MS / 1_000)
+  );
+  const targetsAreRestricted =
+    permissions.approvedTargets.length === 1 &&
+    permissions.approvedTargets[0]?.toLowerCase() ===
+      activeDeployment.dungeonAddress.toLowerCase();
+  const permissionDuration =
+    permissions.endTimestamp - permissions.startTimestamp;
 
   if (
     permissions.signer.toLowerCase() !== record.sessionKeyAddress.toLowerCase() ||
-    !targetAllowed ||
+    !ownerIsAdmin ||
+    sessionSignerIsAdmin ||
+    !targetsAreRestricted ||
     permissions.nativeTokenLimitPerTransaction !== BigInt(0) ||
     permissions.startTimestamp > nowSeconds ||
-    permissions.endTimestamp <= nowSeconds
+    permissions.endTimestamp <= nowSeconds ||
+    permissions.endTimestamp > recordExpirySeconds ||
+    permissionDuration > maximumPermissionDuration
   ) {
-    throw new Error("Stored Somnia session permission is no longer active.");
+    throw new Error(
+      "Stored Somnia session permission is inactive or broader than expected."
+    );
   }
 }
 
