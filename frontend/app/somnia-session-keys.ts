@@ -35,6 +35,40 @@ export type SomniaSessionHandle = {
   record: SomniaSessionRecord;
 };
 
+export type SomniaSessionTransactionBenchmark = {
+  preparationMs: number;
+  gasEstimationMs: number;
+  paymasterMs: number;
+  bundlerSubmissionMs: number;
+  inclusionWaitMs: number;
+  receiptPollCount: number;
+  totalMs: number;
+};
+
+function benchmarkNowMs() {
+  return globalThis.performance?.now() ?? Date.now();
+}
+
+function jsonRpcMethod(
+  body: BodyInit | null | undefined
+): string | null {
+  if (typeof body !== "string") {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(body) as {
+      method?: unknown;
+    };
+
+    return typeof payload.method === "string"
+      ? payload.method
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 const somniaChain = defineChain({
   id: activeDeployment.chain.id,
   name: activeDeployment.chain.name,
@@ -236,8 +270,96 @@ export async function sendSomniaSessionTransaction(
     data,
     value: BigInt(0),
   });
+  const startedAt = benchmarkNowMs();
+  const originalFetch = globalThis.fetch;
+  let gasEstimationMs = 0;
+  let paymasterMs = 0;
+  let bundlerSubmissionMs = 0;
+  let receiptPollCount = 0;
+  let userOpSubmissionStartedAt: number | null = null;
+  let userOpSubmittedAt: number | null = null;
 
-  return sendTransaction({ account, transaction });
+  const benchmarkFetch: typeof globalThis.fetch = async (
+    input,
+    init
+  ) => {
+    const method = jsonRpcMethod(init?.body);
+    const requestStartedAt = benchmarkNowMs();
+
+    if (
+      method === "eth_sendUserOperation" &&
+      userOpSubmissionStartedAt === null
+    ) {
+      userOpSubmissionStartedAt = requestStartedAt;
+    }
+
+    if (method === "eth_getUserOperationReceipt") {
+      receiptPollCount += 1;
+    }
+
+    try {
+      return await originalFetch(input, init);
+    } finally {
+      const requestCompletedAt = benchmarkNowMs();
+      const requestMs = Math.max(
+        0,
+        requestCompletedAt - requestStartedAt
+      );
+
+      if (method === "eth_estimateUserOperationGas") {
+        gasEstimationMs += requestMs;
+      }
+
+      if (method === "pm_sponsorUserOperation") {
+        paymasterMs += requestMs;
+      }
+
+      if (method === "eth_sendUserOperation") {
+        bundlerSubmissionMs += requestMs;
+        userOpSubmittedAt = requestCompletedAt;
+      }
+    }
+  };
+
+  globalThis.fetch = benchmarkFetch;
+
+  try {
+    const result = await sendTransaction({ account, transaction });
+    const completedAt = benchmarkNowMs();
+    const totalMs = Math.max(0, completedAt - startedAt);
+    const preparationWindowMs = Math.max(
+      0,
+      (userOpSubmissionStartedAt ?? completedAt) - startedAt
+    );
+    const preparationMs = Math.max(
+      0,
+      preparationWindowMs - paymasterMs
+    );
+    const inclusionWaitMs = Math.max(
+      0,
+      userOpSubmittedAt === null
+        ? 0
+        : completedAt - userOpSubmittedAt
+    );
+    const benchmark: SomniaSessionTransactionBenchmark = {
+      preparationMs,
+      gasEstimationMs,
+      paymasterMs,
+      bundlerSubmissionMs,
+      inclusionWaitMs,
+      receiptPollCount,
+      totalMs,
+    };
+
+    return {
+      ...result,
+      benchmark,
+    };
+  } finally {
+    if (globalThis.fetch === benchmarkFetch) {
+      globalThis.fetch = originalFetch;
+    }
+  }
 }
 
 export async function revokeSomniaSession(
