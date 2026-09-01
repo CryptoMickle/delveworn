@@ -19,6 +19,13 @@ export function supportsInstantPlay() {
   );
 }
 
+export function supportsThirdwebSessionKeys() {
+  return (
+    activeDeployment.wallet.sessionKeys &&
+    activeDeployment.wallet.instantPlayProvider === "thirdweb-erc4337"
+  );
+}
+
 export function isRiseWalletConnector(connector?: {
   id?: string;
   name?: string;

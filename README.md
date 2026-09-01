@@ -93,7 +93,7 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 | Environment | Status | Scope |
 | --- | --- | --- |
 | RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
-| Somnia Shannon Testnet | Verified opt-in deployment | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. A live monster request completed with `callbackSuccess=true`; the public frontend remains on RISE unless explicitly configured otherwise. Somnia supports ERC-4337-style smart accounts and session keys, but this Delveworn configuration currently exposes only its tested MetaMask transaction path. |
+| Somnia Shannon Testnet | Verified opt-in deployment | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. A live monster request completed with `callbackSuccess=true`; the public frontend remains on RISE unless explicitly configured otherwise. Standard MetaMask play is live, while Thirdweb ERC-4337 Instant Play is implemented behind a disabled-by-default feature flag pending sponsored-gas configuration and live QA. |
 | Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
 | Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
 | Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |
@@ -247,6 +247,20 @@ Somnia Shannon is opt-in and uses:
 NEXT_PUBLIC_DEPLOYMENT=somniaShannon
 NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
 ```
+
+The optional Somnia Instant Play prototype additionally requires:
+
+```text
+NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=<public Thirdweb client ID>
+```
+
+Keep the feature flag disabled until the Thirdweb client is restricted to the
+intended domain and has a Shannon sponsored-gas policy. MetaMask remains the
+owner/admin wallet. The temporary session key expires after eight hours and is
+limited onchain to zero-value calls against the configured Delveworn contract.
+Because the ERC-4337 smart account has its own address, it has separate player
+state from the owner's MetaMask EOA.
 
 Do not change the production deployment selector merely by merging Somnia support; the RISE URL is referenced by existing grant applications and remains the default.
 

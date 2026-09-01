@@ -8,6 +8,7 @@ import { riseTestnet } from "viem/chains";
 
 export type InstantPlayProvider =
   | "rise-wallet"
+  | "thirdweb-erc4337"
   | null;
 
 export type RandomnessProvider =
@@ -114,6 +115,15 @@ function validateDeploymentConfig(config: DeploymentConfig) {
     );
   }
 
+  if (
+    config.wallet.instantPlayProvider === "thirdweb-erc4337" &&
+    !config.wallet.metaMask
+  ) {
+    throw new Error(
+      `Deployment ${config.key} selects Thirdweb ERC-4337 for Instant Play while MetaMask is disabled.`
+    );
+  }
+
   if (!config.randomness.providerLabel.trim()) {
     throw new Error(
       `Deployment ${config.key} must provide a randomness provider label.`
@@ -148,6 +158,18 @@ const somniaShannon = defineChain({
   },
   testnet: true,
 });
+
+const somniaSessionKeysEnabled =
+  process.env.NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED === "true";
+
+if (
+  somniaSessionKeysEnabled &&
+  !process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID
+) {
+  throw new Error(
+    "NEXT_PUBLIC_THIRDWEB_CLIENT_ID is required when Somnia session keys are enabled."
+  );
+}
 
 export const deployments = {
   riseTestnet: defineDeployment({
@@ -217,9 +239,11 @@ export const deployments = {
     wallet: {
       riseWallet: false,
       metaMask: true,
-      sessionKeys: false,
-      gaslessTransactions: false,
-      instantPlayProvider: null,
+      sessionKeys: somniaSessionKeysEnabled,
+      gaslessTransactions: somniaSessionKeysEnabled,
+      instantPlayProvider: somniaSessionKeysEnabled
+        ? "thirdweb-erc4337"
+        : null,
     },
     realtime: {
       websocket: false,

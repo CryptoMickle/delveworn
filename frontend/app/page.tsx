@@ -61,6 +61,7 @@ import {
   TESTNET_POLLING_MS,
   VRF_CANONICAL_FALLBACK_MS,
   VRF_DELAYED_NOTICE_MS,
+  activeInstantPlayProvider,
   activeRandomnessProviderLabel,
   connectedNetworkLabel,
   delayedRandomnessText,
@@ -73,8 +74,19 @@ import {
   sessionStorageKey,
   supportsInstantPlay,
   supportsRandomnessRetry,
+  supportsThirdwebSessionKeys,
   wagmiConfig,
 } from "./page-runtime-bindings";
+import {
+  clearSomniaSessionRecord,
+  readSomniaSessionRecord,
+  setSomniaSessionMode,
+  wantsSomniaSessionMode,
+  writeSomniaSessionRecord,
+} from "./somnia-session-storage";
+import {
+  type SomniaSessionHandle,
+} from "./somnia-session-keys";
 
 /*
   ============================================================
@@ -2912,6 +2924,21 @@ function DelvewornGame() {
     useState(false);
 
   const [
+    somniaSessionMode,
+    setSomniaSessionModeEnabled,
+  ] = useState(false);
+
+  const [
+    somniaSessionHandle,
+    setSomniaSessionHandle,
+  ] = useState<SomniaSessionHandle | null>(null);
+
+  const [
+    somniaSessionCreating,
+    setSomniaSessionCreating,
+  ] = useState(false);
+
+  const [
     loading,
     setLoading,
   ] =
@@ -3052,6 +3079,26 @@ function DelvewornGame() {
     connectedAddress,
   ]);
 
+  useEffect(() => {
+    if (!somniaSessionHandle) {
+      return;
+    }
+
+    const remainingMs = Math.max(
+      0,
+      somniaSessionHandle.record.expiresAt - Date.now()
+    );
+    const timeout = window.setTimeout(() => {
+      setSomniaSessionHandle(null);
+      setPlayer(null);
+      setWalletMessage(
+        "The Instant Play session expired. Approve a new temporary session to continue."
+      );
+    }, remainingMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [somniaSessionHandle]);
+
   const permissionList =
     (
       permissionsQuery.data ??
@@ -3108,6 +3155,12 @@ function DelvewornGame() {
       )
     );
 
+  const hasSomniaSession =
+    Boolean(
+      somniaSessionMode &&
+      somniaSessionHandle
+    );
+
   const isRiseWallet =
     isRiseWalletConnector(
       connector
@@ -3124,7 +3177,13 @@ function DelvewornGame() {
         isRiseWallet &&
         hasSession
       ) ||
-      isMetaMask
+      (
+        isMetaMask &&
+        (
+          !somniaSessionMode ||
+          hasSomniaSession
+        )
+      )
     );
 
   function loadStoredSession(
@@ -4457,10 +4516,105 @@ function DelvewornGame() {
     }
   }
 
+  async function restoreSomniaInstantPlay(
+    ownerAddress: Address
+  ) {
+    setSomniaSessionModeEnabled(
+      true
+    );
+
+    setSomniaSessionMode(
+      ownerAddress,
+      true
+    );
+
+    const record =
+      readSomniaSessionRecord(
+        ownerAddress
+      );
+
+    if (!record) {
+      setSomniaSessionHandle(
+        null
+      );
+
+      setConnectedAddress(
+        ownerAddress
+      );
+
+      setPlayer(
+        null
+      );
+
+      setLoading(
+        false
+      );
+
+      return;
+    }
+
+    try {
+      const {
+        restoreSomniaSession,
+      } = await import(
+        "./somnia-session-keys"
+      );
+
+      const handle =
+        await restoreSomniaSession(
+          record
+        );
+
+      setSomniaSessionHandle(
+        handle
+      );
+
+      setConnectedAddress(
+        handle.record.smartAccountAddress
+      );
+
+      await loadPlayer(
+        handle.record.smartAccountAddress
+      );
+    } catch (
+      error
+    ) {
+      console.warn(
+        "Stored Somnia session could not be restored:",
+        error
+      );
+
+      clearSomniaSessionRecord(
+        ownerAddress
+      );
+
+      setSomniaSessionHandle(
+        null
+      );
+
+      setConnectedAddress(
+        ownerAddress
+      );
+
+      setPlayer(
+        null
+      );
+
+      setLoading(
+        false
+      );
+
+      setWalletMessage(
+        "The previous Instant Play session expired or was revoked. Approve a new temporary session to continue."
+      );
+    }
+  }
+
   async function connectWallet(
     wallet:
       "rise" |
-      "metamask"
+      "metamask" |
+      "somnia-session"
   ) {
     const label =
       wallet ===
@@ -4468,7 +4622,24 @@ function DelvewornGame() {
         ? "RISE Wallet"
         : "MetaMask";
 
+    const wantsSomniaSession =
+      wallet ===
+        "somnia-session";
+
     try {
+      if (
+        wantsSomniaSession &&
+        !supportsThirdwebSessionKeys()
+      ) {
+        throw new Error(
+          "Somnia Instant Play is not enabled for this deployment."
+        );
+      }
+
+      setSomniaSessionModeEnabled(
+        wantsSomniaSession
+      );
+
       setWalletMessage(
         ""
       );
@@ -4500,6 +4671,45 @@ function DelvewornGame() {
         );
       }
 
+      if (
+        isConnected &&
+        wagmiAddress &&
+        connector?.id ===
+          connectorToUse.id
+      ) {
+        const ownerAddress =
+          getAddress(
+            wagmiAddress
+          );
+
+        if (
+          wantsSomniaSession
+        ) {
+          await restoreSomniaInstantPlay(
+            ownerAddress
+          );
+        } else {
+          setSomniaSessionMode(
+            ownerAddress,
+            false
+          );
+
+          setSomniaSessionHandle(
+            null
+          );
+
+          setConnectedAddress(
+            ownerAddress
+          );
+
+          await loadPlayer(
+            ownerAddress
+          );
+        }
+
+        return;
+      }
+
       await connectMutation
         .mutateAsync({
           connector:
@@ -4524,7 +4734,94 @@ function DelvewornGame() {
     }
   }
 
+  async function createSomniaInstantPlaySession() {
+    if (
+      !wagmiAddress ||
+      !connector ||
+      !isMetaMask
+    ) {
+      setWalletMessage(
+        "Connect MetaMask first."
+      );
+
+      return;
+    }
+
+    const ownerAddress =
+      getAddress(
+        wagmiAddress
+      );
+
+    try {
+      setSomniaSessionCreating(
+        true
+      );
+
+      setWalletMessage(
+        ""
+      );
+
+      const {
+        createSomniaSession,
+      } = await import(
+        "./somnia-session-keys"
+      );
+
+      const handle =
+        await createSomniaSession(
+          ownerAddress
+        );
+
+      writeSomniaSessionRecord(
+        handle.record
+      );
+
+      setSomniaSessionMode(
+        ownerAddress,
+        true
+      );
+
+      setSomniaSessionHandle(
+        handle
+      );
+
+      setConnectedAddress(
+        handle.record.smartAccountAddress
+      );
+
+      setLoading(
+        true
+      );
+
+      await loadPlayer(
+        handle.record.smartAccountAddress
+      );
+    } catch (
+      error
+    ) {
+      console.error(
+        error
+      );
+
+      setWalletMessage(
+        "Could not enable Somnia Instant Play. The MetaMask approval, smart-account deployment or sponsored session request failed."
+      );
+    } finally {
+      setSomniaSessionCreating(
+        false
+      );
+    }
+  }
+
   async function createSession() {
+    if (
+      supportsThirdwebSessionKeys() &&
+      somniaSessionMode
+    ) {
+      await createSomniaInstantPlaySession();
+      return;
+    }
+
     if (
       !connectedAddress ||
       !connector
@@ -4690,6 +4987,25 @@ function DelvewornGame() {
         false
       );
 
+      if (
+        wagmiAddress
+      ) {
+        setSomniaSessionMode(
+          getAddress(
+            wagmiAddress
+          ),
+          false
+        );
+      }
+
+      setSomniaSessionModeEnabled(
+        false
+      );
+
+      setSomniaSessionHandle(
+        null
+      );
+
       setPlayer(
         null
       );
@@ -4729,6 +5045,69 @@ function DelvewornGame() {
     }
 
     try {
+      if (
+        hasSomniaSession &&
+        somniaSessionHandle &&
+        wagmiAddress &&
+        connector
+      ) {
+        const ownerAddress =
+          getAddress(
+            wagmiAddress
+          );
+
+        const {
+          revokeSomniaSession,
+        } = await import(
+          "./somnia-session-keys"
+        );
+
+        const result =
+          await revokeSomniaSession(
+            somniaSessionHandle.record
+          );
+
+        const receipt =
+          await waitForReceipt(
+            result.transactionHash
+          );
+
+        if (
+          receipt.status !==
+            "success"
+        ) {
+          throw new Error(
+            "Session revocation reverted."
+          );
+        }
+
+        clearSomniaSessionRecord(
+          ownerAddress
+        );
+
+        setSomniaSessionHandle(
+          null
+        );
+
+        setSomniaSessionModeEnabled(
+          false
+        );
+
+        setConnectedAddress(
+          ownerAddress
+        );
+
+        setLoading(
+          true
+        );
+
+        await loadPlayer(
+          ownerAddress
+        );
+
+        return;
+      }
+
       if (
         activePermission
           ?.id
@@ -5416,6 +5795,71 @@ function DelvewornGame() {
     };
   }
 
+  async function sendDungeonSomniaSessionCall(
+    functionName:
+      SessionAction,
+
+    args:
+      readonly unknown[] = []
+  ): Promise<
+    SessionSendResult
+  > {
+    if (
+      !somniaSessionHandle ||
+      !hasSomniaSession
+    ) {
+      throw new Error(
+        "Somnia Instant Play session is not active."
+      );
+    }
+
+    const data =
+      encodeFunctionData({
+        abi:
+          dungeonAbi,
+
+        functionName,
+
+        args,
+      } as never);
+
+    const {
+      sendSomniaSessionTransaction,
+    } = await import(
+      "./somnia-session-keys"
+    );
+
+    const result =
+      await sendSomniaSessionTransaction(
+        somniaSessionHandle.account,
+        data
+      );
+
+    const receipt =
+      await waitForReceipt(
+        result.transactionHash
+      );
+
+    if (
+      receipt.status !==
+        "success"
+    ) {
+      throw new Error(
+        "Somnia session transaction reverted."
+      );
+    }
+
+    return {
+      hash:
+        result.transactionHash,
+      logs:
+        receipt.logs as unknown as
+          SessionReceiptLog[],
+      bundleId:
+        "",
+    };
+  }
+
   async function sendDungeonActionCall(
     functionName:
       SessionAction,
@@ -5449,6 +5893,15 @@ function DelvewornGame() {
     if (
       isMetaMask
     ) {
+      if (
+        somniaSessionMode
+      ) {
+        return sendDungeonSomniaSessionCall(
+          functionName,
+          args
+        );
+      }
+
       return sendDungeonStandardCall(
         functionName,
         args
@@ -6975,6 +7428,14 @@ function DelvewornGame() {
         null
       );
 
+      setSomniaSessionHandle(
+        null
+      );
+
+      setSomniaSessionModeEnabled(
+        false
+      );
+
       setLoading(
         false
       );
@@ -7022,8 +7483,50 @@ function DelvewornGame() {
         wagmiAddress
       );
 
+    const shouldRestoreSomniaSession =
+      isMetaMaskConnector(
+        connector
+      ) &&
+      supportsThirdwebSessionKeys() &&
+      (
+        somniaSessionMode ||
+        wantsSomniaSessionMode(
+          address
+        )
+      );
+
+    if (
+      shouldRestoreSomniaSession
+    ) {
+      setConnectedAddress(
+        address
+      );
+
+      setPlayer(
+        null
+      );
+
+      setLoading(
+        true
+      );
+
+      void restoreSomniaInstantPlay(
+        address
+      );
+
+      return;
+    }
+
     setConnectedAddress(
       address
+    );
+
+    setSomniaSessionModeEnabled(
+      false
+    );
+
+    setSomniaSessionHandle(
+      null
     );
 
     if (
@@ -7100,6 +7603,17 @@ function DelvewornGame() {
     ==========================================================
   */
 
+  const needsInstantPlayApproval =
+    (
+      isRiseWallet &&
+      !hasSession
+    ) ||
+    (
+      isMetaMask &&
+      somniaSessionMode &&
+      !hasSomniaSession
+    );
+
   if (
     loading
   ) {
@@ -7111,8 +7625,11 @@ function DelvewornGame() {
   }
 
   if (
-    !connectedAddress ||
-    !player
+    (
+      !connectedAddress ||
+      !player
+    ) &&
+    !needsInstantPlayApproval
   ) {
     return (
       <main className="practice-shell delveworn-onchain-mode min-h-screen bg-[#090909] px-4 py-6 text-white lg:px-8 lg:py-8">
@@ -7129,7 +7646,9 @@ function DelvewornGame() {
               eyebrow={walletChoiceOpen ? "CHOOSE YOUR ENTRY" : "FULLY ONCHAIN EXPEDITION"}
               description={walletChoiceOpen
                 ? supportsInstantPlay()
-                  ? "Choose Instant Play with RISE Wallet, or Standard Play with MetaMask."
+                  ? activeInstantPlayProvider() === "rise-wallet"
+                    ? "Choose Instant Play with RISE Wallet, or Standard Play with MetaMask."
+                    : "Choose popup-free Instant Play through a temporary Somnia smart-account session, or Standard Play with MetaMask."
                   : `Connect MetaMask for standard wallet-signed play on ${ACTIVE_NETWORK_LABEL}.`
                 : "Enter the live testnet game. Actions, randomness, progress and rewards are verifiable onchain."}
               proofFooter={
@@ -7143,10 +7662,18 @@ function DelvewornGame() {
                   {supportsInstantPlay() && (
                     <button
                       type="button"
-                      onClick={() => connectWallet("rise")}
+                      onClick={() =>
+                        connectWallet(
+                          activeInstantPlayProvider() === "rise-wallet"
+                            ? "rise"
+                            : "somnia-session"
+                        )
+                      }
                       className="delveworn-primary-cta w-full rounded-xl py-4 text-lg font-black transition"
                     >
-                      ⚡ RISE WALLET · INSTANT PLAY
+                      {activeInstantPlayProvider() === "rise-wallet"
+                        ? "⚡ RISE WALLET · INSTANT PLAY"
+                        : "⚡ METAMASK · INSTANT PLAY"}
                     </button>
                   )}
                   <button
@@ -7165,7 +7692,9 @@ function DelvewornGame() {
                   </button>
                   <p className="mt-3 text-[10px] text-zinc-600">
                     {supportsInstantPlay()
-                      ? "MetaMask confirms each action. RISE Wallet enables popup-free play after one session approval."
+                      ? activeInstantPlayProvider() === "rise-wallet"
+                        ? "MetaMask confirms each action. RISE Wallet enables popup-free play after one session approval."
+                        : "Standard Play confirms every action. Instant Play uses MetaMask once to authorize an 8-hour restricted smart-account session."
                       : "MetaMask confirms each onchain action."}
                   </p>
                 </div>
@@ -7196,8 +7725,8 @@ function DelvewornGame() {
   }
 
   if (
-    isRiseWallet &&
-    !hasSession
+    needsInstantPlayApproval &&
+    connectedAddress
   ) {
     return (
       <main className="delveworn-onchain-mode min-h-screen bg-[#090909] text-white px-4 py-10">
@@ -7227,7 +7756,9 @@ function DelvewornGame() {
             </h2>
 
             <p className="text-sm text-zinc-400 mt-3">
-              Approve one temporary session key. After that, Attack, Storm, Potions, shops, room changes and VRF recovery are signed locally without wallet popups.
+              {supportsThirdwebSessionKeys()
+                ? "Approve one temporary ERC-4337 session with MetaMask. After that, Delveworn actions are sent through the restricted session key without repeated wallet popups. The smart account starts as a separate onchain player."
+                : "Approve one temporary session key. After that, Attack, Storm, Potions, shops, room changes and VRF recovery are signed locally without wallet popups."}
             </p>
 
             <div className="bg-black/40 border border-zinc-800 rounded-xl p-4 mt-5 text-left">
@@ -7241,7 +7772,9 @@ function DelvewornGame() {
               </p>
 
               <p className="text-sm mt-2">
-                ✓ Gameplay + VRF recovery only
+                {supportsThirdwebSessionKeys()
+                  ? "✓ Zero-value contract calls only"
+                  : "✓ Gameplay + VRF recovery only"}
               </p>
 
               <p className="text-sm mt-2">
@@ -7260,12 +7793,13 @@ function DelvewornGame() {
               }
 
               disabled={
-                grantPermissions.isPending
+                grantPermissions.isPending ||
+                somniaSessionCreating
               }
 
               className="w-full bg-violet-500 hover:bg-violet-400 disabled:opacity-50 text-black font-black text-lg py-4 rounded-xl transition mt-6"
             >
-              {grantPermissions.isPending
+              {grantPermissions.isPending || somniaSessionCreating
                 ? "CREATING SESSION..."
                 : "🔑 ENABLE INSTANT PLAY"}
             </button>
@@ -7295,6 +7829,17 @@ function DelvewornGame() {
 
         </div>
 
+      </main>
+    );
+  }
+
+  if (
+    !connectedAddress ||
+    !player
+  ) {
+    return (
+      <main className="delveworn-onchain-mode min-h-screen bg-[#090909] text-white flex items-center justify-center">
+        Reconnecting to {ACTIVE_NETWORK_LABEL}...
       </main>
     );
   }
@@ -7712,7 +8257,7 @@ function DelvewornGame() {
           subtitle={subtitle}
           meta={<>ONCHAIN SESSION · {connectedAddress.slice(0, 6)}…{connectedAddress.slice(-4)}</>}
         >
-          {isRiseWallet ? (
+          {isRiseWallet || hasSomniaSession ? (
             <div className="flex items-center justify-center gap-2 mt-2">
 
               <span className="text-[10px] text-emerald-400">
@@ -9137,7 +9682,9 @@ function DelvewornGame() {
         <footer className="practice-footer mt-6 pb-24 text-center">
 
           <p className="text-[10px] text-zinc-700">
-            V8.6.9b · {runtimeFooterLabel()} · {supportsInstantPlay() ? "RISE Instant Play · " : ""}MetaMask Standard Play
+            V8.6.9b · {runtimeFooterLabel()} · {supportsInstantPlay()
+              ? `${activeInstantPlayProvider() === "rise-wallet" ? "RISE" : "Somnia"} Instant Play · `
+              : ""}MetaMask Standard Play
           </p>
 
           <p className="text-[10px] text-zinc-800 mt-1">
