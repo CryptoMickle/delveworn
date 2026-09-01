@@ -31,6 +31,9 @@ import {
 export const DUNGEON_ADDRESS =
   activeDeployment.dungeonAddress;
 
+export const DUNGEON_EXPLORER_URL =
+  `${activeDeployment.explorerUrl.replace(/\/$/, "")}/address/${DUNGEON_ADDRESS}`;
+
 export const RPC_URL =
   activeDeployment.rpcUrl;
 

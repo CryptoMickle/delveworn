@@ -12,6 +12,7 @@ export type InstantPlayProvider =
 
 export type RandomnessProvider =
   | "rise-vrf"
+  | "somnia-native-vrf"
   | "chainlink-vrf"
   | "supra-dvrf"
   | "other";
@@ -78,12 +79,6 @@ function optionalAddress(value: string | undefined): Address | null {
 function validateDeploymentConfig(config: DeploymentConfig) {
   if (!config.ecosystemName.trim()) {
     throw new Error(`Deployment ${config.key} must provide an ecosystem name.`);
-  }
-
-  if (config.selectable && !config.dungeonAddress) {
-    throw new Error(
-      `Deployment ${config.key} is selectable but has no dungeon contract address.`
-    );
   }
 
   if (config.realtime.websocket && !config.wsUrl) {
@@ -161,8 +156,7 @@ export const deployments = {
     ecosystemName: "RISE",
     selectable: true,
     chain: riseTestnet,
-    dungeonAddress: requiredAddress(
-      "NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS or NEXT_PUBLIC_DUNGEON_ADDRESS",
+    dungeonAddress: optionalAddress(
       process.env.NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS ??
         process.env.NEXT_PUBLIC_DUNGEON_ADDRESS
     ),
@@ -207,10 +201,12 @@ export const deployments = {
     key: "somnia-shannon",
     label: "Somnia Shannon Testnet",
     ecosystemName: "Somnia",
-    selectable: false,
+    selectable: true,
     chain: somniaShannon,
-    dungeonAddress: optionalAddress(
-      process.env.NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS
+    dungeonAddress: requiredAddress(
+      "NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS",
+      process.env.NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS ??
+        "0x07c5D071132ae95C3708031790b3feC740F4c292"
     ),
     rpcUrl:
       process.env.NEXT_PUBLIC_SOMNIA_SHANNON_RPC_URL ??
@@ -230,8 +226,8 @@ export const deployments = {
       shreds: false,
     },
     randomness: {
-      provider: "chainlink-vrf",
-      providerLabel: "Chainlink VRF v2.5 (direct-funding adapter)",
+      provider: "somnia-native-vrf",
+      providerLabel: "Somnia Native VRF",
       retrySupported: true,
     },
     timing: {
@@ -256,9 +252,15 @@ if (!(configuredDeployment in deployments)) {
 
 const selectedDeployment = deployments[configuredDeployment];
 
-if (!selectedDeployment.selectable || !selectedDeployment.dungeonAddress) {
+if (!selectedDeployment.selectable) {
   throw new Error(
     `Deployment ${selectedDeployment.key} is registered for benchmarking but is not selectable yet.`
+  );
+}
+
+if (!selectedDeployment.dungeonAddress) {
+  throw new Error(
+    `Deployment ${selectedDeployment.key} is selected but has no dungeon contract address.`
   );
 }
 

@@ -454,7 +454,7 @@ export function DungeonEntry({
       ]
     : [
         "Wallet or temporary session authorization.",
-        "RISE Fast VRF provides verifiable randomness.",
+        "The configured VRF provider supplies verifiable randomness.",
         "Game state and rewards are stored by the Delveworn contract.",
       ];
 

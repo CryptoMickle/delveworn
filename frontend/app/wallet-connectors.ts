@@ -10,10 +10,10 @@ export function createActiveMetaMaskConnector() {
 
   return metaMask({
     dapp: {
-      name: "Rise Dungeon",
+      name: "Delveworn",
       url:
         typeof window === "undefined"
-          ? "https://rise-dungeon-frontend.vercel.app"
+          ? "https://delveworn.vercel.app"
           : window.location.origin,
     },
   });

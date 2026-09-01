@@ -15,8 +15,14 @@ on:
 
 jobs:
   check:
-    name: Next.js checks
+    name: Next.js checks (${{ matrix.deployment }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        deployment:
+          - riseTestnet
+          - somniaShannon
     permissions:
       contents: read
     defaults:
@@ -43,5 +49,7 @@ jobs:
 
       - name: Build frontend
         env:
+          NEXT_PUBLIC_DEPLOYMENT: ${{ matrix.deployment }}
           NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS: "0x0000000000000000000000000000000000000001"
+          NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS: "0x07c5D071132ae95C3708031790b3feC740F4c292"
         run: npm run build

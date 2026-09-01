@@ -49,7 +49,7 @@ Practice Mode is not onchain, does not persist authoritative state and does not 
 
 Onchain Mode connects a wallet to a configured deployment. Player state and game actions are handled by the deployed `Delveworn` contract, and randomness-backed actions resolve through the configured provider and callback adapter.
 
-Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. The current public deployment targets RISE Testnet.
+Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. The current public deployment remains on RISE Testnet; Somnia Shannon is an independently selectable deployment and does not replace the grant-linked RISE experience.
 
 ## Project overview
 
@@ -93,7 +93,7 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 | Environment | Status | Scope |
 | --- | --- | --- |
 | RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
-| Somnia Shannon Testnet | Adapter and deployment path test-covered | Native verifiable VRF requests use Somnia's coordinator-funded Reactivity/drand flow. No public Delveworn deployment is advertised until its address and live fulfillment are verified. |
+| Somnia Shannon Testnet | Verified opt-in deployment | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. A live monster request completed with `callbackSuccess=true`; the public frontend remains on RISE unless explicitly configured otherwise. Somnia supports ERC-4337-style smart accounts and session keys, but this Delveworn configuration currently exposes only its tested MetaMask transaction path. |
 | Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
 | Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
 | Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |
@@ -240,6 +240,15 @@ At minimum, the selected public deployment needs its contract address. RISE Test
 ```text
 NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
 ```
+
+Somnia Shannon is opt-in and uses:
+
+```text
+NEXT_PUBLIC_DEPLOYMENT=somniaShannon
+NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
+```
+
+Do not change the production deployment selector merely by merging Somnia support; the RISE URL is referenced by existing grant applications and remains the default.
 
 Changes must pass the path-filtered contract and frontend workflows before they are merged to `main`.
 

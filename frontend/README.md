@@ -1,6 +1,6 @@
 # Delveworn
 
-Delveworn is a fully onchain dungeon crawler. The current public frontend deployment targets RISE Testnet and supports RISE Wallet session keys for fast, popup-free gameplay, plus MetaMask standard transactions.
+Delveworn is a fully onchain dungeon crawler. The public frontend remains on RISE Testnet and supports RISE Wallet session keys for fast, popup-free gameplay, plus MetaMask standard transactions. A separately selectable Somnia Shannon configuration uses MetaMask and Somnia Native VRF without changing the public RISE experience.
 
 ## Status
 
@@ -29,6 +29,13 @@ Create `.env.local` and point the frontend at the deployed Delveworn contract:
 
 ```bash
 NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS=0x...
+```
+
+To run the separately verified Somnia Shannon deployment instead:
+
+```bash
+NEXT_PUBLIC_DEPLOYMENT=somniaShannon
+NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
 ```
 
 `NEXT_PUBLIC_DUNGEON_ADDRESS` remains supported as a legacy fallback.
@@ -72,4 +79,4 @@ The repository includes `scripts/vrf-latency-monitor.mjs` for measuring request/
 
 ## Network
 
-The current frontend targets RISE Testnet. Product naming is chain-independent; contract addresses and network configuration should be selected per deployment before any mainnet release.
+The public frontend targets RISE Testnet. Somnia Shannon is available as an opt-in build configuration using chain ID `50312`, the official Dream RPC and Somnia Native VRF. Somnia supports ERC-4337-style smart accounts and session keys at the network/tooling layer, but Delveworn's Somnia configuration currently uses MetaMask standard transactions until a specific account-abstraction provider and smart-account flow are integrated and tested. Product naming remains chain-independent; contract addresses and network configuration must be selected per deployment before any mainnet release.

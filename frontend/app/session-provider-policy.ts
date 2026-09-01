@@ -2,7 +2,7 @@ import type { Address } from "viem";
 import { activeDeployment } from "./chain-config";
 
 export const SESSION_DURATION_SECONDS = 8 * 60 * 60;
-export const SESSION_PERMISSION_VERSION = "2";
+export const SESSION_PERMISSION_VERSION = "4";
 
 export const RISE_WALLET_CONNECTOR_ID = "com.risechain.wallet";
 export const METAMASK_CONNECTOR_ID = "metaMaskSDK";
