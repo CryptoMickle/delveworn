@@ -10,7 +10,12 @@ import {
 } from "thirdweb/extensions/erc4337";
 import { createWallet, type Account } from "thirdweb/wallets";
 import { privateKeyToAccount } from "thirdweb/wallets/private-key";
-import { smartWallet } from "thirdweb/wallets/smart";
+import {
+  bundleUserOp,
+  createAndSignUserOp,
+  smartWallet,
+  waitForUserOpReceipt,
+} from "thirdweb/wallets/smart";
 import {
   prepareTransaction,
   sendTransaction,
@@ -29,6 +34,7 @@ import {
 } from "./somnia-session-storage";
 
 const CLOCK_SKEW_MS = 30_000;
+const USER_OPERATION_RECEIPT_POLL_INTERVAL_MS = 250;
 
 export type SomniaSessionHandle = {
   account: Account;
@@ -42,6 +48,7 @@ export type SomniaSessionTransactionBenchmark = {
   bundlerSubmissionMs: number;
   inclusionWaitMs: number;
   receiptPollCount: number;
+  receiptPollingIntervalMs: number;
   totalMs: number;
 };
 
@@ -259,10 +266,21 @@ export async function createSomniaSession(
 }
 
 export async function sendSomniaSessionTransaction(
-  account: Account,
+  record: SomniaSessionRecord,
   data: Hex
 ) {
   const client = thirdwebClient();
+  const sessionSigner = privateKeyToAccount({
+    client,
+    privateKey: record.sessionPrivateKey,
+  });
+  const smartWalletOptions = {
+    chain: somniaChain,
+    sponsorGas: true,
+    overrides: {
+      accountAddress: record.smartAccountAddress,
+    },
+  } as const;
   const transaction = prepareTransaction({
     client,
     chain: somniaChain,
@@ -324,7 +342,25 @@ export async function sendSomniaSessionTransaction(
   globalThis.fetch = benchmarkFetch;
 
   try {
-    const result = await sendTransaction({ account, transaction });
+    const signedUserOp = await createAndSignUserOp({
+      transactions: [transaction],
+      adminAccount: sessionSigner,
+      client,
+      smartWalletOptions,
+    });
+    const bundlerOptions = {
+      chain: somniaChain,
+      client,
+    };
+    const userOpHash = await bundleUserOp({
+      userOp: signedUserOp,
+      options: bundlerOptions,
+    });
+    const receipt = await waitForUserOpReceipt({
+      ...bundlerOptions,
+      userOpHash,
+      intervalMs: USER_OPERATION_RECEIPT_POLL_INTERVAL_MS,
+    });
     const completedAt = benchmarkNowMs();
     const totalMs = Math.max(0, completedAt - startedAt);
     const preparationWindowMs = Math.max(
@@ -348,11 +384,15 @@ export async function sendSomniaSessionTransaction(
       bundlerSubmissionMs,
       inclusionWaitMs,
       receiptPollCount,
+      receiptPollingIntervalMs:
+        USER_OPERATION_RECEIPT_POLL_INTERVAL_MS,
       totalMs,
     };
 
     return {
-      ...result,
+      chain: somniaChain,
+      client,
+      transactionHash: receipt.transactionHash,
       benchmark,
     };
   } finally {

@@ -2090,6 +2090,7 @@ type SmartAccountLatencyBreakdown = {
   bundlerSubmissionMs: number;
   inclusionWaitMs: number;
   receiptPollCount: number;
+  receiptPollingIntervalMs: number;
   totalMs: number;
 };
 
@@ -6008,7 +6009,7 @@ function DelvewornGame() {
 
     const result =
       await sendSomniaSessionTransaction(
-        somniaSessionHandle.account,
+        somniaSessionHandle.record,
         data
       );
 
@@ -8553,7 +8554,7 @@ function DelvewornGame() {
                   BUNDLER + VRF BENCHMARK
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Instant Play split follows Thirdweb&apos;s ERC-4337 flow. Prepare includes local work and gas estimation; inclusion is the wait after bundler submission.
+                  Instant Play split follows Thirdweb&apos;s ERC-4337 flow. Prepare includes local work and gas estimation; inclusion uses fast receipt polling after bundler submission.
                 </p>
               </div>
 
@@ -8634,7 +8635,7 @@ function DelvewornGame() {
                         return (
                         <p key={sample.id}>
                           {sample.mode} · {sample.action}: {smart
-                            ? `prep ${(smart.preparationMs / 1_000).toFixed(2)}s (estimate ${(smart.gasEstimationMs / 1_000).toFixed(2)}s) · paymaster ${(smart.paymasterMs / 1_000).toFixed(2)}s · bundler ${(smart.bundlerSubmissionMs / 1_000).toFixed(2)}s · inclusion ${(smart.inclusionWaitMs / 1_000).toFixed(2)}s (${smart.receiptPollCount} polls) · `
+                            ? `prep ${(smart.preparationMs / 1_000).toFixed(2)}s (estimate ${(smart.gasEstimationMs / 1_000).toFixed(2)}s) · paymaster ${(smart.paymasterMs / 1_000).toFixed(2)}s · bundler ${(smart.bundlerSubmissionMs / 1_000).toFixed(2)}s · inclusion ${(smart.inclusionWaitMs / 1_000).toFixed(2)}s (${smart.receiptPollCount} polls @ ${smart.receiptPollingIntervalMs}ms) · `
                             : `submit ${(sample.submissionMs / 1_000).toFixed(2)}s · `}VRF {(sample.vrfMs / 1_000).toFixed(2)}s · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
                         </p>
                         );
