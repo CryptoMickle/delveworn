@@ -52,6 +52,12 @@ export type SomniaSessionTransactionBenchmark = {
   totalMs: number;
 };
 
+export type SomniaSessionTransactionPhase =
+  | "preparing"
+  | "sponsoring"
+  | "submitting"
+  | "inclusion";
+
 function benchmarkNowMs() {
   return globalThis.performance?.now() ?? Date.now();
 }
@@ -267,7 +273,8 @@ export async function createSomniaSession(
 
 export async function sendSomniaSessionTransaction(
   record: SomniaSessionRecord,
-  data: Hex
+  data: Hex,
+  onPhase?: (phase: SomniaSessionTransactionPhase) => void
 ) {
   const client = thirdwebClient();
   const sessionSigner = privateKeyToAccount({
@@ -297,6 +304,8 @@ export async function sendSomniaSessionTransaction(
   let userOpSubmissionStartedAt: number | null = null;
   let userOpSubmittedAt: number | null = null;
 
+  onPhase?.("preparing");
+
   const benchmarkFetch: typeof globalThis.fetch = async (
     input,
     init
@@ -309,6 +318,11 @@ export async function sendSomniaSessionTransaction(
       userOpSubmissionStartedAt === null
     ) {
       userOpSubmissionStartedAt = requestStartedAt;
+      onPhase?.("submitting");
+    }
+
+    if (method === "pm_sponsorUserOperation") {
+      onPhase?.("sponsoring");
     }
 
     if (method === "eth_getUserOperationReceipt") {
@@ -356,6 +370,7 @@ export async function sendSomniaSessionTransaction(
       userOp: signedUserOp,
       options: bundlerOptions,
     });
+    onPhase?.("inclusion");
     const receipt = await waitForUserOpReceipt({
       ...bundlerOptions,
       userOpHash,

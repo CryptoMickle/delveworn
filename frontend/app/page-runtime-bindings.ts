@@ -1,5 +1,8 @@
 import { activeDeployment } from "./chain-config";
-import { createActivePublicClient } from "./chain-clients";
+import {
+  createActivePublicClient,
+  createActiveWebSocketClient,
+} from "./chain-clients";
 import { wagmiConfig } from "./wagmi-runtime";
 import { ensureActiveChain } from "./wallet-network";
 import {
@@ -70,6 +73,9 @@ export const ACTIVE_CHAIN_ID =
 
 export const publicClient =
   createActivePublicClient();
+
+export const eventWebSocketClient =
+  createActiveWebSocketClient();
 
 export {
   ACTIVE_ECOSYSTEM_NAME,
