@@ -15,12 +15,24 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const description =
-  "A fully onchain dungeon crawler with wallet-signed actions, verifiable randomness and contract-backed progress.";
+const isSomniaDeployment =
+  process.env.NEXT_PUBLIC_DEPLOYMENT === "somniaShannon";
+
+const canonicalOrigin = isSomniaDeployment
+  ? "https://delveworn-somnia.vercel.app"
+  : "https://delveworn.vercel.app";
+
+const title = isSomniaDeployment
+  ? "Delveworn · Somnia Verified Run"
+  : "Delveworn · Onchain Dungeon";
+
+const description = isSomniaDeployment
+  ? "A Somnia Verified Run with contract-backed progress, popup-free sponsored actions and verifiable randomness."
+  : "A fully onchain dungeon crawler with wallet-signed actions, verifiable randomness and contract-backed progress.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://delveworn.vercel.app"),
-  title: "Delveworn · Onchain Dungeon",
+  metadataBase: new URL(canonicalOrigin),
+  title,
   description,
   applicationName: "Delveworn",
   alternates: {
@@ -35,7 +47,7 @@ export const metadata: Metadata = {
     "roguelite",
   ],
   openGraph: {
-    title: "Delveworn · Onchain Dungeon",
+    title,
     description,
     type: "website",
     siteName: "Delveworn",
@@ -43,7 +55,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Delveworn · Onchain Dungeon",
+    title,
     description,
   },
 };

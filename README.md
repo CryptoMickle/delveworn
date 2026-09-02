@@ -12,10 +12,13 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 | --- | --- | --- |
 | Practice Mode | [Play without a wallet](https://delveworn.vercel.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
 | Onchain beta | [Open the RISE Testnet game](https://delveworn.vercel.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
+| Somnia Verified Run | [Open the canonical Somnia game](https://delveworn-somnia.vercel.app/onchain) | Contract-backed state, popup-free sponsored actions and Somnia-native verifiable randomness. |
 
-The production frontend is currently configured for RISE Testnet contract [`0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA).
+The primary production frontend uses RISE Testnet contract [`0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA). A separate canonical Somnia frontend uses Shannon contract [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292).
 
 Practice Mode is the fastest way to review the complete gameplay loop. Onchain Mode demonstrates the contract-backed state, wallet flow and randomness lifecycle, but depends on testnet and wallet availability.
+
+For a concise presentation sequence, use the [Somnia Verified Run 90-second demo](docs/SOMNIA_VERIFIED_RUN_DEMO.md).
 
 ## Repository structure
 
@@ -49,7 +52,7 @@ Practice Mode is not onchain, does not persist authoritative state and does not 
 
 Onchain Mode connects a wallet to a configured deployment. Player state and game actions are handled by the deployed `Delveworn` contract, and randomness-backed actions resolve through the configured provider and callback adapter.
 
-Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. The current public deployment remains on RISE Testnet; Somnia Shannon is an independently selectable deployment and does not replace the grant-linked RISE experience.
+Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. RISE and Somnia use separate canonical frontends and deployment configurations; the Somnia Verified Run does not replace the grant-linked RISE experience.
 
 ## Project overview
 
@@ -93,7 +96,7 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 | Environment | Status | Scope |
 | --- | --- | --- |
 | RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
-| Somnia Shannon Testnet | Verified opt-in deployment | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. A live monster request completed with `callbackSuccess=true`; the public frontend remains on RISE unless explicitly configured otherwise. Standard MetaMask play is live, while Thirdweb ERC-4337 Popup-free Play is available behind a deployment feature flag. It removes repeated wallet approvals but still waits for bundling, block inclusion and verified randomness. |
+| Somnia Shannon Testnet | Public Verified Run | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. The canonical frontend is [`delveworn-somnia.vercel.app`](https://delveworn-somnia.vercel.app/onchain). Standard MetaMask play and feature-flagged Thirdweb ERC-4337 Popup-free Play are live. Popup-free Play removes repeated wallet approvals but still waits for bundling, block inclusion and verified randomness. |
 | Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
 | Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
 | Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |
@@ -255,8 +258,10 @@ NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true
 NEXT_PUBLIC_THIRDWEB_CLIENT_ID=<public Thirdweb client ID>
 ```
 
-Keep the feature flag disabled until the Thirdweb client is restricted to the
-intended domain and has a Shannon sponsored-gas policy. MetaMask remains the
+Enable the feature flag only when the Thirdweb client is restricted to the
+intended canonical domain and has a Shannon sponsored-gas policy. The canonical
+Somnia deployment satisfies those requirements; other deployments should keep
+the flag disabled until they have an equivalent policy. MetaMask remains the
 owner/admin wallet. The temporary session key expires after eight hours and is
 limited onchain to zero-value calls against the configured Delveworn contract.
 Because the ERC-4337 smart account has its own address, it has separate player
