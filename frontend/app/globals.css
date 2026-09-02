@@ -25,6 +25,53 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+@keyframes combat-intent-attack {
+  0%, 100% { transform: rotate(-7deg) translateY(0); }
+  45% { transform: rotate(13deg) translateY(-3px); }
+}
+
+@keyframes combat-intent-storm {
+  0%, 100% { filter: brightness(1); transform: scale(.96); }
+  50% { filter: brightness(1.45); transform: scale(1.08); }
+}
+
+@keyframes combat-intent-potion {
+  0%, 100% { transform: rotate(-4deg) translateY(1px); }
+  50% { transform: rotate(6deg) translateY(-4px); }
+}
+
+@keyframes combat-intent-enter {
+  0%, 100% { filter: brightness(.9); transform: scale(.96); }
+  50% { filter: brightness(1.2); transform: scale(1.04); }
+}
+
+.combat-intent-attack {
+  animation: combat-intent-attack 1.15s ease-in-out infinite;
+}
+
+.combat-intent-storm {
+  animation: combat-intent-storm .9s ease-in-out infinite;
+}
+
+.combat-intent-potion {
+  animation: combat-intent-potion 1.2s ease-in-out infinite;
+}
+
+.combat-intent-enter,
+.combat-intent-random {
+  animation: combat-intent-enter 1.35s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combat-intent-attack,
+  .combat-intent-storm,
+  .combat-intent-potion,
+  .combat-intent-enter,
+  .combat-intent-random {
+    animation: none;
+  }
+}
+
 .delveworn-practice-mode {
   --delveworn-mode-accent: #22d3ee;
   --delveworn-mode-accent-soft: rgba(34, 211, 238, .12);

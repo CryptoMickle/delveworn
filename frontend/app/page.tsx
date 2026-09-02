@@ -67,6 +67,7 @@ import {
   delayedRandomnessText,
   delayedRandomnessTitle,
   ensureActiveChain,
+  eventWebSocketClient,
   isMetaMaskConnector,
   isRiseWalletConnector,
   publicClient,
@@ -86,6 +87,7 @@ import {
 } from "./somnia-session-storage";
 import {
   type SomniaSessionHandle,
+  type SomniaSessionTransactionPhase,
 } from "./somnia-session-keys";
 
 /*
@@ -2067,9 +2069,58 @@ type VrfCacheEntry = {
   player: Address;
   requestId: bigint;
   kind: number;
-  source:
-    "realtime" | "canonical";
+  source: VrfCompletionSource;
   receivedAt: number;
+};
+
+type VrfCompletionSource =
+  | "shreds"
+  | "websocket"
+  | "http"
+  | "state-polling";
+
+type ActionProgressPhase =
+  | "idle"
+  | SomniaSessionTransactionPhase
+  | "vrf"
+  | "syncing";
+
+type LatencyBenchmarkSample = {
+  id: string;
+  action: string;
+  mode: string;
+  smartAccount: SmartAccountLatencyBreakdown | null;
+  vrfSource: VrfCompletionSource | null;
+  submissionMs: number;
+  vrfMs: number;
+  stateSyncMs: number;
+  totalMs: number;
+};
+
+type SmartAccountLatencyBreakdown = {
+  preparationMs: number;
+  gasEstimationMs: number;
+  paymasterMs: number;
+  bundlerSubmissionMs: number;
+  inclusionWaitMs: number;
+  receiptPollCount: number;
+  receiptPollingIntervalMs: number;
+  totalMs: number;
+};
+
+type ActionTiming = {
+  name: string;
+  mode: string;
+  expectedRequestKind: number;
+  startedAt: number;
+  lastStageAt: number;
+  smartAccount: SmartAccountLatencyBreakdown | null;
+  submissionConfirmedAt: number | null;
+  vrfEventReceivedAt: number | null;
+  vrfSource: VrfCompletionSource | null;
+  stateReadStartedAt: number | null;
+  stateReadCompletedAt: number | null;
+  sampleCompleted: boolean;
 };
 
 /*
@@ -2961,6 +3012,14 @@ function DelvewornGame() {
     );
 
   const [
+    actionProgressPhase,
+    setActionProgressPhase,
+  ] =
+    useState<ActionProgressPhase>(
+      "idle"
+    );
+
+  const [
     vrfDelayed,
     setVrfDelayed,
   ] =
@@ -3017,6 +3076,14 @@ function DelvewornGame() {
   ] =
     useState(false);
 
+  const [
+    latencySamples,
+    setLatencySamples,
+  ] =
+    useState<
+      LatencyBenchmarkSample[]
+    >([]);
+
   const canonicalRecoveryRef =
     useRef(false);
 
@@ -3043,10 +3110,9 @@ function DelvewornGame() {
     >(null);
 
   const actionTimingRef =
-    useRef<{
-      name: string;
-      startedAt: number;
-    } | null>(null);
+    useRef<
+      ActionTiming | null
+    >(null);
 
   const bossRewardRef =
     useRef<HTMLDivElement | null>(
@@ -3067,8 +3133,105 @@ function DelvewornGame() {
       return;
     }
 
+    const now =
+      runtimeNowMs();
+
     console.info(
-      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} TIMING] ${timing.name} ${stage}: +${runtimeNowMs() - timing.startedAt}ms`
+      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} TIMING] ${timing.name} ${stage}: +${now - timing.startedAt}ms total, +${now - timing.lastStageAt}ms stage`
+    );
+
+    timing.lastStageAt =
+      now;
+  }
+
+  function completeLatencyBenchmark() {
+    const timing =
+      actionTimingRef.current;
+
+    if (
+      !timing ||
+      timing.sampleCompleted ||
+      timing.expectedRequestKind ===
+        RequestKind.None
+    ) {
+      return;
+    }
+
+    const completedAt =
+      runtimeNowMs();
+
+    const submissionConfirmedAt =
+      timing.submissionConfirmedAt ??
+      completedAt;
+
+    const vrfEventReceivedAt =
+      timing.vrfEventReceivedAt ??
+      timing.stateReadCompletedAt ??
+      completedAt;
+
+    const stateReadCompletedAt =
+      timing.stateReadCompletedAt ??
+      completedAt;
+
+    const stateSyncStartedAt =
+      timing.vrfEventReceivedAt ??
+      timing.stateReadStartedAt ??
+      stateReadCompletedAt;
+
+    const sample:
+      LatencyBenchmarkSample = {
+        id:
+          `${timing.startedAt}-${timing.name}`,
+        action:
+          timing.name,
+        mode:
+          timing.mode,
+        smartAccount:
+          timing.smartAccount,
+        vrfSource:
+          timing.vrfSource,
+        submissionMs:
+          Math.max(
+            0,
+            submissionConfirmedAt -
+              timing.startedAt
+          ),
+        vrfMs:
+          Math.max(
+            0,
+            vrfEventReceivedAt -
+              submissionConfirmedAt
+          ),
+        stateSyncMs:
+          Math.max(
+            0,
+            stateReadCompletedAt -
+              stateSyncStartedAt
+          ),
+        totalMs:
+          Math.max(
+            0,
+            completedAt -
+              timing.startedAt
+          ),
+      };
+
+    timing.sampleCompleted =
+      true;
+
+    setLatencySamples(
+      (samples) => [
+        sample,
+        ...samples,
+      ].slice(
+        0,
+        8
+      )
+    );
+
+    console.info(
+      `[${ACTIVE_ECOSYSTEM_NAME.toUpperCase()} BENCHMARK]`,
+      sample
     );
   }
 
@@ -3092,7 +3255,7 @@ function DelvewornGame() {
       setSomniaSessionHandle(null);
       setPlayer(null);
       setWalletMessage(
-        "The Instant Play session expired. Approve a new temporary session to continue."
+        "The popup-free session expired. Approve a new temporary session to continue."
       );
     }, remainingMs);
 
@@ -3359,7 +3522,7 @@ function DelvewornGame() {
 
   /*
     ==========================================================
-    RISE SHREDS VRF EVENT CACHE
+    REALTIME VRF EVENT CACHE
     ==========================================================
   */
 
@@ -3377,7 +3540,7 @@ function DelvewornGame() {
     /*
       The lean RandomnessFulfilled completion signal is consumed through two independent paths:
 
-      1. Shreds / WebSocket: fastest path.
+      1. Shreds or standard WebSocket: fastest path.
       2. HTTP event polling: reliability fallback.
 
       The HTTP watcher is intentionally always active. If RISE closes
@@ -3395,7 +3558,7 @@ function DelvewornGame() {
         number,
 
       source:
-        "realtime" | "canonical"
+        VrfCompletionSource
     ) => {
       const normalizedPlayer =
         getAddress(
@@ -3438,8 +3601,8 @@ function DelvewornGame() {
           };
 
       /*
-        The same completion can arrive first through Shreds and later
-        through the HTTP watcher. Preserve the original receivedAt so a
+        The same completion can arrive first through a realtime feed and
+        later through the HTTP watcher. Preserve the original receivedAt so a
         delayed duplicate from a previous attack can never masquerade as
         the completion for a new attack of the same kind.
       */
@@ -3447,6 +3610,25 @@ function DelvewornGame() {
         cacheKey,
         entry
       );
+
+      const actionTiming =
+        actionTimingRef.current;
+
+      if (
+        actionTiming &&
+        actionTiming.vrfEventReceivedAt ===
+          null &&
+        actionTiming.expectedRequestKind ===
+          entry.kind &&
+        entry.receivedAt >=
+          actionTiming.startedAt
+      ) {
+        actionTiming.vrfEventReceivedAt =
+          entry.receivedAt;
+
+        actionTiming.vrfSource =
+          entry.source;
+      }
 
       timingLog(
         `RandomnessFulfilled received via ${source} (request ${requestId.toString()}, kind ${Number(kind)})`
@@ -3532,7 +3714,7 @@ function DelvewornGame() {
                     Number(
                       args.kind
                     ),
-                    "realtime"
+                    "shreds"
                   );
                 } catch (
                   error
@@ -3563,6 +3745,79 @@ function DelvewornGame() {
         })
         : () => {};
 
+    const unwatchWebSocketEvents =
+      eventWebSocketClient
+        ? eventWebSocketClient.watchContractEvent({
+            address:
+              DUNGEON_ADDRESS,
+
+            abi:
+              dungeonAbi,
+
+            eventName:
+              "RandomnessFulfilled",
+
+            args: {
+              player:
+                watchedAddress,
+            },
+
+            poll:
+              false,
+
+            onLogs:
+              (
+                logs
+              ) => {
+                for (
+                  const log
+                  of logs
+                ) {
+                  const args =
+                    log.args as {
+                      player?:
+                        Address;
+
+                      requestId?:
+                        bigint;
+
+                      kind?:
+                        number;
+                    };
+
+                  if (
+                    !args.player ||
+                    args.requestId ===
+                      undefined ||
+                    args.kind ===
+                      undefined
+                  ) {
+                    continue;
+                  }
+
+                  ingestVrfResult(
+                    args.player,
+                    args.requestId,
+                    Number(
+                      args.kind
+                    ),
+                    "websocket"
+                  );
+                }
+              },
+
+            onError:
+              (
+                error
+              ) => {
+                console.warn(
+                  `${ACTIVE_NETWORK_LABEL} WebSocket interrupted; HTTP event fallback remains active:`,
+                  error
+                );
+              },
+          })
+        : () => {};
+
     const unwatchHttpEvents =
       publicClient.watchContractEvent({
         address:
@@ -3580,7 +3835,10 @@ function DelvewornGame() {
         },
 
         pollingInterval:
-          500,
+          Math.max(
+            TESTNET_POLLING_MS,
+            250
+          ),
 
         onLogs:
           (
@@ -3618,7 +3876,7 @@ function DelvewornGame() {
                 Number(
                   args.kind
                 ),
-                "canonical"
+                "http"
               );
             }
           },
@@ -3636,6 +3894,7 @@ function DelvewornGame() {
 
     return () => {
       unwatchShreds();
+      unwatchWebSocketEvents();
       unwatchHttpEvents();
       vrfResultsRef.current.clear();
     };
@@ -3837,6 +4096,10 @@ function DelvewornGame() {
     stage:
       string
   ): PlayerState {
+    setActionProgressPhase(
+      "syncing"
+    );
+
     setPlayer(
       resolvedState
     );
@@ -3864,6 +4127,8 @@ function DelvewornGame() {
     timingLog(
       stage
     );
+
+    completeLatencyBenchmark();
 
     void finalizeCanonicalAction(
       playerAddress,
@@ -4106,6 +4371,18 @@ function DelvewornGame() {
           playerAddress.toLowerCase()
       ) {
         try {
+          const actionTiming =
+            actionTimingRef.current;
+
+          if (
+            actionTiming &&
+            actionTiming.stateReadStartedAt ===
+              null
+          ) {
+            actionTiming.stateReadStartedAt =
+              runtimeNowMs();
+          }
+
           timingLog(
             `starting state read via ${cached.source}`
           );
@@ -4113,12 +4390,20 @@ function DelvewornGame() {
           const resolvedState =
             await fetchPlayerState(
               playerAddress,
-              cached.source
+              cached.source ===
+                "http"
+                ? "canonical"
+                : "realtime"
             );
 
           timingLog(
             `state read via ${cached.source} completed`
           );
+
+          if (actionTiming) {
+            actionTiming.stateReadCompletedAt =
+              runtimeNowMs();
+          }
 
           if (
             resolvedState.pendingRequestId ===
@@ -4204,6 +4489,17 @@ function DelvewornGame() {
               changed
             )
           ) {
+            const actionTiming =
+              actionTimingRef.current;
+
+            if (
+              actionTiming &&
+              !actionTiming.vrfSource
+            ) {
+              actionTiming.vrfSource =
+                "state-polling";
+            }
+
             const remainingDisplay =
               MIN_VRF_DISPLAY_MS -
               (
@@ -4605,7 +4901,7 @@ function DelvewornGame() {
       );
 
       setWalletMessage(
-        "The previous Instant Play session expired or was revoked. Approve a new temporary session to continue."
+        "The previous popup-free session expired or was revoked. Approve a new temporary session to continue."
       );
     }
   }
@@ -4632,7 +4928,7 @@ function DelvewornGame() {
         !supportsThirdwebSessionKeys()
       ) {
         throw new Error(
-          "Somnia Instant Play is not enabled for this deployment."
+          "Somnia popup-free play is not enabled for this deployment."
         );
       }
 
@@ -4804,7 +5100,7 @@ function DelvewornGame() {
       );
 
       setWalletMessage(
-        "Could not enable Somnia Instant Play. The MetaMask approval, smart-account deployment or sponsored session request failed."
+        "Could not enable Somnia popup-free play. The MetaMask approval, smart-account deployment or sponsored session request failed."
       );
     } finally {
       setSomniaSessionCreating(
@@ -5362,6 +5658,10 @@ function DelvewornGame() {
       "connector.getProvider start"
     );
 
+    setActionProgressPhase(
+      "preparing"
+    );
+
     const provider =
       (
         await connector
@@ -5489,6 +5789,10 @@ function DelvewornGame() {
           "wallet_sendPreparedCalls start"
         );
 
+        setActionProgressPhase(
+          "submitting"
+        );
+
         const result =
           await provider.request({
             method:
@@ -5528,6 +5832,10 @@ function DelvewornGame() {
             "RISE Wallet returned no call bundle id."
           );
         }
+
+        setActionProgressPhase(
+          "inclusion"
+        );
 
         if (!waitForStatus) {
           timingLog(
@@ -5759,6 +6067,10 @@ function DelvewornGame() {
         args,
       } as never);
 
+    setActionProgressPhase(
+      "submitting"
+    );
+
     const hash =
       await walletClient
         .sendTransaction({
@@ -5770,6 +6082,10 @@ function DelvewornGame() {
             DUNGEON_ADDRESS,
           data,
         });
+
+    setActionProgressPhase(
+      "inclusion"
+    );
 
     const receipt =
       await waitForReceipt(
@@ -5799,6 +6115,9 @@ function DelvewornGame() {
     functionName:
       SessionAction,
 
+    waitForStatus =
+      true,
+
     args:
       readonly unknown[] = []
   ): Promise<
@@ -5809,7 +6128,7 @@ function DelvewornGame() {
       !hasSomniaSession
     ) {
       throw new Error(
-        "Somnia Instant Play session is not active."
+        "Somnia popup-free session is not active."
       );
     }
 
@@ -5831,9 +6150,42 @@ function DelvewornGame() {
 
     const result =
       await sendSomniaSessionTransaction(
-        somniaSessionHandle.account,
-        data
+        somniaSessionHandle.record,
+        data,
+        (
+          phase
+        ) => {
+          setActionProgressPhase(
+            phase
+          );
+        }
       );
+
+    if (actionTimingRef.current) {
+      actionTimingRef.current.smartAccount =
+        result.benchmark;
+    }
+
+    timingLog(
+      "Somnia smart-account transaction confirmed"
+    );
+
+    if (!waitForStatus) {
+      /*
+        Thirdweb's smart-account sender has already waited for the ERC-4337
+        user operation receipt before returning the transaction hash. VRF
+        actions are completed by the lean RandomnessFulfilled watcher, so a
+        second HTTP receipt lookup only delays the animation without adding a
+        stronger confirmation signal.
+      */
+      return {
+        hash:
+          result.transactionHash,
+        logs: [],
+        bundleId:
+          "",
+      };
+    }
 
     const receipt =
       await waitForReceipt(
@@ -5898,6 +6250,7 @@ function DelvewornGame() {
       ) {
         return sendDungeonSomniaSessionCall(
           functionName,
+          waitForStatus,
           args
         );
       }
@@ -6736,9 +7089,40 @@ function DelvewornGame() {
       return;
     }
 
+    const actionStartedAt =
+      runtimeNowMs();
+
     actionTimingRef.current = {
       name: functionName,
-      startedAt: runtimeNowMs(),
+      mode:
+        isRiseWallet
+          ? "RISE Instant Play"
+          : somniaSessionMode &&
+              hasSomniaSession
+            ? "Somnia Popup-free Play"
+            : ACTIVE_ECOSYSTEM_NAME === "Somnia"
+              ? "Somnia Verified Run"
+              : "MetaMask Standard Play",
+      expectedRequestKind:
+        RequestKind.None,
+      startedAt:
+        actionStartedAt,
+      lastStageAt:
+        actionStartedAt,
+      smartAccount:
+        null,
+      submissionConfirmedAt:
+        null,
+      vrfEventReceivedAt:
+        null,
+      vrfSource:
+        null,
+      stateReadStartedAt:
+        null,
+      stateReadCompletedAt:
+        null,
+      sampleCompleted:
+        false,
     };
 
     timingLog(
@@ -6828,6 +7212,13 @@ function DelvewornGame() {
         expectedRequestKind !==
         RequestKind.None
       ) {
+        if (
+          actionTimingRef.current
+        ) {
+          actionTimingRef.current.expectedRequestKind =
+            expectedRequestKind;
+        }
+
         setActionReady(
           false
         );
@@ -6846,6 +7237,10 @@ function DelvewornGame() {
         setRollingKind(
           expectedRequestKind
         );
+
+        setActionProgressPhase(
+          "preparing"
+        );
       }
 
       const sessionResult =
@@ -6855,12 +7250,31 @@ function DelvewornGame() {
             RequestKind.None
         );
 
+      if (
+        actionTimingRef.current
+      ) {
+        actionTimingRef.current.submissionConfirmedAt =
+          runtimeNowMs();
+      }
+
       timingLog(
-        "sendDungeonSessionCall returned"
+        expectedRequestKind ===
+          RequestKind.None
+          ? "transaction flow completed"
+          : "transaction confirmed; VRF wait active"
       );
 
       transactionSubmitted =
         true;
+
+      if (
+        expectedRequestKind !==
+        RequestKind.None
+      ) {
+        setActionProgressPhase(
+          "vrf"
+        );
+      }
 
       let resolved:
         PlayerState | null =
@@ -7403,6 +7817,10 @@ function DelvewornGame() {
         RequestKind.None
       );
 
+      setActionProgressPhase(
+        "idle"
+      );
+
       setPendingAction(
         null
       );
@@ -7637,20 +8055,26 @@ function DelvewornGame() {
           <GameHeader
             mode="onchain"
             eyebrow={`LIVE ON ${ACTIVE_NETWORK_LABEL.toUpperCase()}`}
-            subtitle="Enter the dungeon"
+            subtitle={ACTIVE_ECOSYSTEM_NAME === "Somnia" ? "Verified Run" : "Enter the dungeon"}
             meta={`VERIFIABLE VRF · WALLET-SIGNED ACTIONS · CHAIN ID ${ACTIVE_CHAIN_ID}`}
           />
           <section className="practice-main-card relative mb-4 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
             <DungeonEntry
               mode="onchain"
-              eyebrow={walletChoiceOpen ? "CHOOSE YOUR ENTRY" : "FULLY ONCHAIN EXPEDITION"}
+              eyebrow={walletChoiceOpen
+                ? "CHOOSE YOUR ENTRY"
+                : ACTIVE_ECOSYSTEM_NAME === "Somnia"
+                  ? "SOMNIA VERIFIED RUN"
+                  : "FULLY ONCHAIN EXPEDITION"}
               description={walletChoiceOpen
                 ? supportsInstantPlay()
                   ? activeInstantPlayProvider() === "rise-wallet"
                     ? "Choose Instant Play with RISE Wallet, or Standard Play with MetaMask."
-                    : "Choose popup-free Instant Play through a temporary Somnia smart-account session, or Standard Play with MetaMask."
+                    : "Choose popup-free play through a temporary Somnia smart-account session, or confirm every action with MetaMask. Both options use the same fully onchain game and verifiable VRF."
                   : `Connect MetaMask for standard wallet-signed play on ${ACTIVE_NETWORK_LABEL}.`
-                : "Enter the live testnet game. Actions, randomness, progress and rewards are verifiable onchain."}
+                : ACTIVE_ECOSYSTEM_NAME === "Somnia"
+                  ? "A deliberate proof mode for contract-backed state and verifiable randomness. For immediate full-length gameplay, choose Play now."
+                  : "Enter the live testnet game. Actions, randomness, progress and rewards are verifiable onchain."}
               proofFooter={
                 <a href={DUNGEON_EXPLORER_URL} target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2 transition hover:text-white">
                   VIEW CONTRACT · {DUNGEON_ADDRESS.slice(0, 6)}…{DUNGEON_ADDRESS.slice(-4)} ↗
@@ -7673,7 +8097,7 @@ function DelvewornGame() {
                     >
                       {activeInstantPlayProvider() === "rise-wallet"
                         ? "⚡ RISE WALLET · INSTANT PLAY"
-                        : "⚡ METAMASK · INSTANT PLAY"}
+                        : "🔑 METAMASK · POPUP-FREE PLAY"}
                     </button>
                   )}
                   <button
@@ -7681,7 +8105,9 @@ function DelvewornGame() {
                     onClick={() => connectWallet("metamask")}
                     className={`${supportsInstantPlay() ? "mt-3 " : ""}w-full rounded-xl border border-zinc-700 bg-zinc-800 py-4 text-lg font-black text-white transition hover:bg-zinc-700`}
                   >
-                    🦊 METAMASK · STANDARD PLAY
+                    {ACTIVE_ECOSYSTEM_NAME === "Somnia"
+                      ? "🦊 METAMASK · CONFIRM EACH ACTION"
+                      : "🦊 METAMASK · STANDARD PLAY"}
                   </button>
                   <button
                     type="button"
@@ -7694,7 +8120,7 @@ function DelvewornGame() {
                     {supportsInstantPlay()
                       ? activeInstantPlayProvider() === "rise-wallet"
                         ? "MetaMask confirms each action. RISE Wallet enables popup-free play after one session approval."
-                        : "Standard Play confirms every action. Instant Play uses MetaMask once to authorize an 8-hour restricted smart-account session."
+                        : "Popup-free play removes repeated wallet approvals, not the time needed for bundling, block inclusion and verified randomness."
                       : "MetaMask confirms each onchain action."}
                   </p>
                 </div>
@@ -7752,7 +8178,9 @@ function DelvewornGame() {
             </div>
 
             <h2 className="text-2xl font-black mt-4">
-              Instant Play
+              {supportsThirdwebSessionKeys()
+                ? "Popup-free Play"
+                : "Instant Play"}
             </h2>
 
             <p className="text-sm text-zinc-400 mt-3">
@@ -7801,7 +8229,9 @@ function DelvewornGame() {
             >
               {grantPermissions.isPending || somniaSessionCreating
                 ? "CREATING SESSION..."
-                : "🔑 ENABLE INSTANT PLAY"}
+                : supportsThirdwebSessionKeys()
+                  ? "🔑 ENABLE POPUP-FREE PLAY"
+                  : "🔑 ENABLE INSTANT PLAY"}
             </button>
 
             {walletMessage && (
@@ -8144,6 +8574,9 @@ function DelvewornGame() {
   let rollingText =
     "The dungeon is making questionable decisions...";
 
+  let rollingIconClass =
+    "combat-intent-random";
+
   if (
     requestKind ===
     RequestKind.Monster
@@ -8152,6 +8585,9 @@ function DelvewornGame() {
       isBossRoom
         ? "👑"
         : "🚪";
+
+    rollingIconClass =
+      "combat-intent-enter";
 
     rollingTitle =
       isBossRoom
@@ -8171,6 +8607,9 @@ function DelvewornGame() {
     rollingIcon =
       "⚔️";
 
+    rollingIconClass =
+      "combat-intent-attack";
+
     rollingTitle =
       "ROLLING ATTACK";
 
@@ -8184,6 +8623,9 @@ function DelvewornGame() {
   ) {
     rollingIcon =
       "⚡";
+
+    rollingIconClass =
+      "combat-intent-storm";
 
     rollingTitle =
       "UNLEASHING STORM";
@@ -8199,6 +8641,9 @@ function DelvewornGame() {
     rollingIcon =
       "🧪";
 
+    rollingIconClass =
+      "combat-intent-potion";
+
     rollingTitle =
       "DRINKING SUSPICIOUS LIQUID";
 
@@ -8207,10 +8652,107 @@ function DelvewornGame() {
   }
 
   if (
+    actionProgressPhase ===
+    "preparing"
+  ) {
+    rollingLabel =
+      "ACTION · 1 OF 5";
+
+    rollingTitle =
+      "PREPARING MOVE";
+
+    rollingText =
+      "Building the restricted session action and estimating its cost...";
+  }
+
+  if (
+    actionProgressPhase ===
+    "sponsoring"
+  ) {
+    rollingLabel =
+      "ACTION · 2 OF 5";
+
+    rollingTitle =
+      "SPONSORING MOVE";
+
+    rollingText =
+      "Thirdweb is approving sponsored gas for this zero-value action...";
+  }
+
+  if (
+    actionProgressPhase ===
+    "submitting"
+  ) {
+    rollingLabel =
+      "ACTION · 3 OF 5";
+
+    rollingTitle =
+      "SENDING ONCHAIN";
+
+    rollingText =
+      `The signed move is being sent to ${ACTIVE_ECOSYSTEM_NAME}...`;
+  }
+
+  if (
+    actionProgressPhase ===
+    "inclusion"
+  ) {
+    rollingLabel =
+      "ACTION · 4 OF 5";
+
+    rollingTitle =
+      "WAITING FOR INCLUSION";
+
+    rollingText =
+      `The bundler accepted the move. Waiting for ${ACTIVE_ECOSYSTEM_NAME} to include it...`;
+  }
+
+  if (
+    actionProgressPhase ===
+    "vrf"
+  ) {
+    rollingLabel =
+      "VRF · 5 OF 5";
+  }
+
+  const actionProgressOrder:
+    ActionProgressPhase[] =
+      hasSomniaSession
+        ? [
+            "preparing",
+            "sponsoring",
+            "submitting",
+            "inclusion",
+            "vrf",
+          ]
+        : [
+            "preparing",
+            "submitting",
+            "inclusion",
+            "vrf",
+          ];
+
+  const actionProgressIndex =
+    actionProgressOrder.indexOf(
+      actionProgressPhase
+    );
+
+  if (
+    actionProgressIndex >=
+    0
+  ) {
+    rollingLabel =
+      `${actionProgressPhase === "vrf" ? "VRF" : "ACTION"} · ${actionProgressIndex + 1} OF ${actionProgressOrder.length}`;
+  }
+
+  if (
     canonicalSyncing
   ) {
     rollingIcon =
       "⛓️";
+
+    rollingIconClass =
+      "combat-intent-random";
 
     rollingTitle =
       "FINALIZING ACTION";
@@ -8225,6 +8767,9 @@ function DelvewornGame() {
   ) {
     rollingIcon =
       "⏳";
+
+    rollingIconClass =
+      "combat-intent-random";
 
     rollingLabel =
       ACTIVE_NETWORK_LABEL.toUpperCase();
@@ -8261,7 +8806,9 @@ function DelvewornGame() {
             <div className="flex items-center justify-center gap-2 mt-2">
 
               <span className="text-[10px] text-emerald-400">
-                🔑 INSTANT PLAY ACTIVE
+                {hasSomniaSession
+                  ? "🔑 POPUP-FREE VERIFIED PLAY ACTIVE"
+                  : "🔑 INSTANT PLAY ACTIVE"}
               </span>
 
               <button
@@ -8279,7 +8826,9 @@ function DelvewornGame() {
             <div className="flex items-center justify-center gap-2 mt-2">
 
               <span className="text-[10px] text-orange-300">
-                🦊 METAMASK · STANDARD PLAY
+                {ACTIVE_ECOSYSTEM_NAME === "Somnia"
+                  ? "🦊 VERIFIED RUN · CONFIRM EACH ACTION"
+                  : "🦊 METAMASK · STANDARD PLAY"}
               </span>
 
               <button
@@ -8295,6 +8844,126 @@ function DelvewornGame() {
             </div>
           )}
         </GameHeader>
+
+        {ACTIVE_ECOSYSTEM_NAME ===
+          "Somnia" && (
+          <details className="mb-4 rounded-xl border border-cyan-950/70 bg-cyan-950/10 p-4 text-zinc-500">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[10px] font-bold tracking-[0.2em] text-cyan-500 transition hover:text-cyan-300">
+              <span>TECHNICAL DETAILS · BUNDLER + VRF</span>
+              <span className="shrink-0 font-mono tracking-normal text-zinc-600">
+                {latencySamples.length > 0
+                  ? `${(latencySamples[0].totalMs / 1_000).toFixed(2)}s latest`
+                  : "no samples"}
+              </span>
+            </summary>
+
+            <div className="mt-4 border-t border-cyan-950/70 pt-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs text-zinc-500">
+                  Popup-free play still uses Thirdweb&apos;s ERC-4337 bundler, block inclusion and Somnia&apos;s verifiable-randomness callback. These timings are diagnostic and do not change the proof model.
+                </p>
+
+                {latencySamples.length >
+                  0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLatencySamples(
+                        []
+                      )
+                    }
+                    className="shrink-0 text-[9px] text-zinc-500 underline transition hover:text-zinc-300"
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+
+              {latencySamples.length ===
+              0 ? (
+                <p className="mt-3 text-sm text-zinc-400">
+                  Run Attack, Storm, Potion or enter a room to record the first sample.
+                </p>
+              ) : (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-6">
+                  <SmallStat
+                    label="PREP + EST"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.preparationMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label="PAYMASTER"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.paymasterMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label="BUNDLER SEND"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.bundlerSubmissionMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label="INCLUSION"
+                    value={latencySamples[0].smartAccount
+                      ? `${(latencySamples[0].smartAccount.inclusionWaitMs / 1_000).toFixed(2)}s`
+                      : "—"}
+                  />
+                  <SmallStat
+                    label={`VRF · ${
+                      latencySamples[0].vrfSource ===
+                      "websocket"
+                        ? "WS"
+                        : latencySamples[0].vrfSource ===
+                            "shreds"
+                          ? "SHREDS"
+                          : latencySamples[0].vrfSource ===
+                              "http"
+                            ? "HTTP"
+                            : "POLL"
+                    }`}
+                    value={`${(
+                      latencySamples[0].vrfMs /
+                      1_000
+                    ).toFixed(2)}s`}
+                  />
+                  <SmallStat
+                    label="TOTAL"
+                    value={`${(
+                      latencySamples[0].totalMs /
+                      1_000
+                    ).toFixed(2)}s`}
+                  />
+                  </div>
+
+                  <details className="mt-3 text-xs text-zinc-500">
+                    <summary className="cursor-pointer select-none hover:text-zinc-300">
+                      {latencySamples[0].mode} · {latencySamples[0].action} · show history
+                    </summary>
+                    <div className="mt-2 space-y-1 font-mono text-[10px]">
+                      {latencySamples.map(
+                        (sample) => {
+                          const smart =
+                            sample.smartAccount;
+
+                          return (
+                          <p key={sample.id}>
+                            {sample.mode} · {sample.action}: {smart
+                              ? `prep ${(smart.preparationMs / 1_000).toFixed(2)}s (estimate ${(smart.gasEstimationMs / 1_000).toFixed(2)}s) · paymaster ${(smart.paymasterMs / 1_000).toFixed(2)}s · bundler ${(smart.bundlerSubmissionMs / 1_000).toFixed(2)}s · inclusion ${(smart.inclusionWaitMs / 1_000).toFixed(2)}s (${smart.receiptPollCount} polls @ ${smart.receiptPollingIntervalMs}ms) · `
+                              : `submit ${(sample.submissionMs / 1_000).toFixed(2)}s · `}VRF {(sample.vrfMs / 1_000).toFixed(2)}s ({sample.vrfSource ?? "unknown"}) · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
+                          </p>
+                          );
+                        }
+                      )}
+                    </div>
+                  </details>
+                </>
+              )}
+            </div>
+          </details>
+        )}
 
         {/* ===================================================
             COMPACT STICKY HUD
@@ -8347,8 +9016,10 @@ function DelvewornGame() {
           {!player.hasStarted ? (
             <DungeonEntry
               mode="onchain"
-              eyebrow="FULLY ONCHAIN EXPEDITION"
-              description="Your wallet is connected. Start a verifiable run backed by the live Delveworn testnet contract."
+              eyebrow={ACTIVE_ECOSYSTEM_NAME === "Somnia" ? "SOMNIA VERIFIED RUN" : "FULLY ONCHAIN EXPEDITION"}
+              description={ACTIVE_ECOSYSTEM_NAME === "Somnia"
+                ? "Your wallet is connected. Start a contract-backed proof run with native verifiable randomness. One resolved encounter is enough to verify the complete flow; continue for as long as you want."
+                : "Your wallet is connected. Start a verifiable run backed by the live Delveworn testnet contract."}
               proofFooter={
                 <a href={DUNGEON_EXPLORER_URL} target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2 transition hover:text-white">
                   VIEW CONTRACT · {DUNGEON_ADDRESS.slice(0, 6)}…{DUNGEON_ADDRESS.slice(-4)} ↗
@@ -8367,7 +9038,9 @@ function DelvewornGame() {
                 disabled={busy}
                 className="delveworn-primary-cta mt-7 w-full rounded-xl py-4 text-lg font-black transition disabled:opacity-50"
               >
-                ⚔️ START ONCHAIN RUN
+                {ACTIVE_ECOSYSTEM_NAME === "Somnia"
+                  ? "⛓️ START VERIFIED RUN"
+                  : "⚔️ START ONCHAIN RUN"}
               </button>
               <p className="mt-4 text-[10px] text-zinc-600">Gameplay actions use your selected wallet mode.</p>
             </DungeonEntry>
@@ -8796,7 +9469,7 @@ function DelvewornGame() {
 
               <div className="text-center max-w-xs">
 
-                <div className="text-7xl animate-pulse">
+                <div className={`text-7xl ${rollingIconClass}`}>
                   {rollingIcon}
                 </div>
 
@@ -8812,15 +9485,46 @@ function DelvewornGame() {
                   {rollingText}
                 </p>
 
-                <div className="flex justify-center gap-2 mt-5">
+                {!vrfDelayed &&
+                  !canonicalSyncing &&
+                  actionProgressIndex >= 0 && (
+                    <div
+                      className="mt-5 flex gap-1.5"
+                      aria-label={`Action progress ${actionProgressIndex + 1} of ${actionProgressOrder.length}`}
+                    >
+                      {actionProgressOrder.map(
+                        (
+                          phase,
+                          index
+                        ) => (
+                          <span
+                            key={phase}
+                            className={`h-1.5 flex-1 rounded-full transition-colors duration-150 ${
+                              index <
+                              actionProgressIndex
+                                ? "bg-violet-500"
+                                : index ===
+                                    actionProgressIndex
+                                  ? "bg-violet-300 animate-pulse"
+                                  : "bg-zinc-700"
+                            }`}
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
 
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-
-                </div>
+                {(
+                  vrfDelayed ||
+                  canonicalSyncing ||
+                  actionProgressIndex < 0
+                ) && (
+                  <div className="flex justify-center gap-2 mt-5">
+                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                  </div>
+                )}
 
                 {supportsRandomnessRetry() &&
                   vrfRetryAvailable &&
@@ -9683,7 +10387,9 @@ function DelvewornGame() {
 
           <p className="text-[10px] text-zinc-700">
             V8.6.9b · {runtimeFooterLabel()} · {supportsInstantPlay()
-              ? `${activeInstantPlayProvider() === "rise-wallet" ? "RISE" : "Somnia"} Instant Play · `
+              ? activeInstantPlayProvider() === "rise-wallet"
+                ? "RISE Instant Play · "
+                : "Somnia Popup-free Play · "
               : ""}MetaMask Standard Play
           </p>
 
