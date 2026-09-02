@@ -233,6 +233,9 @@ export const deployments = {
     rpcUrl:
       process.env.NEXT_PUBLIC_SOMNIA_SHANNON_RPC_URL ??
       "https://dream-rpc.somnia.network/",
+    wsUrl:
+      process.env.NEXT_PUBLIC_SOMNIA_SHANNON_WS_URL ??
+      "wss://dream-rpc.somnia.network/ws",
     explorerUrl:
       process.env.NEXT_PUBLIC_SOMNIA_SHANNON_EXPLORER_URL ??
       "https://shannon-explorer.somnia.network/",
@@ -246,7 +249,7 @@ export const deployments = {
         : null,
     },
     realtime: {
-      websocket: false,
+      websocket: true,
       shreds: false,
     },
     randomness: {

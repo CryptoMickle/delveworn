@@ -10,12 +10,28 @@ export function createActivePublicClient() {
 }
 
 export function createActiveWebSocketClient() {
-  if (!activeDeployment.wsUrl) {
+  if (
+    !activeDeployment.realtime.websocket ||
+    activeDeployment.realtime.shreds ||
+    !activeDeployment.wsUrl
+  ) {
     return null;
   }
 
   return createPublicClient({
     chain: activeDeployment.chain,
-    transport: webSocket(activeDeployment.wsUrl),
+    cacheTime: 0,
+    transport: webSocket(activeDeployment.wsUrl, {
+      keepAlive: {
+        interval: 5_000,
+      },
+      reconnect: {
+        attempts: 100,
+        delay: 500,
+      },
+      retryCount: 5,
+      retryDelay: 100,
+      timeout: 15_000,
+    }),
   });
 }

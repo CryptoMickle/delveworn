@@ -67,6 +67,7 @@ import {
   delayedRandomnessText,
   delayedRandomnessTitle,
   ensureActiveChain,
+  eventWebSocketClient,
   isMetaMaskConnector,
   isRiseWalletConnector,
   publicClient,
@@ -86,6 +87,7 @@ import {
 } from "./somnia-session-storage";
 import {
   type SomniaSessionHandle,
+  type SomniaSessionTransactionPhase,
 } from "./somnia-session-keys";
 
 /*
@@ -188,6 +190,10 @@ async function createConnectedWalletClient(
 
 const realtimeClient =
   createRiseShredsClient();
+
+const realtimeReadClient =
+  realtimeClient ??
+  eventWebSocketClient;
 
 /*
   ============================================================
@@ -1920,7 +1926,7 @@ async function fetchPlayerState(
   const reader =
     source ===
     "realtime"
-      ? realtimeClient ?? publicClient
+      ? realtimeReadClient ?? publicClient
       : publicClient;
 
   let snapshot: unknown;
@@ -2067,16 +2073,28 @@ type VrfCacheEntry = {
   player: Address;
   requestId: bigint;
   kind: number;
-  source:
-    "realtime" | "canonical";
+  source: VrfCompletionSource;
   receivedAt: number;
 };
+
+type VrfCompletionSource =
+  | "shreds"
+  | "websocket"
+  | "http"
+  | "state-polling";
+
+type ActionProgressPhase =
+  | "idle"
+  | SomniaSessionTransactionPhase
+  | "vrf"
+  | "syncing";
 
 type LatencyBenchmarkSample = {
   id: string;
   action: string;
   mode: string;
   smartAccount: SmartAccountLatencyBreakdown | null;
+  vrfSource: VrfCompletionSource | null;
   submissionMs: number;
   vrfMs: number;
   stateSyncMs: number;
@@ -2103,6 +2121,7 @@ type ActionTiming = {
   smartAccount: SmartAccountLatencyBreakdown | null;
   submissionConfirmedAt: number | null;
   vrfEventReceivedAt: number | null;
+  vrfSource: VrfCompletionSource | null;
   stateReadStartedAt: number | null;
   stateReadCompletedAt: number | null;
   sampleCompleted: boolean;
@@ -2997,6 +3016,14 @@ function DelvewornGame() {
     );
 
   const [
+    actionProgressPhase,
+    setActionProgressPhase,
+  ] =
+    useState<ActionProgressPhase>(
+      "idle"
+    );
+
+  const [
     vrfDelayed,
     setVrfDelayed,
   ] =
@@ -3164,6 +3191,8 @@ function DelvewornGame() {
           timing.mode,
         smartAccount:
           timing.smartAccount,
+        vrfSource:
+          timing.vrfSource,
         submissionMs:
           Math.max(
             0,
@@ -3496,7 +3525,7 @@ function DelvewornGame() {
 
   /*
     ==========================================================
-    RISE SHREDS VRF EVENT CACHE
+    REALTIME VRF EVENT CACHE
     ==========================================================
   */
 
@@ -3514,7 +3543,7 @@ function DelvewornGame() {
     /*
       The lean RandomnessFulfilled completion signal is consumed through two independent paths:
 
-      1. Shreds / WebSocket: fastest path.
+      1. Shreds or standard WebSocket: fastest path.
       2. HTTP event polling: reliability fallback.
 
       The HTTP watcher is intentionally always active. If RISE closes
@@ -3532,7 +3561,7 @@ function DelvewornGame() {
         number,
 
       source:
-        "realtime" | "canonical"
+        VrfCompletionSource
     ) => {
       const normalizedPlayer =
         getAddress(
@@ -3575,8 +3604,8 @@ function DelvewornGame() {
           };
 
       /*
-        The same completion can arrive first through Shreds and later
-        through the HTTP watcher. Preserve the original receivedAt so a
+        The same completion can arrive first through a realtime feed and
+        later through the HTTP watcher. Preserve the original receivedAt so a
         delayed duplicate from a previous attack can never masquerade as
         the completion for a new attack of the same kind.
       */
@@ -3599,6 +3628,9 @@ function DelvewornGame() {
       ) {
         actionTiming.vrfEventReceivedAt =
           entry.receivedAt;
+
+        actionTiming.vrfSource =
+          entry.source;
       }
 
       timingLog(
@@ -3685,7 +3717,7 @@ function DelvewornGame() {
                     Number(
                       args.kind
                     ),
-                    "realtime"
+                    "shreds"
                   );
                 } catch (
                   error
@@ -3714,6 +3746,76 @@ function DelvewornGame() {
             );
           },
         })
+        : () => {};
+
+    const unwatchWebSocketEvents =
+      eventWebSocketClient
+        ? eventWebSocketClient.watchContractEvent({
+            address:
+              DUNGEON_ADDRESS,
+
+            abi:
+              dungeonAbi,
+
+            eventName:
+              "RandomnessFulfilled",
+
+            args: {
+              player:
+                watchedAddress,
+            },
+
+            onLogs:
+              (
+                logs
+              ) => {
+                for (
+                  const log
+                  of logs
+                ) {
+                  const args =
+                    log.args as {
+                      player?:
+                        Address;
+
+                      requestId?:
+                        bigint;
+
+                      kind?:
+                        number;
+                    };
+
+                  if (
+                    !args.player ||
+                    args.requestId ===
+                      undefined ||
+                    args.kind ===
+                      undefined
+                  ) {
+                    continue;
+                  }
+
+                  ingestVrfResult(
+                    args.player,
+                    args.requestId,
+                    Number(
+                      args.kind
+                    ),
+                    "websocket"
+                  );
+                }
+              },
+
+            onError:
+              (
+                error
+              ) => {
+                console.warn(
+                  `${ACTIVE_NETWORK_LABEL} WebSocket interrupted; HTTP event fallback remains active:`,
+                  error
+                );
+              },
+          })
         : () => {};
 
     const unwatchHttpEvents =
@@ -3774,7 +3876,7 @@ function DelvewornGame() {
                 Number(
                   args.kind
                 ),
-                "canonical"
+                "http"
               );
             }
           },
@@ -3792,6 +3894,7 @@ function DelvewornGame() {
 
     return () => {
       unwatchShreds();
+      unwatchWebSocketEvents();
       unwatchHttpEvents();
       vrfResultsRef.current.clear();
     };
@@ -3993,6 +4096,10 @@ function DelvewornGame() {
     stage:
       string
   ): PlayerState {
+    setActionProgressPhase(
+      "syncing"
+    );
+
     setPlayer(
       resolvedState
     );
@@ -4283,7 +4390,10 @@ function DelvewornGame() {
           const resolvedState =
             await fetchPlayerState(
               playerAddress,
-              cached.source
+              cached.source ===
+                "http"
+                ? "canonical"
+                : "realtime"
             );
 
           timingLog(
@@ -4379,6 +4489,17 @@ function DelvewornGame() {
               changed
             )
           ) {
+            const actionTiming =
+              actionTimingRef.current;
+
+            if (
+              actionTiming &&
+              !actionTiming.vrfSource
+            ) {
+              actionTiming.vrfSource =
+                "state-polling";
+            }
+
             const remainingDisplay =
               MIN_VRF_DISPLAY_MS -
               (
@@ -5537,6 +5658,10 @@ function DelvewornGame() {
       "connector.getProvider start"
     );
 
+    setActionProgressPhase(
+      "preparing"
+    );
+
     const provider =
       (
         await connector
@@ -5664,6 +5789,10 @@ function DelvewornGame() {
           "wallet_sendPreparedCalls start"
         );
 
+        setActionProgressPhase(
+          "submitting"
+        );
+
         const result =
           await provider.request({
             method:
@@ -5703,6 +5832,10 @@ function DelvewornGame() {
             "RISE Wallet returned no call bundle id."
           );
         }
+
+        setActionProgressPhase(
+          "inclusion"
+        );
 
         if (!waitForStatus) {
           timingLog(
@@ -5934,6 +6067,10 @@ function DelvewornGame() {
         args,
       } as never);
 
+    setActionProgressPhase(
+      "submitting"
+    );
+
     const hash =
       await walletClient
         .sendTransaction({
@@ -5945,6 +6082,10 @@ function DelvewornGame() {
             DUNGEON_ADDRESS,
           data,
         });
+
+    setActionProgressPhase(
+      "inclusion"
+    );
 
     const receipt =
       await waitForReceipt(
@@ -6010,7 +6151,14 @@ function DelvewornGame() {
     const result =
       await sendSomniaSessionTransaction(
         somniaSessionHandle.record,
-        data
+        data,
+        (
+          phase
+        ) => {
+          setActionProgressPhase(
+            phase
+          );
+        }
       );
 
     if (actionTimingRef.current) {
@@ -6965,6 +7113,8 @@ function DelvewornGame() {
         null,
       vrfEventReceivedAt:
         null,
+      vrfSource:
+        null,
       stateReadStartedAt:
         null,
       stateReadCompletedAt:
@@ -7085,6 +7235,10 @@ function DelvewornGame() {
         setRollingKind(
           expectedRequestKind
         );
+
+        setActionProgressPhase(
+          "preparing"
+        );
       }
 
       const sessionResult =
@@ -7110,6 +7264,15 @@ function DelvewornGame() {
 
       transactionSubmitted =
         true;
+
+      if (
+        expectedRequestKind !==
+        RequestKind.None
+      ) {
+        setActionProgressPhase(
+          "vrf"
+        );
+      }
 
       let resolved:
         PlayerState | null =
@@ -7650,6 +7813,10 @@ function DelvewornGame() {
     } finally {
       setRollingKind(
         RequestKind.None
+      );
+
+      setActionProgressPhase(
+        "idle"
       );
 
       setPendingAction(
@@ -8393,6 +8560,9 @@ function DelvewornGame() {
   let rollingText =
     "The dungeon is making questionable decisions...";
 
+  let rollingIconClass =
+    "combat-intent-random";
+
   if (
     requestKind ===
     RequestKind.Monster
@@ -8401,6 +8571,9 @@ function DelvewornGame() {
       isBossRoom
         ? "👑"
         : "🚪";
+
+    rollingIconClass =
+      "combat-intent-enter";
 
     rollingTitle =
       isBossRoom
@@ -8420,6 +8593,9 @@ function DelvewornGame() {
     rollingIcon =
       "⚔️";
 
+    rollingIconClass =
+      "combat-intent-attack";
+
     rollingTitle =
       "ROLLING ATTACK";
 
@@ -8433,6 +8609,9 @@ function DelvewornGame() {
   ) {
     rollingIcon =
       "⚡";
+
+    rollingIconClass =
+      "combat-intent-storm";
 
     rollingTitle =
       "UNLEASHING STORM";
@@ -8448,6 +8627,9 @@ function DelvewornGame() {
     rollingIcon =
       "🧪";
 
+    rollingIconClass =
+      "combat-intent-potion";
+
     rollingTitle =
       "DRINKING SUSPICIOUS LIQUID";
 
@@ -8456,10 +8638,107 @@ function DelvewornGame() {
   }
 
   if (
+    actionProgressPhase ===
+    "preparing"
+  ) {
+    rollingLabel =
+      "ACTION · 1 OF 5";
+
+    rollingTitle =
+      "PREPARING MOVE";
+
+    rollingText =
+      "Building the restricted session action and estimating its cost...";
+  }
+
+  if (
+    actionProgressPhase ===
+    "sponsoring"
+  ) {
+    rollingLabel =
+      "ACTION · 2 OF 5";
+
+    rollingTitle =
+      "SPONSORING MOVE";
+
+    rollingText =
+      "Thirdweb is approving sponsored gas for this zero-value action...";
+  }
+
+  if (
+    actionProgressPhase ===
+    "submitting"
+  ) {
+    rollingLabel =
+      "ACTION · 3 OF 5";
+
+    rollingTitle =
+      "SENDING ONCHAIN";
+
+    rollingText =
+      `The signed move is being sent to ${ACTIVE_ECOSYSTEM_NAME}...`;
+  }
+
+  if (
+    actionProgressPhase ===
+    "inclusion"
+  ) {
+    rollingLabel =
+      "ACTION · 4 OF 5";
+
+    rollingTitle =
+      "WAITING FOR INCLUSION";
+
+    rollingText =
+      `The bundler accepted the move. Waiting for ${ACTIVE_ECOSYSTEM_NAME} to include it...`;
+  }
+
+  if (
+    actionProgressPhase ===
+    "vrf"
+  ) {
+    rollingLabel =
+      "VRF · 5 OF 5";
+  }
+
+  const actionProgressOrder:
+    ActionProgressPhase[] =
+      hasSomniaSession
+        ? [
+            "preparing",
+            "sponsoring",
+            "submitting",
+            "inclusion",
+            "vrf",
+          ]
+        : [
+            "preparing",
+            "submitting",
+            "inclusion",
+            "vrf",
+          ];
+
+  const actionProgressIndex =
+    actionProgressOrder.indexOf(
+      actionProgressPhase
+    );
+
+  if (
+    actionProgressIndex >=
+    0
+  ) {
+    rollingLabel =
+      `${actionProgressPhase === "vrf" ? "VRF" : "ACTION"} · ${actionProgressIndex + 1} OF ${actionProgressOrder.length}`;
+  }
+
+  if (
     canonicalSyncing
   ) {
     rollingIcon =
       "⛓️";
+
+    rollingIconClass =
+      "combat-intent-random";
 
     rollingTitle =
       "FINALIZING ACTION";
@@ -8474,6 +8753,9 @@ function DelvewornGame() {
   ) {
     rollingIcon =
       "⏳";
+
+    rollingIconClass =
+      "combat-intent-random";
 
     rollingLabel =
       ACTIVE_NETWORK_LABEL.toUpperCase();
@@ -8607,7 +8889,18 @@ function DelvewornGame() {
                       : "—"}
                   />
                   <SmallStat
-                    label="VRF"
+                    label={`VRF · ${
+                      latencySamples[0].vrfSource ===
+                      "websocket"
+                        ? "WS"
+                        : latencySamples[0].vrfSource ===
+                            "shreds"
+                          ? "SHREDS"
+                          : latencySamples[0].vrfSource ===
+                              "http"
+                            ? "HTTP"
+                            : "POLL"
+                    }`}
                     value={`${(
                       latencySamples[0].vrfMs /
                       1_000
@@ -8636,7 +8929,7 @@ function DelvewornGame() {
                         <p key={sample.id}>
                           {sample.mode} · {sample.action}: {smart
                             ? `prep ${(smart.preparationMs / 1_000).toFixed(2)}s (estimate ${(smart.gasEstimationMs / 1_000).toFixed(2)}s) · paymaster ${(smart.paymasterMs / 1_000).toFixed(2)}s · bundler ${(smart.bundlerSubmissionMs / 1_000).toFixed(2)}s · inclusion ${(smart.inclusionWaitMs / 1_000).toFixed(2)}s (${smart.receiptPollCount} polls @ ${smart.receiptPollingIntervalMs}ms) · `
-                            : `submit ${(sample.submissionMs / 1_000).toFixed(2)}s · `}VRF {(sample.vrfMs / 1_000).toFixed(2)}s · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
+                            : `submit ${(sample.submissionMs / 1_000).toFixed(2)}s · `}VRF {(sample.vrfMs / 1_000).toFixed(2)}s ({sample.vrfSource ?? "unknown"}) · state {(sample.stateSyncMs / 1_000).toFixed(2)}s · total {(sample.totalMs / 1_000).toFixed(2)}s
                         </p>
                         );
                       }
@@ -9148,7 +9441,7 @@ function DelvewornGame() {
 
               <div className="text-center max-w-xs">
 
-                <div className="text-7xl animate-pulse">
+                <div className={`text-7xl ${rollingIconClass}`}>
                   {rollingIcon}
                 </div>
 
@@ -9164,15 +9457,46 @@ function DelvewornGame() {
                   {rollingText}
                 </p>
 
-                <div className="flex justify-center gap-2 mt-5">
+                {!vrfDelayed &&
+                  !canonicalSyncing &&
+                  actionProgressIndex >= 0 && (
+                    <div
+                      className="mt-5 flex gap-1.5"
+                      aria-label={`Action progress ${actionProgressIndex + 1} of ${actionProgressOrder.length}`}
+                    >
+                      {actionProgressOrder.map(
+                        (
+                          phase,
+                          index
+                        ) => (
+                          <span
+                            key={phase}
+                            className={`h-1.5 flex-1 rounded-full transition-colors duration-150 ${
+                              index <
+                              actionProgressIndex
+                                ? "bg-violet-500"
+                                : index ===
+                                    actionProgressIndex
+                                  ? "bg-violet-300 animate-pulse"
+                                  : "bg-zinc-700"
+                            }`}
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
 
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-
-                </div>
+                {(
+                  vrfDelayed ||
+                  canonicalSyncing ||
+                  actionProgressIndex < 0
+                ) && (
+                  <div className="flex justify-center gap-2 mt-5">
+                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                  </div>
+                )}
 
                 {supportsRandomnessRetry() &&
                   vrfRetryAvailable &&
