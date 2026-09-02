@@ -191,10 +191,6 @@ async function createConnectedWalletClient(
 const realtimeClient =
   createRiseShredsClient();
 
-const realtimeReadClient =
-  realtimeClient ??
-  eventWebSocketClient;
-
 /*
   ============================================================
   ABI
@@ -1926,7 +1922,7 @@ async function fetchPlayerState(
   const reader =
     source ===
     "realtime"
-      ? realtimeReadClient ?? publicClient
+      ? realtimeClient ?? publicClient
       : publicClient;
 
   let snapshot: unknown;
@@ -3173,13 +3169,14 @@ function DelvewornGame() {
       timing.stateReadCompletedAt ??
       completedAt;
 
-    const stateReadStartedAt =
-      timing.stateReadStartedAt ??
-      vrfEventReceivedAt;
-
     const stateReadCompletedAt =
       timing.stateReadCompletedAt ??
       completedAt;
+
+    const stateSyncStartedAt =
+      timing.vrfEventReceivedAt ??
+      timing.stateReadStartedAt ??
+      stateReadCompletedAt;
 
     const sample:
       LatencyBenchmarkSample = {
@@ -3209,7 +3206,7 @@ function DelvewornGame() {
           Math.max(
             0,
             stateReadCompletedAt -
-              stateReadStartedAt
+              stateSyncStartedAt
           ),
         totalMs:
           Math.max(
@@ -3764,6 +3761,9 @@ function DelvewornGame() {
               player:
                 watchedAddress,
             },
+
+            poll:
+              false,
 
             onLogs:
               (
