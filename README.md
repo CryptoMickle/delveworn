@@ -93,7 +93,7 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 | Environment | Status | Scope |
 | --- | --- | --- |
 | RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
-| Somnia Shannon Testnet | Verified opt-in deployment | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. A live monster request completed with `callbackSuccess=true`; the public frontend remains on RISE unless explicitly configured otherwise. Standard MetaMask play is live, while Thirdweb ERC-4337 Instant Play is implemented behind a disabled-by-default feature flag pending sponsored-gas configuration and live QA. |
+| Somnia Shannon Testnet | Verified opt-in deployment | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. A live monster request completed with `callbackSuccess=true`; the public frontend remains on RISE unless explicitly configured otherwise. Standard MetaMask play is live, while Thirdweb ERC-4337 Popup-free Play is available behind a deployment feature flag. It removes repeated wallet approvals but still waits for bundling, block inclusion and verified randomness. |
 | Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
 | Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
 | Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |
@@ -248,7 +248,7 @@ NEXT_PUBLIC_DEPLOYMENT=somniaShannon
 NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
 ```
 
-The optional Somnia Instant Play prototype additionally requires:
+The optional Somnia Popup-free Play session additionally requires:
 
 ```text
 NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true

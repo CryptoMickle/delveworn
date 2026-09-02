@@ -105,7 +105,7 @@ function thirdwebClient() {
 
   if (!clientId) {
     throw new Error(
-      "Somnia Instant Play requires NEXT_PUBLIC_THIRDWEB_CLIENT_ID."
+      "Somnia Popup-free Play requires NEXT_PUBLIC_THIRDWEB_CLIENT_ID."
     );
   }
 
