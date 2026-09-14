@@ -6,7 +6,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    files: ["app/page.tsx"],
+    files: ["app/onchain-game.tsx"],
     rules: {
       // Legacy wallet/VRF integration currently contains four explicit `any`
       // casts and one intentional wallet-sync effect. Keep them visible as
@@ -21,6 +21,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "test-results/**",
+    "playwright-report/**",
     "next-env.d.ts",
   ]),
 ]);

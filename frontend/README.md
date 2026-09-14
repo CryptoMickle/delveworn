@@ -4,7 +4,7 @@ Delveworn is a fully onchain dungeon crawler. The public frontend remains on RIS
 
 ## Status
 
-Public testnet beta. The game is deployed through Vercel from the `main` branch of this repository.
+Public testnet beta. The upgraded game is deployed at `https://delveworn.app`. The previous version remains at `https://delveworn.vercel.app`.
 
 ## Stack
 
@@ -73,7 +73,9 @@ npm run build
 
 ## Deployment
 
-Vercel is connected to this GitHub repository with `frontend` as its Root Directory. Changes merged to `main` trigger a production deployment automatically.
+The `delveworn-app` Vercel project connects this repository's `upgrade/market-dungeon-experience` branch to `https://delveworn.app`, with `frontend` as its Root Directory. Approved pushes to that branch trigger production updates.
+
+The original `delveworn` project and its `main` production branch continue serving the previous version at `https://delveworn.vercel.app`. The Somnia project remains separate. Do not merge the upgraded branch into `main` when preserving those versions.
 
 The preferred production variable for the current RISE Testnet deployment is:
 

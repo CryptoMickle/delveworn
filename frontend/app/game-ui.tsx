@@ -1,8 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode, Ref } from "react";
+import Link from "next/link";
+import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { getRelicDefinition, type RelicDefinition } from "./relics";
+import { useGameAudio } from "./use-game-audio";
+import { GameLogo } from "./game-logo";
+import { DesktopNavigation, KeyboardHint } from "./desktop-navigation";
 
 export type DelvewornMode = "practice" | "onchain";
 
@@ -43,23 +47,34 @@ export function GoldAmount({
 export function RoomProgressLine({
   room,
   isBoss = false,
+  roomsCleared = room - 1,
+  phase,
 }: {
   room: number;
   isBoss?: boolean;
+  roomsCleared?: number;
+  phase?: string;
 }) {
-  const safeRoom = Math.max(1, room);
+  const safeRoom = Math.max(1, Math.floor(room));
   const roomInBossCycle = ((safeRoom - 1) % 10) + 1;
+  const cycleStart = safeRoom - roomInBossCycle;
+  const roomIsCleared = safeRoom <= roomsCleared;
 
   return (
     <div className="practice-room-progress border-b border-zinc-800 bg-[#101012] px-3 py-3">
-      <div
+      <div className="practice-room-caption">
+        <strong>ROOM {safeRoom}{roomIsCleared ? " · CLEARED" : isBoss ? " · BOSS" : ""}</strong>
+        <span title={phase}>{phase ?? (roomIsCleared ? "Catch your breath" : `Boss in room ${cycleStart + 10}`)}</span>
+      </div>
+      <ol
         className="practice-room-map flex w-full items-center justify-between gap-1.5 rounded-full border border-zinc-600/70 bg-zinc-950 p-1.5"
-        aria-label={`Dungeon progress: room ${safeRoom}, ${roomInBossCycle} of 10 before the next boss`}
+        aria-label={`Dungeon progress: room ${safeRoom}${roomIsCleared ? ", cleared" : ""}, boss in room ${cycleStart + 10}`}
       >
         {Array.from({ length: 10 }, (_, index) => {
           const step = index + 1;
-          const isDone = step < roomInBossCycle;
-          const isActive = step === roomInBossCycle;
+          const absoluteRoom = cycleStart + step;
+          const isDone = absoluteRoom <= roomsCleared;
+          const isActive = step === roomInBossCycle && !isDone;
           const stateClass = isDone
             ? "bg-emerald-800 text-emerald-100"
             : isActive
@@ -69,16 +84,17 @@ export function RoomProgressLine({
               : "bg-zinc-800 text-zinc-500";
 
           return (
-            <span
+            <li
               key={step}
               aria-current={isActive ? "step" : undefined}
+              aria-label={`${step === 10 ? "Boss room" : "Room"} ${absoluteRoom}${isDone ? ", cleared" : isActive ? ", current" : ""}`}
               className={`practice-room-node grid h-6 w-6 place-items-center rounded-full text-[8px] font-black ${stateClass}`}
             >
-              {step === 10 ? "◆" : step}
-            </span>
+              <span aria-hidden="true">{step === 10 ? "◆" : step}</span>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }
@@ -138,6 +154,7 @@ export function RelicCollection({
 
   return (
     <section
+      data-keyboard-actions
       aria-labelledby={titleId}
       className={`relic-collection rounded-2xl border border-zinc-700 bg-zinc-950 p-4 ${className}`}
     >
@@ -152,7 +169,7 @@ export function RelicCollection({
           </h2>
         </div>
         <p className="max-w-52 text-right text-[10px] text-zinc-500">
-          Always visible during the run. Switch or unequip between rooms.
+          Switch or unequip between rooms.
         </p>
       </div>
 
@@ -336,6 +353,7 @@ export function BossRelicReward({
       ref={containerRef}
       tabIndex={-1}
       aria-labelledby={titleId}
+      data-keyboard-action-scope
       className={`boss-reward-view flex min-h-[520px] w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(126,34,206,0.28),transparent_48%)] p-5 text-center outline-none lg:p-8 ${className}`}
     >
       <div className="practice-boss-reward-status grid grid-cols-3 overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950/75 backdrop-blur-xl">
@@ -380,10 +398,11 @@ export function BossRelicReward({
         />
       </div>
 
-      <div className="practice-boss-relic-actions mt-4 grid w-full max-w-2xl gap-3 sm:grid-cols-2">
+      <div data-keyboard-actions data-keyboard-vertical="edges" className="practice-boss-relic-actions mt-4 grid w-full max-w-2xl gap-3 sm:grid-cols-2">
         <button
           type="button"
           onClick={onKeep}
+          data-keyboard-default="true"
           disabled={busy}
           className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-black text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800 disabled:opacity-40"
         >
@@ -418,13 +437,27 @@ export function GameHeader({
   meta?: ReactNode;
   children?: ReactNode;
 }) {
+  const audio = useGameAudio();
+  const soundLabel = !audio.available ? "Sound unavailable" : audio.enabled && audio.paused ? "Resume sound" : audio.enabled ? "Mute sound" : "Enable sound";
+
   return (
     <header className={`practice-header delveworn-mode-${mode} mb-5 text-center lg:mb-7`}>
+      <DesktopNavigation />
+      <div className="delveworn-navigation">
+        <nav aria-label="Game modes" className="delveworn-modes">
+          <Link href="/practice" aria-current={mode === "practice" ? "page" : undefined}>Practice</Link>
+          <Link href="/onchain" aria-current={mode === "onchain" ? "page" : undefined}>Onchain</Link>
+        </nav>
+        <GameLogo compact />
+        <button type="button" className="delveworn-sound" onClick={audio.toggleSound} aria-pressed={audio.enabled} aria-label={soundLabel} disabled={!audio.available}>
+          {!audio.available ? "Sound unavailable" : audio.enabled && audio.paused ? "Resume sound" : audio.enabled ? "Sound on" : "Sound off"}
+        </button>
+      </div>
       <p className="practice-header-eyebrow mb-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black tracking-[0.24em]">
         <span className="delveworn-mode-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
         {eyebrow}
       </p>
-      <h1 className="practice-header-title text-4xl font-black tracking-tight lg:text-5xl">DELVEWORN</h1>
+      <h1 className="practice-header-title text-4xl font-black tracking-tight lg:text-5xl">{mode === "practice" ? "Practice Dungeon" : "Onchain Dungeon"}</h1>
       <p className="practice-header-subtitle mt-2 text-zinc-400">{subtitle}</p>
       {meta && <p className="practice-header-meta mt-2 text-[10px] text-zinc-600">{meta}</p>}
       {children}
@@ -475,15 +508,19 @@ export function DungeonEntry({
           {isPractice ? "LOCAL SIMULATION" : "LIVE TESTNET"}
         </div>
       </div>
-      <div className="practice-entry-copy flex flex-col items-center justify-center p-6 text-center lg:items-start lg:p-10 lg:text-left">
+      <div data-keyboard-actions={isPractice ? "" : undefined} className="practice-entry-copy flex flex-col items-center justify-center p-6 text-center lg:items-start lg:p-10 lg:text-left">
         <p className="practice-entry-eyebrow text-[10px] font-black tracking-[0.25em]">{eyebrow}</p>
         <h2 className="mt-3 text-3xl font-black lg:text-4xl">The Dungeon Awaits</h2>
         <p className="mt-3 max-w-sm text-sm leading-relaxed text-zinc-400">{description}</p>
-        <div className="practice-mode-proof mt-5 w-full rounded-xl border bg-black/30 p-4 text-left">
-          <p className="practice-mode-proof-label text-[9px] font-black tracking-[0.2em]">
-            {isPractice ? "LOCAL SANDBOX" : "ONCHAIN PROOF"}
-          </p>
-          <div className="mt-3 space-y-2">
+        <details className="practice-mode-proof mt-5 w-full rounded-xl border bg-black/30 p-3 text-left">
+          <summary className="practice-proof-summary">
+            <span className="practice-mode-proof-label">
+              {isPractice ? "Local simulation · saved in this browser" : "Contract state · verifiable randomness"}
+            </span>
+            <span className="practice-proof-boundary">{isPractice ? "No wallet · no onchain value" : "Wallet authorization · live testnet"}</span>
+            <span className="practice-proof-disclosure" aria-hidden="true">Details +</span>
+          </summary>
+          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
             {proofItems.map((item) => (
               <p key={item} className="flex gap-2 text-[11px] leading-relaxed text-zinc-300">
                 <span className="practice-mode-proof-marker" aria-hidden="true">◆</span>
@@ -491,8 +528,8 @@ export function DungeonEntry({
               </p>
             ))}
           </div>
-          {proofFooter && <div className="practice-mode-proof-footer mt-3 border-t pt-3 text-[10px]">{proofFooter}</div>}
-        </div>
+        </details>
+        {proofFooter && <div className="practice-mode-proof-footer mt-3 text-[10px]">{proofFooter}</div>}
         {children}
       </div>
     </div>
@@ -528,11 +565,12 @@ export function GameHud({
   roomAction?: ReactNode;
   combatPotions?: { used: number; limit: number };
 }) {
+  const gearDialog = useRef<HTMLDialogElement>(null);
   const healthPercent = maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
   const healthColor = healthPercent <= 25 ? "bg-red-500" : healthPercent <= 55 ? "bg-amber-400" : "bg-emerald-400";
 
   return (
-    <div className="practice-hud sticky top-2 z-40 mb-4 rounded-2xl border border-zinc-700 bg-zinc-950/95 shadow-2xl backdrop-blur-xl lg:top-4">
+    <section aria-label="Player status and equipment" data-keyboard-scroll-header className="practice-hud sticky top-2 z-40 mb-4 rounded-2xl border border-zinc-700 bg-zinc-950/95 shadow-2xl backdrop-blur-xl lg:top-4">
       <div className="practice-hud-primary grid grid-cols-3 divide-x divide-zinc-800">
         <div className="p-3 text-center">
           <p className="practice-hud-label text-[10px] text-zinc-500">HEALTH</p>
@@ -546,7 +584,7 @@ export function GameHud({
             aria-label="Player health"
             aria-valuemin={0}
             aria-valuemax={maxHp}
-            aria-valuenow={hp}
+            aria-valuenow={Math.max(0, Math.min(maxHp, hp))}
           >
             <div className={`h-full rounded-full transition-[width] duration-200 ${healthColor}`} style={{ width: `${healthPercent}%` }} />
           </div>
@@ -571,38 +609,90 @@ export function GameHud({
           <p className="practice-hud-label text-[10px] text-zinc-500">WEAPON</p>
           <p className="practice-loadout-value mt-1 flex items-center justify-center gap-1.5 text-[11px] font-bold sm:text-xs">
             <span aria-hidden="true">⚔️</span>
-            <span>Lv {weaponLevel} · +{weaponBonus} DAMAGE</span>
+            <span>Lv {weaponLevel} · +{weaponBonus} damage</span>
           </p>
         </div>
         <div className="px-3 py-2 text-center">
           <p className="practice-hud-label text-[10px] text-zinc-500">ARMOR</p>
           <p className="practice-loadout-value mt-1 flex items-center justify-center gap-1.5 text-[11px] font-bold sm:text-xs">
             <span aria-hidden="true">🛡️</span>
-            <span>Lv {armorLevel} · absorbs up to {armorAbsorption} DAMAGE</span>
+            <span>Lv {armorLevel} · blocks up to {armorAbsorption}</span>
           </p>
           <p className="practice-loadout-note mt-1 text-[9px] text-sky-300">Max {armorReductionPercent}% reduction</p>
         </div>
       </div>
-      <div className="practice-mobile-loadout hidden">
-        <p>LOADOUT</p>
-        <p>⚔️ {weaponLevel} · 🛡️ {armorLevel}</p>
+      <div className="practice-mobile-gear">
+        <button type="button" onClick={() => gearDialog.current?.showModal()} aria-label={`Gear details: weapon ${weaponLevel}, armor ${armorLevel}`} data-keyboard-actions>
+          <span>GEAR ›</span><strong>⚔️ {weaponLevel} · 🛡️ {armorLevel}</strong>
+        </button>
       </div>
-      <div className="practice-mobile-room hidden">
-        <p>ROOM</p>
+      <div className="practice-mobile-room">
+        <span>ROOM</span><div><strong>{room}</strong>{roomAction}</div>
+      </div>
+      <div className="practice-combat-potion-status flex items-center justify-between gap-2 border-t border-zinc-800 px-3 py-2 text-center">
+        <div className="practice-room-status"><span>ROOM {room}</span>{roomAction}</div>
         <div>
-          <strong>{room}</strong>
-          {roomAction}
+          {combatPotions ? (
+            <span className={combatPotions.used >= combatPotions.limit ? "text-red-300" : "text-emerald-300"}>
+              Combat potions: {combatPotions.used}/{combatPotions.limit} used
+            </span>
+          ) : <span>Supplies & equipment</span>}
         </div>
       </div>
-      {combatPotions && (
-        <div className="practice-combat-potion-status flex items-center justify-center gap-2 border-t border-zinc-800 px-3 py-2 text-center">
-          <span className="text-[10px] text-zinc-500">COMBAT POTIONS</span>
-          <span className="text-[10px] text-zinc-700" aria-hidden="true">·</span>
-          <span className={combatPotions.used >= combatPotions.limit ? "text-xs font-bold text-red-400" : "text-xs font-bold text-emerald-400"}>
-            {combatPotions.used}/{combatPotions.limit} used
-          </span>
+      <dialog ref={gearDialog} className="delveworn-battle-dialog" aria-label="Gear details">
+        <div><h2>Equipment</h2><button type="button" autoFocus onClick={() => gearDialog.current?.close()} aria-label="Close gear details">✕</button></div>
+        <p>⚔️ Weapon level {weaponLevel}: +{weaponBonus} damage.</p>
+        <p>🛡️ Armor level {armorLevel}: absorbs up to {armorAbsorption} damage, capped at {armorReductionPercent}% of the incoming hit.</p>
+      </dialog>
+    </section>
+  );
+}
+
+/** Shared presentation adapted from Market Dungeon's battle grid.
+ * Each game supplies its own confirmed state and action callbacks. */
+export function DungeonBattle({
+  enemy,
+  log,
+  logPreview,
+  actions,
+  dialogue,
+}: {
+  enemy: { name: string; image: string; hp: number; maxHp: number; incoming: string; flavor: string; isBoss: boolean };
+  log: readonly string[];
+  logPreview?: ReactNode;
+  actions: ReactNode;
+  dialogue?: string;
+}) {
+  const logDialog = useRef<HTMLDialogElement>(null);
+  const enemyPercent = enemy.maxHp > 0 ? Math.max(0, Math.min(100, enemy.hp / enemy.maxHp * 100)) : 0;
+
+  return (
+    <div className="delveworn-battle" aria-label="Dungeon battle" data-keyboard-action-scope>
+      <div className="delveworn-battle-enemy" data-boss={enemy.isBoss}>
+        <div className="practice-monster-heading">
+          <h2>{enemy.name}</h2>
+          <strong className="practice-enemy-hp-label">{enemy.hp}/{enemy.maxHp}</strong>
         </div>
-      )}
+        <div className="delveworn-enemy-track" role="progressbar" aria-label="Enemy health" aria-valuemin={0} aria-valuemax={enemy.maxHp} aria-valuenow={Math.max(0, Math.min(enemy.maxHp, enemy.hp))}>
+          <span style={{ width: `${enemyPercent}%` }} />
+        </div>
+        <p><span>{enemy.isBoss ? "BOSS HP" : "ENEMY HP"}</span><span>💥 RETALIATION {enemy.incoming}</span></p>
+      </div>
+      <div className="delveworn-battle-art practice-monster-stage">
+        <Image src={enemy.image} alt={enemy.name} fill unoptimized priority sizes="(max-width: 800px) 100vw, 55vw" />
+      </div>
+      <blockquote className="delveworn-battle-flavor">“{enemy.flavor}”{dialogue && <span>Management says: “{dialogue}”</span>}</blockquote>
+      <div className="delveworn-battle-bottom">
+        <button type="button" className="delveworn-battle-log" onClick={() => logDialog.current?.showModal()} aria-label="Open dungeon log">
+          <span>READ DUNGEON LOG <b>READ MORE ›</b></span>
+          <span className="practice-action-feedback" aria-live="polite" aria-atomic="true">{logPreview ?? log[0] ?? "The dungeon is quiet. This is almost certainly temporary."}</span>
+        </button>
+        {actions}
+      </div>
+      <dialog ref={logDialog} className="delveworn-battle-dialog" aria-label="Dungeon log">
+        <div><h2>Dungeon log</h2><button type="button" autoFocus onClick={() => logDialog.current?.close()} aria-label="Close dungeon log">✕</button></div>
+        {log.length ? log.map((entry, index) => <p key={`${index}-${entry}`}>{entry}</p>) : <p>No resolved actions yet.</p>}
+      </dialog>
     </div>
   );
 }
@@ -616,10 +706,18 @@ export function CombatActionDock({
   potionDetail,
   potionUsage,
   potionDisabled,
+  potionDisabledReason,
   potionLimitReached = false,
   relicName,
   stormRelicSummary,
   attackRelicSummary,
+  hp,
+  maxHp,
+  retaliation,
+  enemyHp,
+  enemyMaxHp,
+  lastExchange,
+  keyboardEnabled = true,
   onStorm,
   onPotion,
   onAttack,
@@ -632,45 +730,65 @@ export function CombatActionDock({
   potionDetail: ReactNode;
   potionUsage: ReactNode;
   potionDisabled: boolean;
+  potionDisabledReason?: string | null;
   potionLimitReached?: boolean;
   relicName?: string;
   stormRelicSummary?: string | null;
   attackRelicSummary?: string | null;
+  hp?: number;
+  maxHp?: number;
+  retaliation?: string;
+  enemyHp?: number;
+  enemyMaxHp?: number;
+  lastExchange?: { dealt: number; taken: number; critical: boolean };
+  keyboardEnabled?: boolean;
   onStorm: () => void;
   onPotion: () => void;
   onAttack: () => void;
 }) {
+  const potionUnavailable = potionLimitReached ? "Combat limit reached" : potionDisabledReason ?? (hp !== undefined && maxHp !== undefined && hp >= maxHp ? "HP is full · save it for later" : null);
+  useEffect(() => {
+    if (!keyboardEnabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable], [role='textbox']"))) return;
+      if (document.querySelector("dialog[open], [role='dialog'][aria-modal='true']:not([hidden])")) return;
+      const key = event.key.toLowerCase();
+      if (!["a", "1", "s", "2", "p", "3"].includes(key)) return;
+      event.preventDefault();
+      if (busy) return;
+      if (key === "a" || key === "1") onAttack();
+      else if (key === "s" || key === "2") onStorm();
+      else if (!potionDisabled) onPotion();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, keyboardEnabled, onAttack, onPotion, onStorm, potionDisabled]);
+
   return (
-    <div className="practice-action-dock practice-combat-dock sticky bottom-2 z-40 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-xl">
-      <div className="practice-combat-actions grid grid-cols-2 gap-2 lg:grid-cols-3">
-        <button type="button" onClick={onStorm} disabled={busy} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40 lg:order-1 lg:p-5">
-          <p className="font-black">⚡ STORM</p>
+    <div aria-label="Combat actions" aria-busy={busy} className="practice-action-dock practice-combat-dock sticky bottom-2 z-40 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-xl">
+      <div className="practice-combat-vitals">
+        <span>{hp !== undefined && maxHp !== undefined ? <>YOUR HP <strong data-health={hp <= maxHp * .25 ? "danger" : hp <= maxHp * .55 ? "warning" : "healthy"}>{hp}/{maxHp}</strong></> : "YOUR TURN"}</span>
+        <span>{busy ? "Resolving action…" : enemyHp !== undefined && enemyMaxHp !== undefined ? <>ENEMY HP <strong>{enemyHp}/{enemyMaxHp}</strong></> : retaliation ? <>Enemy reply <strong>{retaliation}</strong></> : "Surviving enemies retaliate"}</span>
+      </div>
+      <div className="delveworn-combat-exchange" role="status" aria-label="Last combat exchange">
+        <span>TOOK <b>{lastExchange ? `${lastExchange.taken} HP` : "—"}</b></span>
+        <span data-critical={lastExchange?.critical || undefined}>{lastExchange?.critical ? "🔥 CRITICAL!" : "DEALT"} <b>{lastExchange ? `${lastExchange.dealt} HP` : "—"}</b></span>
+      </div>
+      <div className="practice-combat-actions grid grid-cols-2 gap-2" data-keyboard-actions>
+        <button type="button" onClick={onStorm} disabled={busy} aria-keyshortcuts={keyboardEnabled ? "s 2" : undefined} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
+          <p className="font-black">⚡ STORM {keyboardEnabled && <kbd>S</kbd>}</p>
           <p className="mt-1 text-sm font-black">DAMAGE {stormDamage}</p>
-          <p className="practice-action-description mt-1 text-[10px] text-violet-200">High variance · no critical</p>
+          <p className="practice-action-description mt-1 text-[10px] text-violet-200">Unpredictable · no critical</p>
           {stormRelicSummary && (
             <p className="practice-action-relic mt-2 rounded-md border border-violet-300/30 bg-black/20 px-2 py-1 text-[9px] font-black leading-tight text-violet-100">
               ◆ {relicName}: {stormRelicSummary}
             </p>
           )}
         </button>
-        <button
-          type="button"
-          onClick={onPotion}
-          disabled={potionDisabled}
-          className={potionDisabled
-            ? "practice-potion-action order-3 col-span-2 w-full cursor-not-allowed rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-zinc-500 opacity-70 lg:order-2 lg:col-span-1 lg:p-5"
-            : "practice-potion-action order-3 col-span-2 w-full rounded-xl border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-emerald-200 p-3 text-emerald-950 shadow-[0_8px_24px_rgba(52,211,153,0.12)] transition hover:from-white hover:to-emerald-100 lg:order-2 lg:col-span-1 lg:p-5"}
-        >
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="font-black">{potionLabel}</p>
-            <p className={potionLimitReached ? "mt-1 text-[10px] text-red-400" : potionDisabled ? "practice-potion-description mt-1 text-[10px] text-zinc-600" : "practice-potion-description mt-1 text-[10px] text-emerald-800"}>
-              {potionLimitReached ? "Combat limit reached" : potionDetail}
-            </p>
-            <div className="mt-2 text-center text-xs font-bold">{potionUsage}</div>
-          </div>
-        </button>
-        <button type="button" onClick={onAttack} disabled={busy} className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40 lg:order-3 lg:p-5">
-          <p className="font-black">⚔️ ATTACK</p>
+        <button type="button" onClick={onAttack} disabled={busy} aria-keyshortcuts={keyboardEnabled ? "a 1" : undefined} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
+          <p className="font-black">⚔️ ATTACK {keyboardEnabled && <kbd>A</kbd>}</p>
           <p className="mt-1 text-sm font-black">DAMAGE {attackDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] opacity-70">Reliable · {criticalChance}% critical</p>
           {attackRelicSummary && (
@@ -679,7 +797,29 @@ export function CombatActionDock({
             </p>
           )}
         </button>
+
+        <button
+          type="button"
+          onClick={onPotion}
+          disabled={busy || potionDisabled}
+          aria-keyshortcuts={keyboardEnabled ? "p 3" : undefined}
+          className={busy || potionDisabled
+            ? "practice-potion-action order-3 col-span-2 w-full cursor-not-allowed rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-zinc-400 opacity-70 lg:order-3 lg:col-span-1 lg:p-5"
+            : "practice-potion-action order-3 col-span-2 w-full rounded-xl border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-emerald-200 p-3 text-emerald-950 shadow-[0_8px_24px_rgba(52,211,153,0.12)] transition hover:from-white hover:to-emerald-100 lg:order-3 lg:col-span-1 lg:p-5"}
+        >
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <p className="font-black">{potionLabel} {keyboardEnabled && <kbd>P</kbd>}</p>
+            <p className={potionLimitReached ? "practice-potion-description mt-1 text-[10px] text-red-300" : potionDisabled ? "practice-potion-description mt-1 text-[10px] text-zinc-400" : "practice-potion-description mt-1 text-[10px] text-emerald-800"}>
+              {potionUnavailable ?? potionDetail}
+            </p>
+            <p className="practice-potion-compact">{potionUnavailable ?? "Heal 25 HP · half retaliation"}</p>
+            <div className="mt-2 text-center text-xs font-bold">{potionUsage}</div>
+          </div>
+        </button>
+
       </div>
+      <p className="practice-potion-consequence">Potion uses your turn: heal, then take half retaliation.</p>
+      <KeyboardHint />
     </div>
   );
 }

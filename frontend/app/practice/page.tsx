@@ -1,19 +1,17 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   BossRelicReward,
   CombatActionDock,
   DungeonEntry,
+  DungeonBattle,
   DungeonLog,
   GameHeader,
   GameHud,
-  GoldAmount,
   RelicArtwork,
   RelicCollection,
   RoomProgressLine,
-  SmallStat,
 } from "../game-ui";
 import {
   EMPTY_GAME,
@@ -43,7 +41,11 @@ import {
   describeRelicEquipImpact,
   getRelicDefinition,
 } from "../relics";
-import { loadPracticeRun, savePracticeRun } from "./storage";
+import { inspectPracticeRun, savePracticeRun } from "./storage";
+import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText, type PracticeActionKind, type PracticeFeedback } from "./feedback";
+import { useGameAudio } from "../use-game-audio";
+import { DungeonRecovery } from "../between-rooms";
+import { DungeonRunEnd } from "../run-end";
 
 const MAX_POTIONS = 5;
 const SHOP_POTION_STOCK = 2;
@@ -87,13 +89,6 @@ const MONSTER_PERSONAS: Record<MonsterType, readonly MonsterPersona[]> = {
 };
 
 type LocalAction = "attack" | "storm" | "potion" | "encounter";
-
-const LOCAL_ACTION_COPY: Record<LocalAction, { icon: string; title: string; text: string }> = {
-  attack: { icon: "⚔️", title: "ROLLING ATTACK", text: "Resolving DAMAGE, critical chance and retaliation locally..." },
-  storm: { icon: "⚡", title: "UNLEASHING STORM", text: "Rolling high-variance DAMAGE locally..." },
-  potion: { icon: "🧪", title: "DRINKING SUSPICIOUS LIQUID", text: "Resolving healing and retaliation locally..." },
-  encounter: { icon: "🚪", title: "ROLLING ENCOUNTER", text: "Selecting your next problem locally..." },
-};
 
 function getRegularTier(room: number): number {
   if (room <= 9) return 0;
@@ -154,37 +149,67 @@ function ShopButton({
 export default function PracticePage() {
   const [game, setGame] = useState<PracticeGame>(EMPTY_GAME);
   const [practiceStorageReady, setPracticeStorageReady] = useState(false);
-  const [rolling, setRolling] = useState<LocalAction | null>(null);
+  const [storageNotice, setStorageNotice] = useState<"restored" | "invalid" | "unavailable" | "conflict" | null>(null);
+  const [restartRequested, setRestartRequested] = useState(false);
+  const [feedback, setFeedback] = useState<PracticeFeedback | null>(null);
+  const [shareNotice, setShareNotice] = useState("");
+  const [shareFallback, setShareFallback] = useState(false);
   const [mobileLogOpen, setMobileLogOpen] = useState(false);
-  const timerRef = useRef<number | null>(null);
+  const gameRef = useRef<PracticeGame>(EMPTY_GAME);
+  const actionBusyRef = useRef(false);
+  const canSaveRef = useRef(false);
+  const savedGameRef = useRef<string | null>(null);
+  const encounterFocusRequested = useRef(false);
+  const arenaRef = useRef<HTMLElement | null>(null);
   const bossRewardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    return () => { actionBusyRef.current = false; };
+  }, []);
+
+  // Align a new encounter before paint. A deferred animation frame could
+  // otherwise erase the action selected by the player's first arrow key.
+  useLayoutEffect(() => {
+    if (!encounterFocusRequested.current) return;
+    encounterFocusRequested.current = false;
+    arenaRef.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+
+  useEffect(() => {
+    const changedElsewhere = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== "delveworn_practice_run_v1") return;
+      canSaveRef.current = false;
+      setStorageNotice("conflict");
     };
+    window.addEventListener("storage", changedElsewhere);
+    return () => window.removeEventListener("storage", changedElsewhere);
   }, []);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
-      const restored = loadPracticeRun(window.localStorage);
-      if (restored) setGame(restored);
+      const restored = inspectPracticeRun(() => window.localStorage);
+      canSaveRef.current = restored.status === "restored" || restored.status === "empty";
+      if (restored.status === "restored") {
+        savedGameRef.current = JSON.stringify(restored.game);
+        gameRef.current = restored.game;
+        setGame(restored.game);
+        if (restored.game.hasStarted) setStorageNotice("restored");
+      } else if (restored.status !== "empty") {
+        setStorageNotice(restored.status);
+      }
       setPracticeStorageReady(true);
     }, 0);
 
     return () => window.clearTimeout(restoreTimer);
   }, []);
 
-  useEffect(() => {
-    if (!practiceStorageReady) return;
-    savePracticeRun(window.localStorage, game);
-  }, [game, practiceStorageReady]);
-
-  const busy = rolling !== null;
+  const busy = !practiceStorageReady || restartRequested;
   const room = game.roomsCleared + 1;
   const roomCleared = game.hasStarted && game.monsterHp === 0;
   const isBoss = game.monsterType === 3 && game.monsterHp > 0;
   const persona = getMonsterPersona(game);
+  const audio = useGameAudio({ bossActive: game.active && game.hp > 0 && isBoss, encounter: game.active && game.monsterHp > 0 ? persona.name : undefined });
   const relic = getRelicDefinition(game.equippedRelic);
   const attackDamage = attackRange(game);
   const stormDamage = stormRange(game);
@@ -199,36 +224,33 @@ export default function PracticePage() {
   const awardedRelicCount = game.relicCounts[game.relicOfferId] ?? 0;
   const totalRelicDrops = game.relicCounts.reduce((total, count) => total + count, 0);
   const bossRewardActive = roomCleared && game.relicOfferAvailable;
+  const recoveryActive = game.active && roomCleared && !bossRewardActive;
+  const endedActive = game.hasStarted && !game.active;
   const relicEquipPreview = describeRelicEquipImpact({
     currentMaxHp: game.maxHp,
     baseMaxHp: game.baseMaxHp,
     relicId: awardedRelic.id,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!bossRewardActive) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      bossRewardRef.current?.focus({ preventScroll: true });
-      bossRewardRef.current?.scrollIntoView({
-        behavior: "auto",
-        block: "start",
-      });
+    bossRewardRef.current?.focus({ preventScroll: true });
+    bossRewardRef.current?.scrollIntoView({
+      behavior: "instant",
+      block: "start",
     });
-
-    return () => window.cancelAnimationFrame(frame);
   }, [bossRewardActive]);
 
   const canChangeRelic = game.active && roomCleared && !busy;
   const roomHealDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.potions === 0
       ? "No potions available."
       : game.hp >= game.maxHp
         ? "HP is already full."
         : null;
   const supplyBandageDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.supplyBandageUsed
       ? "Already used at this stop."
       : game.hp >= game.maxHp
@@ -237,7 +259,7 @@ export default function PracticePage() {
           ? "Not enough gold."
           : null;
   const supplyPotionDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.supplyPotionsBought >= SHOP_POTION_STOCK
       ? "Sold out at this stop."
       : game.potions >= MAX_POTIONS
@@ -246,7 +268,7 @@ export default function PracticePage() {
           ? "Not enough gold."
           : null;
   const campRestDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.campRestUsed
       ? "Already used at this camp."
       : game.hp >= game.maxHp
@@ -255,7 +277,7 @@ export default function PracticePage() {
           ? "Not enough gold."
           : null;
   const campPotionDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.campPotionsBought >= SHOP_POTION_STOCK
       ? "Sold out at this camp."
       : game.potions >= MAX_POTIONS
@@ -264,18 +286,16 @@ export default function PracticePage() {
           ? "Not enough gold."
           : null;
   const campWeaponDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.gold < camp.weapon
       ? "Not enough gold."
       : null;
   const campArmorDisabledReason = busy
-    ? "Another action is resolving."
+    ? "Finish the current choice first."
     : game.gold < camp.armor
       ? "Not enough gold."
       : null;
-  const monsterHpPercent = game.monsterMaxHp > 0
-    ? Math.max(0, Math.min(100, (game.monsterHp / game.monsterMaxHp) * 100))
-    : 0;
+
 
   let subtitle = "Enter the dungeon";
   if (game.hasStarted && !game.active) subtitle = "Your run has ended";
@@ -284,238 +304,150 @@ export default function PracticePage() {
   else if (isBoss) subtitle = "Room " + room + " · BOSS";
   else if (game.hasStarted) subtitle = "Room " + room;
 
-  const restart = () => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    timerRef.current = null;
-    setRolling(null);
+  const persist = (next: PracticeGame) => {
+    if (!canSaveRef.current) return;
+    const result = savePracticeRun(() => window.localStorage, next);
+    if (result !== "saved") {
+      canSaveRef.current = false;
+      setStorageNotice(result === "invalid" ? "invalid" : "unavailable");
+    } else {
+      savedGameRef.current = JSON.stringify(next);
+    }
+  };
+
+  const commit = (next: PracticeGame) => {
+    gameRef.current = next;
+    setGame(next);
+    persist(next);
+  };
+
+  const revealEncounter = () => {
+    encounterFocusRequested.current = true;
+  };
+
+  const restart = (replaceSave = false) => {
+    if (!practiceStorageReady || actionBusyRef.current) return;
+    actionBusyRef.current = true;
     setMobileLogOpen(false);
-    setGame(startRun());
+    setRestartRequested(false);
+    setShareNotice("");
+    setShareFallback(false);
+    if (replaceSave) canSaveRef.current = true;
+    if (canSaveRef.current) setStorageNotice(null);
+    try {
+      const next = startRun();
+      commit(next);
+      revealEncounter();
+      setFeedback({ title: "Your first choice", detail: "Attack is steady. Storm may roll zero. A killing blow stops the monster from hitting back.", tone: "neutral" });
+      audio.playAction("click");
+    } catch {
+      setFeedback({ title: "The dungeon could not open", detail: "Local randomness is unavailable. Your previous run is unchanged. Try reloading the page.", tone: "danger" });
+    } finally {
+      queueMicrotask(() => { actionBusyRef.current = false; });
+    }
+  };
+
+  const settleAction = (before: PracticeGame, next: PracticeGame, kind: PracticeActionKind) => {
+    commit(next);
+    setStorageNotice((notice) => notice === "restored" ? null : notice);
+    if (kind === "encounter") revealEncounter();
+    setFeedback(describePracticeAction(before, next, kind));
+    if (!next.active) audio.playOutcome("death");
+    else if (next.roomsCleared > before.roomsCleared) audio.playOutcome(before.monsterType === 3 ? "victory" : "loot");
+    else if (kind === "relic") audio.playOutcome("relic");
+    else if ((kind === "attack" || kind === "storm") && next.lastPlayerDamage > 0) audio.playOutcome(next.lastCritical ? "critical" : "hit");
+  };
+
+  const actionFailed = () => {
+    setFeedback({ title: "Action interrupted", detail: "Your run is unchanged. Try the action again when this page is ready.", tone: "danger" });
+  };
+
+  const resolveLocalAction = (
+    kind: PracticeActionKind,
+    action: (current: PracticeGame) => PracticeGame,
+  ) => {
+    if (busy || actionBusyRef.current) return;
+    // Resolve immediately. Only duplicate dispatches in this call stack are
+    // locked; the next user gesture never waits for a timer or loading screen.
+    actionBusyRef.current = true;
+    const before = gameRef.current;
+    try {
+      if (kind !== "relic") audio.playAction(kind === "encounter" || kind === "shop" ? "click" : kind);
+      // Randomness runs once, outside a React updater that Strict Mode can replay.
+      settleAction(before, action(before), kind);
+    } catch {
+      actionFailed();
+    } finally {
+      queueMicrotask(() => { actionBusyRef.current = false; });
+    }
   };
 
   const runLocalAction = (
     kind: LocalAction,
-    action: (current: PracticeGame) => PracticeGame
+    action: (current: PracticeGame) => PracticeGame,
   ) => {
-    if (busy) return;
-    setRolling(kind);
-    timerRef.current = window.setTimeout(() => {
-      setGame(action);
-      setRolling(null);
-      timerRef.current = null;
-    }, 280);
+    const before = gameRef.current;
+    if (!before.active || before.relicOfferAvailable) return;
+    if (kind === "encounter" ? before.monsterHp > 0 : kind !== "potion" && before.monsterHp === 0) return;
+    if (kind === "potion" && (before.potions === 0 || before.hp >= before.maxHp || (before.monsterHp > 0 && before.combatPotionsUsed >= (before.monsterType === 3 ? 3 : 2)))) return;
+    resolveLocalAction(kind, action);
   };
 
   const runShopAction = (action: ShopAction) => {
-    if (busy) return;
-    setGame((current) => buy(current, action));
+    resolveLocalAction("shop", current => buy(current, action));
   };
 
-  const rollingCopy = rolling ? LOCAL_ACTION_COPY[rolling] : null;
+  const runRelicAction = (action: (current: PracticeGame) => PracticeGame) => {
+    resolveLocalAction("relic", action);
+  };
 
-  return (
-    <main className={"practice-shell delveworn-practice-mode min-h-screen bg-[#090909] px-4 py-6 text-white lg:px-8 lg:py-8" + (game.hasStarted ? " practice-in-run" : "") + (bossRewardActive ? " practice-boss-focus" : "")}>
-      <div className="practice-column mx-auto w-full max-w-md lg:max-w-6xl">
-        <GameHeader mode="practice" eyebrow="LOCAL SANDBOX" subtitle={subtitle} meta="BROWSER-ONLY SIMULATION · NO WALLET · NO VRF · NO TRANSACTIONS">
-          {game.hasStarted && (
-            <div className="mt-3 flex items-center justify-center gap-3">
-              <button type="button" onClick={restart} className="text-[10px] text-zinc-500 underline transition hover:text-zinc-300">
-                new run
-              </button>
-            </div>
-          )}
-        </GameHeader>
+  const retryStorage = () => {
+    const restored = inspectPracticeRun(() => window.localStorage);
+    if (gameRef.current.hasStarted) {
+      if (restored.status === "invalid" || restored.status === "unavailable") {
+        setStorageNotice(restored.status);
+        return;
+      }
+      // A session-only run must not silently replace another saved run.
+      if (!canSaveRef.current && restored.status === "restored" && restored.game.hasStarted && JSON.stringify(restored.game) !== savedGameRef.current) {
+        setStorageNotice("conflict");
+        return;
+      }
+      canSaveRef.current = true;
+      setStorageNotice(null);
+      persist(gameRef.current);
+    } else if (restored.status === "restored" || restored.status === "empty") {
+      canSaveRef.current = true;
+      if (restored.status === "restored") {
+        savedGameRef.current = JSON.stringify(restored.game);
+        gameRef.current = restored.game;
+        setGame(restored.game);
+      }
+      setStorageNotice(restored.status === "restored" && restored.game.hasStarted ? "restored" : null);
+    } else {
+      setStorageNotice(restored.status);
+    }
+  };
 
-        {game.hasStarted && game.active && (
-          <GameHud
-            hp={game.hp}
-            maxHp={game.maxHp}
-            potions={game.potions}
-            maxPotions={MAX_POTIONS}
-            gold={game.gold}
-            weaponLevel={game.weaponLevel}
-            weaponBonus={game.weaponLevel * 2}
-            armorLevel={game.armorLevel}
-            armorAbsorption={game.armorLevel}
-            armorReductionPercent={50}
-            room={bossRewardActive ? game.roomsCleared : room}
-            roomAction={<button type="button" onClick={restart} aria-label="Start a new practice run" title="New run">↻</button>}
-            combatPotions={game.monsterHp > 0 ? { used: game.combatPotionsUsed, limit: combatPotionLimit } : undefined}
-          />
-        )}
+  const copyResult = async () => {
+    try {
+      await navigator.clipboard.writeText(practiceShareText(gameRef.current));
+      setShareNotice("Local result copied. Share it wherever you like.");
+    } catch {
+      setShareFallback(true);
+      setShareNotice("Select and copy the result below. Clipboard access is unavailable.");
+    }
+  };
 
-        <section className={"practice-main-card relative mb-4 overflow-hidden rounded-2xl border " + (isBoss || bossRewardActive ? "border-purple-700 bg-gradient-to-b from-purple-950/50 to-zinc-950" : "border-zinc-800 bg-zinc-900")}>
-          {!game.hasStarted ? (
-            <DungeonEntry
-              mode="practice"
-              eyebrow="PRACTICE MODE"
-              description="Learn the dungeon, test builds and make terrible decisions instantly. This run never touches a chain."
-            >
-              <button type="button" onClick={restart} className="delveworn-primary-cta mt-7 w-full rounded-xl py-4 text-lg font-black transition">
-                ⚔️ START LOCAL RUN
-              </button>
-              <p className="mt-4 text-[10px] text-zinc-600">Instant local actions · no signature · no transaction</p>
-            </DungeonEntry>
-          ) : !game.active ? (
-            <div className="practice-result-view mx-auto flex min-h-[430px] w-full max-w-xl flex-col items-center justify-center p-7 text-center">
-              <div className="text-7xl">💀</div>
-              <h2 className="mt-5 text-3xl font-black">RUN ENDED</h2>
-              <p className="mt-3 text-zinc-400">The dungeon claims you after {game.roomsCleared} cleared rooms.</p>
-              <button type="button" onClick={restart} className="mt-7 w-full rounded-xl bg-orange-500 py-4 text-lg font-black text-black transition hover:bg-orange-400">
-                TRY AGAIN
-              </button>
-            </div>
-          ) : bossRewardActive ? (
-            <BossRelicReward
-              idPrefix="practice"
-              room={game.roomsCleared}
+  const combatActions = (
+<CombatActionDock
+              busy={busy}
               hp={game.hp}
               maxHp={game.maxHp}
-              gold={game.gold}
-              ownedRelicCount={game.ownedRelics.length}
-              totalRelicDrops={totalRelicDrops}
-              awardedRelic={awardedRelic}
-              awardedRelicCount={awardedRelicCount}
-              currentRelic={game.equippedRelic === 0 ? null : relic}
-              equipPreview={relicEquipPreview}
-              busy={busy}
-              onKeep={() => setGame((current) => claimRelic(current, false))}
-              onEquip={() => setGame((current) => claimRelic(current, true))}
-              containerRef={bossRewardRef}
-              className="practice-boss-reward mx-auto max-w-5xl"
-            />
-          ) : merchantVisit ? (
-            <div className="practice-merchant-card min-h-[540px] lg:grid lg:min-h-[440px] lg:grid-cols-[3fr_2fr]">
-              <div className="practice-merchant-stage relative h-[300px] w-full min-w-0 overflow-hidden bg-gradient-to-b from-amber-950/10 to-black lg:h-full lg:min-h-[440px] lg:border-r lg:border-zinc-800">
-                <Image
-                  src={MERCHANT_IMAGE}
-                  alt={MERCHANT_NAME}
-                  fill
-                  unoptimized
-                  sizes="(min-width: 1024px) 640px, 448px"
-                  className="object-contain drop-shadow-2xl"
-                />
-                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent" />
-              </div>
-              <div className="practice-merchant-info min-w-0 p-6 pt-1 text-center lg:flex lg:flex-col lg:justify-center lg:p-8 lg:text-left">
-                <p className={(merchantVisit === "camp" ? "text-xs tracking-[0.25em] text-amber-400" : "text-xs tracking-[0.25em] text-cyan-400") + " practice-merchant-kicker"}>
-                  {merchantVisit === "camp" ? "⛺ BOSS CAMP" : "🧰 SUPPLY STOP"}
-                </p>
-                <h2 className="practice-merchant-title mt-2 text-3xl font-black">{MERCHANT_NAME}</h2>
-                <p className="practice-merchant-role mt-1 text-xs text-zinc-500">
-                  Traveling Merchant{merchantVisit === "camp" ? " · Questionable Procurement" : ""}
-                </p>
-                <p className="practice-merchant-flavor mt-3 italic text-zinc-300">
-                  {merchantVisit === "camp"
-                    ? "“Management upstairs is furious. Can I interest you in armor?”"
-                    : "“You look terrible. Fortunately, I accept gold.”"}
-                </p>
-                <div className="practice-merchant-stats mt-6 grid grid-cols-2 gap-3">
-                  <SmallStat label="HEALTH" value={"❤️ " + game.hp + "/" + game.maxHp} />
-                  <SmallStat label="GOLD" value={<GoldAmount amount={game.gold} />} />
-                  <SmallStat label="POTIONS" value={"🧪 " + game.potions + "/" + MAX_POTIONS} />
-                  <SmallStat
-                    label="POTION STOCK"
-                    value={"📦 " + (SHOP_POTION_STOCK - (merchantVisit === "camp" ? game.campPotionsBought : game.supplyPotionsBought)) + "/" + SHOP_POTION_STOCK}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : roomCleared ? (
-            <div className="practice-result-view mx-auto flex min-h-[390px] w-full max-w-xl flex-col items-center justify-center p-7 text-center">
-              <div className="text-7xl">{game.roomsCleared % 10 === 0 ? "👑" : "🏆"}</div>
-              <p className="mt-4 text-xs tracking-[0.25em] text-orange-400">ROOM {game.roomsCleared}</p>
-              <h2 className="mt-2 text-3xl font-black">{game.roomsCleared % 10 === 0 ? "MANAGEMENT DEFEATED" : "ROOM CLEARED"}</h2>
-              <p className="mt-3 text-zinc-400">Against all available evidence, you remain alive.</p>
-              <div className="mt-6 w-full rounded-xl border border-zinc-800 bg-black/40 p-4">
-                <p className="text-[10px] text-zinc-500">NEXT</p>
-                <p className="mt-1 font-bold">🎲 Room {room}</p>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <RoomProgressLine room={room} isBoss={isBoss} />
-              <div className="practice-combat-card min-h-[610px] lg:grid lg:min-h-[480px] lg:grid-cols-[3fr_2fr]">
-              <div className="practice-monster-stage relative h-[355px] w-full min-w-0 overflow-hidden bg-gradient-to-b from-black/20 to-black/70 lg:h-full lg:min-h-[480px] lg:border-r lg:border-zinc-800">
-                <Image
-                  src={persona.image}
-                  alt={persona.name}
-                  fill
-                  unoptimized
-                  sizes="(min-width: 1024px) 640px, 448px"
-                  className={isBoss ? "object-contain scale-105 drop-shadow-2xl" : "object-contain drop-shadow-2xl"}
-                  priority
-                />
-                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-zinc-950 to-transparent" />
-              </div>
-              <div className="practice-monster-info min-w-0 p-5 pt-1 lg:flex lg:flex-col lg:justify-center lg:p-8">
-                {isBoss && <p className="text-xs font-bold tracking-[0.3em] text-purple-400">👑 BOSS ENCOUNTER</p>}
-                <div className="practice-monster-heading mt-2 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className={isBoss ? "text-3xl font-black text-purple-200" : "text-3xl font-black"}>{persona.name}</h2>
-                    <p className={isBoss ? "mt-1 text-xs font-bold uppercase tracking-wider text-purple-400" : "mt-1 text-xs text-zinc-500"}>
-                      {isBoss ? persona.rank : persona.species}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-zinc-700 bg-black/50 px-2 py-1 text-[10px] text-zinc-400">{persona.chance}</span>
-                </div>
-                <p className="practice-monster-flavor mt-3 text-sm italic text-zinc-400">“{persona.flavor}”</p>
-                <div className="practice-enemy-hp-label mb-2 mt-5 flex justify-between">
-                  <span className="text-xs text-zinc-500">ENEMY HP</span>
-                  <span className="font-black">{game.monsterHp} / {game.monsterMaxHp}</span>
-                </div>
-                <div className="practice-enemy-bar h-3 w-full overflow-hidden rounded-full bg-zinc-800">
-                  <div className={isBoss ? "h-3 rounded-full bg-purple-500 transition-all duration-150" : "h-3 rounded-full bg-red-500 transition-all duration-150"} style={{ width: monsterHpPercent + "%" }} />
-                </div>
-                <div className="practice-enemy-stats mt-4 grid grid-cols-2 gap-3">
-                  <SmallStat label="ENEMY DAMAGE" value={"💥 " + incoming[0] + "–" + incoming[1]} />
-                  <SmallStat label="CRITICAL CHANCE" value={"⚔️ " + currentCriticalChance(game) + "%"} />
-                </div>
-              </div>
-              </div>
-            </div>
-          )}
-
-          {rollingCopy && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 p-6 backdrop-blur-md">
-              <div className="max-w-xs text-center">
-                <div className="animate-pulse text-7xl">{rollingCopy.icon}</div>
-                <p className="mt-5 text-[10px] tracking-[0.35em] text-orange-400">LOCAL ROLL · NO VRF</p>
-                <h2 className="mt-2 text-2xl font-black">{rollingCopy.title}</h2>
-                <p className="mt-3 text-sm text-zinc-400">{rollingCopy.text}</p>
-                <div className="mt-5 flex justify-center gap-2">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-orange-400" />
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-orange-400 [animation-delay:100ms]" />
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-orange-400 [animation-delay:200ms]" />
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {game.active && !bossRewardActive && (
-          roomCleared ? (
-            <div className="practice-action-dock practice-between-actions lg:grid lg:grid-cols-2 lg:gap-3">
-              <button
-                type="button"
-                onClick={() => runLocalAction("potion", usePotion)}
-                disabled={roomHealDisabledReason !== null}
-                className="mb-3 w-full rounded-xl border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-emerald-200 p-3 text-center text-emerald-950 transition hover:from-white hover:to-emerald-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-none disabled:bg-zinc-950 disabled:text-zinc-600 disabled:opacity-70 lg:mb-0"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <span className="font-black">🧪 HEAL +25 HP</span>
-                  <span className="text-xs font-bold">{game.potions}/{MAX_POTIONS}</span>
-                </div>
-                <p className={roomHealDisabledReason ? "mt-1 text-[10px] font-bold text-red-400" : "mt-1 text-[10px] text-emerald-800"}>
-                  {roomHealDisabledReason ?? "Use one potion outside combat."}
-                </p>
-              </button>
-              <button type="button" onClick={() => runLocalAction("encounter", enterNextRoom)} disabled={busy} className="w-full rounded-xl bg-orange-500 py-4 text-lg font-black text-black transition hover:bg-orange-400 disabled:opacity-50">
-                🎲 NEXT ROOM
-              </button>
-            </div>
-          ) : (
-            <CombatActionDock
-              busy={busy}
+              enemyHp={game.monsterHp}
+              enemyMaxHp={game.monsterMaxHp}
+              lastExchange={game.lastPlayerDamage || game.lastMonsterDamage || game.lastCritical ? { dealt: game.lastPlayerDamage, taken: game.lastMonsterDamage, critical: game.lastCritical } : undefined}
+              retaliation={`${incoming[0]}–${incoming[1]}`}
               stormDamage={`${stormDamage[0]}–${stormDamage[1]}`}
               attackDamage={`${attackDamage[0]}–${attackDamage[1]}`}
               criticalChance={currentCriticalChance(game)}
@@ -523,6 +455,7 @@ export default function PracticePage() {
               potionDetail="Heal 25 HP · monster retaliates at half damage"
               potionUsage={<>{game.combatPotionsUsed}/{combatPotionLimit}<span className="block text-[9px] font-normal opacity-70">used</span></>}
               potionDisabled={busy || game.potions === 0 || game.hp >= game.maxHp || game.combatPotionsUsed >= combatPotionLimit}
+              potionDisabledReason={game.potions === 0 ? "No potions left · restock at Kevin's" : null}
               potionLimitReached={game.combatPotionsUsed >= combatPotionLimit}
               relicName={relic.name}
               stormRelicSummary={stormRelicSummary}
@@ -531,11 +464,24 @@ export default function PracticePage() {
               onPotion={() => runLocalAction("potion", usePotion)}
               onAttack={() => runLocalAction("attack", attack)}
             />
-          )
-        )}
+  );
 
+  const clearedPersona = getMonsterPersona({ ...game, roomsCleared: Math.max(0, game.roomsCleared - 1) });
+  const recoveryEnterAction = (
+    <button type="button" data-keyboard-default="true" onClick={() => runLocalAction("encounter", enterNextRoom)} disabled={busy}>
+      {room % 10 === 0 ? `ENTER BOSS ROOM ${room}` : `ENTER ROOM ${room}`}
+    </button>
+  );
+  const recoveryHealAction = (
+    <button type="button" onClick={() => runLocalAction("potion", usePotion)} disabled={roomHealDisabledReason !== null} title="Restore up to 25 HP. No enemy retaliation between rooms.">
+      <span>USE OWN POTION SAFELY · {game.potions}/{MAX_POTIONS}</span>
+      {roomHealDisabledReason && <small>{roomHealDisabledReason}</small>}
+    </button>
+  );
+  const recoveryShop = (
+    <>
         {supplyAvailable(game) && !bossRewardActive && (
-          <section className="practice-kevin-shop mt-4 rounded-2xl border border-cyan-900 bg-gradient-to-b from-cyan-950/30 to-zinc-950 p-4">
+          <section data-keyboard-actions className="practice-kevin-shop mt-4 rounded-2xl border border-cyan-900 bg-gradient-to-b from-cyan-950/30 to-zinc-950 p-4">
             <p className="text-[10px] tracking-[0.25em] text-cyan-400">SUPPLY STOP · ROOM {game.roomsCleared}</p>
             <h2 className="mt-1 text-xl font-black">RESTOCK</h2>
             <div className="mt-3 grid gap-2 lg:grid-cols-2">
@@ -558,7 +504,7 @@ export default function PracticePage() {
         )}
 
         {campAvailable(game) && !bossRewardActive && (
-          <section className="practice-kevin-shop mt-4 rounded-2xl border border-amber-800 bg-gradient-to-b from-amber-950/30 to-zinc-950 p-4">
+          <section data-keyboard-actions className="practice-kevin-shop mt-4 rounded-2xl border border-amber-800 bg-gradient-to-b from-amber-950/30 to-zinc-950 p-4">
             <p className="text-[10px] tracking-[0.25em] text-amber-400">CAMP BEFORE ROOM {room}</p>
             <h2 className="mt-1 text-xl font-black">PREPARE FOR MANAGEMENT</h2>
             <div className="mt-3 grid gap-2 lg:grid-cols-2">
@@ -594,6 +540,10 @@ export default function PracticePage() {
           </section>
         )}
 
+    </>
+  );
+  const relicPanels = (
+    <>
         {game.equippedRelic !== 0 && !bossRewardActive && (
           <section className={"mt-4 rounded-2xl border p-4 " + relic.borderClass + " " + relic.backgroundClass}>
             <div className="flex items-center gap-3">
@@ -626,14 +576,179 @@ export default function PracticePage() {
             equippedRelic={game.equippedRelic}
             canChangeRelic={canChangeRelic}
             lockedLabel={game.active ? "BETWEEN ROOMS" : "RUN ENDED"}
-            onSelectRelic={(relicId) =>
-              setGame((current) => equipOwnedRelic(current, relicId))
-            }
+            onSelectRelic={(relicId) => runRelicAction((current) => equipOwnedRelic(current, relicId))}
             className="mt-4"
           />
         )}
 
+    </>
+  );
+
+  return (
+    <main className={"practice-shell delveworn-practice-mode min-h-screen bg-[#090909] px-4 py-6 text-white lg:px-8 lg:py-8" + (game.hasStarted ? " practice-in-run" : "") + (bossRewardActive ? " practice-boss-focus" : "")}>
+      <div className="practice-column mx-auto w-full max-w-md lg:max-w-6xl">
+        <GameHeader mode="practice" eyebrow="LOCAL SANDBOX" subtitle={subtitle} meta="BROWSER-ONLY SIMULATION · NO WALLET · NO VRF · NO TRANSACTIONS">
+          {game.hasStarted && (
+            <div className="mt-3 flex items-center justify-center gap-3">
+              <button type="button" onClick={() => game.active ? setRestartRequested(true) : restart()} disabled={busy} className="text-[10px] text-zinc-500 underline transition hover:text-zinc-300 disabled:opacity-50">
+                new run
+              </button>
+            </div>
+          )}
+        </GameHeader>
+
+        {storageNotice && (
+          <div className={`practice-storage-banner${storageNotice === "restored" ? " practice-restored-notice" : ""}`} role="status">
+            {storageNotice === "restored" ? (
+              <div className="flex items-center justify-between gap-2">
+                <p>Local run restored · Room {practiceRoom(game)}</p>
+                <button type="button" onClick={() => setStorageNotice(null)} aria-label="Dismiss restore notice" className="min-h-11 min-w-11 text-lg">×</button>
+              </div>
+            ) : (
+              <>
+                <p className="font-bold">{storageNotice === "unavailable" ? "Browser saving is unavailable" : "Saved run kept unchanged"}</p>
+                <p>{storageNotice === "unavailable"
+                  ? "You can keep playing this visit. Progress may be lost when you close or reload the page."
+                  : storageNotice === "conflict"
+                    ? "Another saved run may have changed in a different tab. Saving is paused to protect it. This visit can continue without saving."
+                    : "The saved run could not be safely restored. Play without saving, retry, or explicitly replace the saved run."}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <button type="button" onClick={retryStorage} disabled={busy} className="min-h-11 underline">Retry saving / restore</button>
+                  {storageNotice !== "unavailable" && <button type="button" disabled={busy} onClick={() => game.hasStarted ? setRestartRequested(true) : restart(true)} className="min-h-11 underline">Replace save & start new run</button>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {restartRequested && (
+          <div className="practice-storage-banner" role="group" aria-label="Start a new run">
+            <p className="font-bold">Start over? Your current local run will end.</p>
+            <p>{storageNotice === "invalid" || storageNotice === "conflict" ? "This will also replace the saved run on this browser." : "Your new run starts in Room 1."}</p>
+            <div className="mt-2 flex gap-3">
+              <button type="button" onClick={() => setRestartRequested(false)} className="min-h-11 rounded-lg border border-zinc-600 px-4">Keep playing</button>
+              <button type="button" onClick={() => restart(storageNotice === "invalid" || storageNotice === "conflict")} className="min-h-11 rounded-lg bg-orange-500 px-4 font-bold text-black">End run & restart</button>
+            </div>
+          </div>
+        )}
+
         {game.hasStarted && (
+          <GameHud
+            hp={game.hp}
+            maxHp={game.maxHp}
+            potions={game.potions}
+            maxPotions={MAX_POTIONS}
+            gold={game.gold}
+            weaponLevel={game.weaponLevel}
+            weaponBonus={game.weaponLevel * 2}
+            armorLevel={game.armorLevel}
+            armorAbsorption={game.armorLevel}
+            armorReductionPercent={50}
+            room={practiceRoom(game)}
+            roomAction={<button type="button" disabled={busy} onClick={() => game.active ? setRestartRequested(true) : restart()} aria-label="Start a new practice run" title="New run">↻</button>}
+            combatPotions={game.active && game.monsterHp > 0 ? { used: game.combatPotionsUsed, limit: combatPotionLimit } : undefined}
+          />
+        )}
+
+        <section ref={arenaRef} tabIndex={-1} aria-label="Practice dungeon encounter" className={"practice-main-card relative mb-4 overflow-hidden rounded-2xl border " + (isBoss || bossRewardActive ? "border-purple-700 bg-gradient-to-b from-purple-950/50 to-zinc-950" : "border-zinc-800 bg-zinc-900")}>
+          {game.hasStarted && <RoomProgressLine room={practiceRoom(game)} roomsCleared={game.roomsCleared} isBoss={isBoss} phase={!game.active ? "Run ended" : bossRewardActive ? "Boss defeated · relic reward" : merchantVisit ? merchantVisit === "camp" ? "Camp · prepare for the boss" : "Kevin's supply stop" : roomCleared ? "Loot collected" : "Combat"} />}
+          {!game.hasStarted ? (
+            <DungeonEntry
+              mode="practice"
+              eyebrow="PRACTICE MODE"
+              description="Learn the dungeon, test builds and make terrible decisions instantly. This run never touches a chain."
+            >
+              <div className="practice-onboarding mt-5 grid gap-2 text-left text-sm">
+                <p><strong>⚔️ Attack:</strong> steady damage, with a chance to hit critically.</p>
+                <p><strong>⚡ Storm:</strong> a bigger gamble. It can deal zero damage.</p>
+                <p><strong>🧪 Potion:</strong> heal 25 HP; a living enemy retaliates at half damage. Between rooms, healing is safe.</p>
+              </div>
+              <button type="button" data-keyboard-default="true" onClick={() => restart()} disabled={!practiceStorageReady} className="delveworn-primary-cta mt-7 w-full rounded-xl py-4 text-lg font-black transition disabled:opacity-50">
+                {storageNotice === "invalid" || storageNotice === "conflict" ? "⚔️ START WITHOUT SAVING" : "⚔️ START LOCAL RUN"}
+              </button>
+              <p className="mt-4 text-xs text-zinc-400">Gold buys preparation. Every 10th room brings a boss and a relic with a tradeoff.</p>
+            </DungeonEntry>
+          ) : !game.active ? (
+            <DungeonRunEnd
+              data={{
+                mode: "practice",
+                roomsCleared: game.roomsCleared,
+                gold: game.gold,
+                weaponLevel: game.weaponLevel,
+                armorLevel: game.armorLevel,
+                bossesDefeated: Math.floor(game.roomsCleared / 10),
+                relicName: relic.name,
+                uniqueRelics: game.ownedRelics.length,
+                totalRelicDrops,
+              }}
+              restartAction={<button type="button" data-keyboard-default="true" onClick={() => restart()}>BEGIN NEW RUN</button>}
+              copyAction={<div className="run-result-share">
+                <button type="button" onClick={() => void copyResult()}>COPY LOCAL RESULT</button>
+                {shareNotice && <p className="mt-2 text-xs text-amber-200" role="status">{shareNotice}</p>}
+                {shareFallback && <textarea aria-label="Local practice result to copy" readOnly value={practiceShareText(game)} onFocus={(event) => event.currentTarget.select()} className="mt-3 min-h-40 w-full rounded-lg border border-zinc-600 bg-black p-3 text-left text-xs" />}
+              </div>}
+              log={game.log}
+              feedback={feedback ? `${feedback.title} · ${feedback.detail}` : undefined}
+            />
+          ) : bossRewardActive ? (
+            <BossRelicReward
+              idPrefix="practice"
+              room={game.roomsCleared}
+              hp={game.hp}
+              maxHp={game.maxHp}
+              gold={game.gold}
+              ownedRelicCount={game.ownedRelics.length}
+              totalRelicDrops={totalRelicDrops}
+              awardedRelic={awardedRelic}
+              awardedRelicCount={awardedRelicCount}
+              currentRelic={game.equippedRelic === 0 ? null : relic}
+              equipPreview={relicEquipPreview}
+              busy={busy}
+              onKeep={() => runRelicAction((current) => claimRelic(current, false))}
+              onEquip={() => runRelicAction((current) => claimRelic(current, true))}
+              containerRef={bossRewardRef}
+              className="practice-boss-reward mx-auto max-w-5xl"
+            />
+          ) : recoveryActive ? (
+            <DungeonRecovery
+              room={game.roomsCleared}
+              lootType={game.lastLootType}
+              lootAmount={game.lastLootAmount}
+              flavor={game.log.find(entry => entry.startsWith("☠️"))?.replace(/^☠️\s*/, "")}
+              hp={game.hp}
+              maxHp={game.maxHp}
+              potions={game.potions}
+              merchant={merchantVisit ? { name: MERCHANT_NAME, imageSrc: MERCHANT_IMAGE, kind: merchantVisit } : undefined}
+              fallbackArt={{ imageSrc: clearedPersona.image, name: clearedPersona.name }}
+              enterAction={recoveryEnterAction}
+              healAction={recoveryHealAction}
+              shop={merchantVisit ? recoveryShop : undefined}
+              relics={relicPanels}
+              activeRelic={relic.name}
+              ownedRelicCount={game.ownedRelics.length}
+              log={game.log}
+              feedback={feedback?.title ?? "Gameplay action applied"}
+            />
+          ) : (
+            <DungeonBattle
+              enemy={{ name: persona.name, image: persona.image, hp: game.monsterHp, maxHp: game.monsterMaxHp, incoming: `${incoming[0]}–${incoming[1]}`, flavor: persona.flavor, isBoss }}
+              log={game.log}
+              logPreview={feedback ? `${feedback.title} · ${feedback.detail}` : undefined}
+              actions={combatActions}
+            />
+          )}
+
+        </section>
+
+        {(game.hasStarted || feedback) && !recoveryActive && !endedActive && !(game.active && game.monsterHp > 0) && (
+          <div className="practice-action-feedback" role="status" aria-live="polite" aria-atomic="true" data-tone={feedback?.tone ?? "neutral"}>
+            <p className="font-bold">{feedback?.title ?? (roomCleared ? "Safe between rooms" : "Choose your next move")}</p>
+            <p className="mt-1 text-xs">{feedback?.detail ?? (roomCleared ? `Loot collected · ${practiceLoot(game)}. Heal or adjust relics before you enter.` : "Attack is steady. Storm may roll zero. Potions reduce retaliation to half.")}</p>
+          </div>
+        )}
+
+        {!recoveryActive && !endedActive && relicPanels}
+
+        {game.hasStarted && !recoveryActive && !endedActive && !(game.active && game.monsterHp > 0) && (
           <DungeonLog
             entries={game.log}
             mobileOpen={mobileLogOpen}
@@ -641,7 +756,7 @@ export default function PracticePage() {
           />
         )}
 
-        <div className="practice-run-summary mt-4 grid grid-cols-2 gap-3 text-center">
+        {!recoveryActive && !endedActive && <div className="practice-run-summary mt-4 grid grid-cols-2 gap-3 text-center">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
             <p className="text-[10px] text-zinc-500">ROOMS</p>
             <p className="text-xl font-black">{game.roomsCleared}</p>
@@ -650,7 +765,7 @@ export default function PracticePage() {
             <p className="text-[10px] text-zinc-500">RELIC</p>
             <p className={"mt-1 text-sm font-black " + relic.accentClass}>{relic.name}</p>
           </div>
-        </div>
+        </div>}
 
         <footer className="practice-footer pb-24 pt-6 text-center">
           <p className="text-[10px] text-zinc-700">PRACTICE · LOCAL WEB CRYPTO · NO WALLET · NO VRF</p>

@@ -1,0 +1,36 @@
+.delveworn-brand-logo {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: min(240px, 100%);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  line-height: 0;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.delveworn-brand-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.delveworn-brand-logo:hover img { filter: brightness(1.14); }
+.delveworn-brand-logo:focus-visible { outline: 3px solid #efb56b; outline-offset: 5px; }
+.delveworn-brand-compact { width: 96px; }
+
+@media (min-width: 801px) {
+  .delveworn-brand-logo:not(.delveworn-brand-compact) { width: min(300px, 100%); }
+  .delveworn-brand-compact { width: 168px; }
+}
+
+@media (min-width: 1200px) and (min-height: 800px) {
+  .delveworn-brand-compact { width: 252px; }
+}

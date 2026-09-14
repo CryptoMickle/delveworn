@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Delveworn · Local Practice Mode",
   description,
   alternates: {
-    canonical: "https://delveworn.vercel.app/practice",
+    canonical: "/practice",
   },
   keywords: [
     "Delveworn",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     description,
     type: "website",
     siteName: "Delveworn",
-    url: "https://delveworn.vercel.app/practice",
+    url: "/practice",
   },
   twitter: {
     card: "summary_large_image",

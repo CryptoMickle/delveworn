@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #090909;
+  --foreground: #fafafa;
 }
 
 @theme inline {
@@ -10,13 +11,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -72,20 +66,20 @@ body {
   }
 }
 
+.practice-storage-banner.practice-restored-notice { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; padding: 0 10px; font-size: 11px; }
+
 .delveworn-practice-mode {
   --delveworn-mode-accent: #22d3ee;
   --delveworn-mode-accent-soft: rgba(34, 211, 238, .12);
   background:
-    radial-gradient(circle at 50% 0%, rgba(8, 145, 178, .11), transparent 34%),
-    #08090a;
+    radial-gradient(ellipse at top, #26182b, #09090b 60%);
 }
 
 .delveworn-onchain-mode {
   --delveworn-mode-accent: #a78bfa;
   --delveworn-mode-accent-soft: rgba(139, 92, 246, .14);
   background:
-    radial-gradient(circle at 50% 0%, rgba(109, 40, 217, .12), transparent 34%),
-    #090809;
+    radial-gradient(ellipse at top, #26182b, #09090b 60%);
 }
 
 .delveworn-mode-practice .practice-header-eyebrow,
@@ -190,790 +184,267 @@ body {
   filter: drop-shadow(0 .07em .08em rgba(0, 0, 0, .55));
 }
 
-.practice-in-run {
-  text-align: center;
+/* Delveworn uses the frozen Market Dungeon battle structure and palette.
+   Rules, saves, callbacks and confirmed onchain snapshots stay with each game. */
+html, body { background: #090909; color: #fafafa; color-scheme: dark; }
+.practice-shell { background: radial-gradient(ellipse at top, #26182b, #09090b 60%); }
+.practice-shell.practice-in-run { padding: 20px 24px; }
+.practice-in-run .practice-column { max-width: 1760px; }
+.practice-column { min-width: 0; }
+.practice-in-run { text-align: center; }
+.delveworn-navigation { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 12px; min-height: 76px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #3c3042; }
+.delveworn-navigation > .delveworn-modes { justify-self: start; }
+.delveworn-navigation > .delveworn-home { justify-self: center; }
+.delveworn-navigation > .delveworn-sound { justify-self: end; }
+.delveworn-modes { display: flex; align-items: center; gap: 4px; }
+.delveworn-modes a { display: grid; min-height: 44px; padding: 0 14px; place-items: center; border: 1px solid transparent; border-radius: 9px; color: #b9adc9; font-size: 12px; font-weight: 800; text-decoration: none; }
+.delveworn-modes a[aria-current='page'] { border-color: #694384; background: #24172f; color: #f3e8ff; }
+.delveworn-modes a:hover { color: white; background: #30213a; }
+.delveworn-sound { min-height: 44px; padding: 8px 12px; border: 1px solid #53465d; border-radius: 10px; color: #d4c9d8; background: #251f2c; font-size: 11px; font-weight: 800; }
+.delveworn-sound[aria-pressed='true'] { color: #a7f3d0; border-color: #486154; }
+.delveworn-sound:disabled { opacity: .6; }
+.practice-in-run .practice-header { margin: 0; }
+.practice-in-run .practice-header > :not(.delveworn-navigation):not(.practice-header-title) { display: none; }
+.practice-in-run .practice-header-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.practice-shell :is(a, button, summary):focus-visible { outline: 3px solid #67e8f9; outline-offset: 3px; }
+.practice-hud { display: grid; grid-template-columns: 1fr 1.15fr; overflow: visible; background: #17131e; border-color: #40364b; backdrop-filter: none; font-variant-numeric: tabular-nums; }
+.practice-hud-primary { grid-column: 2; grid-row: 1; }
+.practice-hud-primary > div { min-width: 0; min-height: 70px; padding: 9px 12px; border-color: #3c3545; }
+.practice-hud-label { color: #b9adc9; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.practice-hud-value { margin-top: 4px; font-size: 20px; line-height: 1.2; }
+.practice-hud-desktop-loadout { grid-column: 1; grid-row: 1; align-self: stretch; border-top: 0; border-right: 1px solid #3c3545; }
+.practice-hud-desktop-loadout > div { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 8px 10px; }
+.practice-loadout-value { font-size: 12px; line-height: 1.4; }
+.practice-loadout-note { color: #b9adc9; font-size: 10px; }
+.practice-player-health-bar { height: 5px; margin-top: 5px; background: #302b35; }
+.practice-mobile-gear, .practice-mobile-room { display: none; }
+.practice-combat-potion-status { grid-column: 1/-1; min-height: 34px; padding: 3px 12px; color: #b9adc9; border-color: #3c3545; font-size: 11px; line-height: 1.2; }
+.practice-room-status { display: flex; align-items: center; gap: 8px; color: #e4dfea; font-weight: 800; }
+.practice-room-status button { display: grid; min-width: 28px; min-height: 28px; padding: 3px; place-items: center; border: 1px solid #53465d; border-radius: 6px; background: #251f2c; }
+.practice-room-progress { padding: 8px 10px; border: 0; background: none; }
+.practice-room-caption { display: flex; justify-content: space-between; align-items: baseline; min-height: 22px; gap: 10px; padding: 0 3px 5px; color: #b9adc9; font-size: 11px; line-height: 1.4; }
+.practice-room-caption strong { color: #e9d5ff; font-size: 11px; white-space: nowrap; }
+.practice-room-caption > span { text-align: right; }
+.practice-room-map { display: grid; grid-template-columns: repeat(10,minmax(0,1fr)); gap: 8px; width: 100%; max-width: 1000px; margin: 0 auto; padding: 6px; border-color: #403b44; background: #0b0a0d; list-style: none; }
+.practice-room-node { justify-self: center; width: 32px; height: 32px; font-size: 12px; }
+.practice-main-card { border-color: #45334c; background: #131016; scroll-margin-top: 125px; }
+.practice-main-card:has(.delveworn-battle) { overflow: visible; padding: 14px 20px 20px; border-radius: 20px; background: radial-gradient(ellipse at top, #26182b, #09090b 60%); }
+.practice-main-card:has(.delveworn-battle) > .practice-room-progress { margin-bottom: 14px; }
+.delveworn-battle { display: grid; grid-template-columns: minmax(0,1.12fr) minmax(0,1fr); grid-template-rows: auto auto 1fr; align-items: start; gap: 12px 24px; color: #fafafa; }
+.delveworn-battle-enemy { grid-column: 2; grid-row: 1; padding: 12px; border: 1px solid #633345; border-radius: 12px; background: #1b121b; }
+.delveworn-battle .practice-monster-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; text-align: left; }
+.delveworn-battle .practice-monster-heading h2 { margin: 0; font-size: 25px; line-height: 1.12; font-weight: 850; }
+.delveworn-battle .practice-enemy-hp-label { flex: 0 0 auto; margin: 0; font-size: 20px; line-height: 1.2; white-space: nowrap; }
+.delveworn-enemy-track { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 10px; background: #302b35; }
+.delveworn-enemy-track > span { display: block; height: 100%; border-radius: inherit; background: #fb7185; transition: width .25s ease-out; }
+.delveworn-battle-enemy[data-boss='true'] .delveworn-enemy-track > span { background: #a78bfa; }
+.delveworn-battle-enemy > p { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; color: #fda4af; font-size: 11px; font-weight: 800; }
+.delveworn-battle-enemy > p > span:last-child { color: #d4c9d8; }
+.delveworn-battle .delveworn-battle-art { position: relative; grid-column: 1; grid-row: 1 / 4; width: 100%; height: auto; min-height: 0; aspect-ratio: 3/2; overflow: hidden; border: 1px solid #45334c; border-radius: 14px; background: radial-gradient(ellipse,#281e2b,#09090b 75%); }
+.delveworn-battle .delveworn-battle-art img { width: 120% !important; max-width: none; left: -10% !important; object-fit: contain; object-position: center; }
+.delveworn-battle-flavor { grid-column: 2; grid-row: 2; margin: 0; padding: 0 4px; color: #d4c9d8; font-size: 14px; font-style: italic; line-height: 1.45; text-align: left; }
+.delveworn-battle-flavor > span { display: block; margin-top: 6px; color: #d8b4fe; }
+.delveworn-battle-bottom { grid-column: 2; grid-row: 3; min-width: 0; }
+.delveworn-battle-log { display: block; width: 100%; min-height: 68px; margin-bottom: 8px; padding: 10px 12px; border: 1px solid #4d3b5f; border-radius: 10px; background: #1b1621; color: #d4d4d8; text-align: left; cursor: pointer; }
+.delveworn-battle-log > span:first-child { display: flex; justify-content: space-between; gap: 8px; color: #d8b4fe; font-size: 11px; font-weight: 850; letter-spacing: .04em; }
+.delveworn-battle-log > span:first-child b { color: #e9d5ff; font-size: 10px; white-space: nowrap; }
+.delveworn-battle-log .practice-action-feedback { display: block; min-height: 0; margin: 5px 0 0; padding: 0; border: 0; border-radius: 0; background: none; color: #d4c9d8; font-size: 13px; line-height: 1.45; text-align: left; }
+.delveworn-battle-dialog { width: min(92vw,560px); max-height: 80dvh; margin: auto; padding: 20px; overflow-wrap: anywhere; border: 1px solid #7c3aed; border-radius: 18px; background: #18131f; color: #e4e4e7; font-size: 14px; line-height: 1.5; }
+.delveworn-battle-dialog::backdrop { background: #000b; backdrop-filter: blur(4px); }
+.delveworn-battle-dialog > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.delveworn-battle-dialog h2 { margin: 0; font-size: 22px; font-weight: 850; }
+.delveworn-battle-dialog button { min-width: 44px; min-height: 44px; border: 1px solid #53465d; border-radius: 10px; background: #251f2c; color: white; }
+.delveworn-battle-dialog p { margin-top: 12px; padding-top: 12px; border-top: 1px solid #352e3e; text-align: left; }
+.delveworn-battle .practice-action-dock { position: static; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; }
+.practice-combat-vitals { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 25px; padding: 0 3px 5px; color: #b9adc9; font-size: 11px; line-height: 1.4; font-weight: 800; }
+.practice-combat-vitals span { display: flex; align-items: center; gap: 6px; }
+.practice-combat-vitals strong { color: #a7f3d0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.practice-combat-vitals strong[data-health='warning'] { color: #fde68a; }
+.practice-combat-vitals strong[data-health='danger'], .practice-combat-vitals span:last-child strong { color: #fda4af; }
+.delveworn-combat-exchange { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; min-height: 28px; margin-bottom: 7px; padding: 4px 0; border-radius: 6px; background: #201b25; color: #fda4af; font-size: 11px; line-height: 18px; text-align: center; }
+.delveworn-combat-exchange > span:last-child { color: #a7f3d0; }
+.delveworn-combat-exchange > span[data-critical='true'] { color: #fde68a; }
+.delveworn-combat-exchange b { margin-left: 5px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.practice-combat-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.practice-combat-actions button { display: flex; min-width: 0; min-height: 84px; flex-direction: column; align-items: center; justify-content: center; padding: 10px 6px; border: 1px solid transparent; border-radius: 12px; touch-action: manipulation; }
+.practice-combat-actions button:active:not(:disabled) { filter: brightness(1.12); transform: translateY(1px); }
+.practice-combat-actions button > p:first-child { font-size: 15px; line-height: 1.2; }
+.practice-combat-actions button > p:nth-child(2) { margin-top: 5px; font-size: 12px; }
+.practice-combat-actions button kbd { display: inline-block; margin-left: 3px; padding: 1px 4px; border: 1px solid currentColor; border-radius: 4px; opacity: .65; font-size: 10px; vertical-align: 2px; }
+.practice-combat-actions .practice-storm-action { order: 1; background: #6d28d9; }
+.practice-combat-actions .practice-attack-action { order: 2; background: #f97316; }
+.practice-combat-actions .practice-potion-action { order: 3; grid-column: 1/-1; min-height: 58px; padding: 8px 10px; background: #d1fae5; color: #064e3b; }
+.practice-combat-actions .practice-potion-action:disabled { opacity: 1; background: #25352f; color: #b8c9c0; border-color: #486154; }
+.practice-potion-action > div { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 12px; width: 100%; height: auto; text-align: left; }
+.practice-potion-action > div > p:first-child { grid-column: 1; grid-row: 1/3; font-size: 13px; }
+.practice-potion-action .practice-potion-description { display: block; grid-column: 2; grid-row: 1; margin: 0; font-size: 11px; line-height: 1.4; color: inherit; }
+.practice-potion-action > div > div { grid-column: 2; grid-row: 2; margin-top: 2px; font-size: 11px; text-align: left; }
+.practice-potion-action > div > div > span { display: inline; margin-left: 4px; font-size: 10px; color: inherit; }
+.practice-potion-compact { display: none; }
+.practice-action-description { display: block; margin-top: 4px; font-size: 11px; line-height: 1.3; }
+.practice-action-relic { margin-top: 5px; padding: 4px 6px; font-size: 10px; line-height: 1.3; }
+.practice-potion-consequence { margin: 6px 0 0; color: #b9adc9; font-size: 10px; line-height: 1.4; text-align: center; }
+.desktop-keyboard-hint { margin: 7px 0 0; color: #a89bb7; font-size: 10px; line-height: 1.4; text-align: center; }
+.practice-action-feedback { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 76px; margin: 10px 0; padding: 10px 14px; border: 1px solid #4d3b5f; border-radius: 12px; background: #1b1621; color: #e4e4e7; font-size: 13px; line-height: 1.5; text-align: center; }
+.practice-action-feedback[data-tone='good'] { border-color: #3a6859; background: #13231e; }
+.practice-action-feedback[data-tone='danger'] { border-color: #7f3e4c; background: #29161c; }
+.practice-onboarding { margin: 12px 0; padding: 12px 15px; border: 1px solid #65448a; border-radius: 12px; background: #21162c; color: #d4c9d8; font-size: 13px; line-height: 1.55; text-align: left; }
+.practice-storage-banner { margin: 12px 0; padding: 12px 15px; border: 1px solid #53465d; border-radius: 12px; background: #18131f; color: #d4c9d8; font-size: 12px; line-height: 1.5; }
+.practice-storage-banner button { min-height: 44px; }
+.practice-restored-notice { position: fixed; top: 4px; left: 50%; transform: translateX(-50%); z-index: 70; width: min(calc(100vw - 24px),440px); box-shadow: 0 8px 24px #000a; pointer-events: none; }
+.practice-restored-notice button { pointer-events: auto; }
+.practice-entry-hero-fade { background: linear-gradient(180deg, transparent 52%, #18181bf5 100%); pointer-events: none; }
+.practice-proof-summary { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; min-height: 44px; list-style: none; cursor: pointer; }
+.practice-proof-summary::-webkit-details-marker { display: none; }
+.practice-proof-summary .practice-mode-proof-label { font-size: 11px; font-weight: 850; line-height: 1.45; }
+.practice-proof-boundary { grid-column: 1; color: #b9adc9; font-size: 10px; line-height: 1.4; }
+.practice-proof-disclosure { grid-column: 2; grid-row: 1/3; color: #d4c9d8; font-size: 10px; font-weight: 750; }
+.practice-in-run :is(.practice-merchant-info, .practice-kevin-shop, .onchain-shop-actions, .practice-dungeon-log) { text-align: left; }
+.practice-merchant-card { min-height: 0; }
+.practice-merchant-stage { position: relative; width: 100%; height: auto !important; min-height: 0; aspect-ratio: 3/2; overflow: hidden; }
+.practice-merchant-stage img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.practice-kevin-shop :is(button, a), .onchain-shop-actions button { min-height: 48px; }
+.practice-kevin-shop button { overflow-wrap: anywhere; }
+.onchain-shop-actions > div:first-child, .onchain-shop-actions > div:last-child { grid-column: 1/-1; }
+.practice-boss-reward-status { grid-template-columns: repeat(3,minmax(0,1fr)); width: min(100%,550px); }
+.practice-boss-reward-status > div { min-width: 0; padding: 10px 12px; border-left: 1px solid #40364b; text-align: center; }
+.practice-boss-reward-status > div:first-child { border-left: 0; }
+.practice-boss-reward-status > div > :is(span,strong) { display: block; }
+.practice-boss-reward-status > div > span { color: #b9adc9; font-size: 10px; font-weight: 850; }
+.practice-boss-reward-status > div > strong { margin-top: 4px; font-size: 13px; }
+.practice-boss-relic-actions button { min-height: 48px; }
+.boss-reward-view { min-height: 0; scroll-margin-top: 130px; }
+.practice-boss-focus .practice-main-card, .onchain-boss-focus .onchain-relic-offer { border-color: #8b5cf6; box-shadow: 0 0 45px #6d28d922; }
+.onchain-boss-focus .practice-main-card, .onchain-boss-focus .onchain-equipped-relic { display: none; }
+.practice-dungeon-log { overflow-wrap: anywhere; background: #1b1621; border-color: #4d3b5f; }
+.practice-log-entries { max-height: 280px; overflow: auto; }
+.practice-result-view { overflow-wrap: anywhere; }
+@media (min-width: 801px) and (max-width: 1050px) {
+  .delveworn-battle { grid-template-columns: minmax(0,.85fr) minmax(0,1fr); gap: 10px 14px; }
+  .practice-main-card:has(.delveworn-battle) { padding: 12px 14px 14px; }
+  .delveworn-battle .practice-monster-heading h2 { font-size: 21px; }
 }
-
-.practice-in-run .practice-monster-info,
-.practice-in-run .practice-merchant-info,
-.practice-in-run .practice-kevin-shop,
-.practice-in-run .onchain-shop-actions,
-.practice-in-run .practice-dungeon-log {
-  text-align: left;
+@media (min-width: 1200px) and (min-height: 800px) {
+  .delveworn-battle { gap: 14px 28px; }
+  .delveworn-battle .practice-monster-heading h2 { font-size: clamp(25px,2vw,36px); }
+  .delveworn-battle-log .practice-action-feedback, .delveworn-battle-flavor { font-size: 15px; }
+  .practice-combat-actions button { min-height: 90px; }
 }
-
-.practice-in-run .practice-monster-info .practice-small-stat,
-.practice-in-run .practice-merchant-info .practice-small-stat {
-  text-align: left;
+@media (min-width: 1440px) { .delveworn-battle { grid-template-columns: minmax(0,1fr) 640px; } }
+@media (max-width: 800px) {
+  .desktop-keyboard-hint { display: none; }
+  .practice-shell, .practice-shell.practice-in-run { padding: 8px 10px max(16px,env(safe-area-inset-bottom)); background: radial-gradient(ellipse at top, #26182b, #09090b 60%); }
+  .practice-in-run .practice-column { max-width: none; }
+  .delveworn-navigation { min-height: 48px; gap: 4px; padding-bottom: 4px; margin-bottom: 4px; }
+  .delveworn-navigation .delveworn-modes a { display: grid; min-height: 44px; padding: 0 5px; font-size: 10px; }
+  .delveworn-sound { min-height: 44px; max-width: 88px; padding: 6px 8px; font-size: 10px; }
+  .practice-hud { position: sticky; top: 0; z-index: 45; display: grid; grid-template-columns: 1.15fr .9fr .8fr 1.3fr 1fr; margin: 0 0 8px; border: 1px solid #40364b; border-radius: 12px; box-shadow: 0 6px 18px #0007; }
+  .practice-hud-primary { display: contents; }
+  .practice-hud-primary > div { min-width: 0; min-height: 48px; padding: 5px 3px 4px; border-right: 1px solid #3c3545; }
+  .practice-hud-label { font-size: 10px; line-height: 12px; letter-spacing: 0; }
+  .practice-hud-value { margin-top: 4px; gap: 3px; font-size: 12px; line-height: 16px; white-space: nowrap; }
+  .practice-hud-value > :first-child { font-size: 11px; }
+  .practice-player-health-bar { height: 4px; margin-top: 3px; }
+  .practice-hud-desktop-loadout, .practice-combat-potion-status { display: none; }
+  .practice-mobile-gear, .practice-mobile-room { display: block; min-width: 0; min-height: 48px; text-align: center; }
+  .practice-mobile-gear button { display: flex; min-width: 0; width: 100%; min-height: 48px; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding: 5px 2px; border-right: 1px solid #3c3545; font: inherit; }
+  .practice-mobile-gear span, .practice-mobile-room > span { display: block; color: #b9adc9; font-size: 10px; line-height: 12px; font-weight: 750; }
+  .practice-mobile-gear strong { font-size: 11px; line-height: 16px; white-space: nowrap; }
+  .practice-mobile-room { padding: 5px 2px 3px; }
+  .practice-mobile-room > div { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 2px; }
+  .practice-mobile-room strong { font-size: 12px; }
+  .practice-mobile-room button { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid #53465d; border-radius: 6px; background: #251f2c; font-size: 12px; }
+  .practice-room-progress { margin-bottom: 5px; padding: 3px 5px; }
+  .practice-room-caption { min-height: 16px; padding-bottom: 2px; font-size: 10px; line-height: 13px; }
+  .practice-room-caption strong { font-size: 10px; }
+  .practice-room-caption > span { max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .practice-room-map { gap: 3px; padding: 3px; }
+  .practice-room-node { width: 22px; height: 22px; font-size: 10px; }
+  .practice-main-card:has(.delveworn-battle) { margin-bottom: 10px; padding: 0; border: 0; border-radius: 0; background: none; }
+  .practice-main-card:has(.delveworn-battle) > .practice-room-progress { margin-bottom: 6px; }
+  .delveworn-battle { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .delveworn-battle-enemy { padding: 9px 11px 7px; border: 1px solid #4b354f; border-bottom: 0; border-radius: 14px 14px 0 0; background: #131016; }
+  .delveworn-battle .practice-monster-heading { gap: 8px; }
+  .delveworn-battle .practice-monster-heading h2 { font-size: 18px; }
+  .delveworn-battle .practice-enemy-hp-label { font-size: 15px; }
+  .delveworn-enemy-track { height: 6px; margin-top: 6px; }
+  .delveworn-battle-enemy > p { margin-top: 4px; font-size: 10px; }
+  .delveworn-battle .delveworn-battle-art { width: 100%; height: auto; aspect-ratio: 16/9; flex: 0 0 auto; border: 1px solid #4b354f; border-top: 0; border-bottom: 0; border-radius: 0; background: #080809; }
+  .delveworn-battle .delveworn-battle-art img { left: 0 !important; width: 100% !important; object-fit: contain; }
+  .delveworn-battle-flavor { min-height: 38px; padding: 8px 11px; border: 1px solid #4b354f; border-top: 0; border-radius: 0 0 14px 14px; background: #131016; font-size: 12px; line-height: 1.35; }
+  .delveworn-battle-bottom { display: contents; }
+  .delveworn-battle-log { min-height: 62px; margin: 8px 0 0; padding: 8px 10px; flex: 0 0 auto; }
+  .delveworn-battle-log > span:first-child { font-size: 10px; }
+  .delveworn-battle-log .practice-action-feedback { margin-top: 4px; font-size: 12px; line-height: 1.35; }
+  .delveworn-battle .practice-action-dock, .practice-in-run .practice-between-actions { position: sticky; bottom: 0; z-index: 40; flex: 0 0 auto; margin: 0; padding: 7px 0 max(8px,env(safe-area-inset-bottom)); border: 0; border-top: 1px solid #493653; border-radius: 10px 10px 0 0; background: #09090b; box-shadow: 0 -8px 16px #09090bbf; }
+  .practice-combat-vitals { min-height: 22px; padding: 0 4px 4px; font-size: 10px; }
+  .practice-combat-vitals strong { font-size: 12px; }
+  .delveworn-combat-exchange { min-height: 24px; margin-bottom: 6px; padding: 3px 0; font-size: 10px; line-height: 16px; }
+  .delveworn-combat-exchange b { font-size: 12px; }
+  .practice-combat-actions button { min-height: 58px; padding: 6px 4px; }
+  .practice-combat-actions button > p:first-child { font-size: 13px; }
+  .practice-combat-actions button > p:nth-child(2) { margin-top: 3px; font-size: 11px; }
+  .practice-combat-actions button kbd { display: none; }
+  .practice-action-description { margin-top: 3px; font-size: 10px; }
+  .practice-action-relic { padding: 3px 4px; font-size: 10px; }
+  .practice-combat-actions .practice-potion-action { min-height: 44px; padding: 6px 8px; }
+  .practice-potion-action > div { column-gap: 8px; }
+  .practice-potion-action > div > p:first-child { font-size: 11px; }
+  .practice-potion-action .practice-potion-description, .practice-potion-action > div > div { font-size: 10px; line-height: 1.3; }
+  .practice-potion-consequence { margin-top: 5px; font-size: 10px; }
+  .practice-between-actions { display: grid; grid-template-columns: .85fr 1.15fr; gap: 7px; }
+  .practice-between-actions > button { min-height: 52px; margin: 0; padding: 9px; font-size: 12px; }
+  .practice-between-actions > button p { font-size: 10px; }
+  .practice-merchant-stage { aspect-ratio: 16/9; }
+  .practice-merchant-info { padding: 12px 14px 16px; }
+  .practice-merchant-title { font-size: 25px; }
+  .practice-merchant-role, .practice-merchant-flavor { font-size: 12px; line-height: 1.5; }
+  .practice-merchant-stats { display: none; }
+  .practice-result-view { min-height: 300px; padding: 24px 16px; }
+  .boss-reward-view { padding: 20px 13px; }
+  .practice-boss-reward-icon { margin-top: 16px; font-size: 44px; }
+  .boss-reward-title { font-size: 25px; line-height: 1.1; }
+  .boss-relic-card { padding: 16px; }
+  .boss-relic-artwork { width: 104px; height: 104px; }
+  .boss-relic-card h3 { font-size: 22px; }
+  .practice-boss-relic-actions button { padding: 10px; font-size: 12px; }
+  .practice-boss-reward-status > div { padding: 8px 5px; }
+  .practice-boss-reward-status > div > span { font-size: 10px; }
+  .practice-boss-reward-status > div > strong { font-size: 11px; }
+  .practice-dungeon-log { margin-top: 9px; padding: 10px 12px; }
+  .practice-log-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+  .practice-log-label { flex: 1; margin: 0; font-size: 10px; }
+  .practice-log-summary { display: -webkit-box; order: 3; flex: 1 0 100%; overflow: hidden; color: #e4e4e7; font-size: 12px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .practice-log-toggle { display: block; min-width: 54px; min-height: 44px; padding: 8px; border: 1px solid #53465d; border-radius: 8px; color: #e4e4e7; background: #251f2c; font-size: 10px; font-weight: 850; }
+  .practice-log-entries { display: none; padding-top: 9px; }
+  .practice-dungeon-log.mobile-open .practice-log-entries { display: block; }
+  .practice-log-entries p { font-size: 12px; line-height: 1.5; }
+  .practice-footer { margin-top: 20px; }
 }
-
-/*
- * Landscape artwork layout
- *
- * The current monster and merchant artwork is landscape-oriented. page.tsx
- * still carries fixed portrait-era heights and object-contain classes, so
- * normalize those media frames here without touching gameplay rendering.
- */
-div:has(> img[src^="/monsters/"]) {
-  aspect-ratio: 16 / 9;
-  height: auto !important;
+@media (max-width: 800px) and (max-height: 650px) {
+  .practice-shell, .practice-shell.practice-in-run { padding-top: 4px; }
+  .practice-room-progress { padding-top: 0; padding-bottom: 0; }
+  .practice-room-caption { min-height: 13px; line-height: 12px; padding-bottom: 1px; }
+  .practice-room-map { padding-top: 1px; padding-bottom: 1px; }
+  .practice-main-card:has(.delveworn-battle) > .practice-room-progress { margin-bottom: 2px; }
+  .delveworn-battle-enemy { padding-top: 6px; padding-bottom: 5px; }
+  .delveworn-enemy-track { margin-top: 4px; }
+  .delveworn-battle-enemy > p { margin-top: 3px; line-height: 12px; }
+  .delveworn-battle-flavor { min-height: 0; padding-top: 6px; padding-bottom: 6px; font-size: 11px; }
+  .delveworn-battle-log { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
+  .practice-potion-action .practice-potion-description { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .practice-potion-action .practice-potion-compact { display: block; grid-column: 2; grid-row: 1; margin: 0; font-size: 10px; line-height: 1.3; }
+  .practice-potion-consequence { display: none; }
 }
-
-div:has(> img[src^="/monsters/boss-"]) {
-  aspect-ratio: 3 / 2;
+@media (max-width: 360px) {
+  .delveworn-navigation { column-gap: 2px; }
+  .delveworn-navigation .delveworn-modes a { padding: 0 3px; }
+  .delveworn-sound { padding: 6px; }
+  .practice-hud-value { gap: 2px; font-size: 11px; }
+  .practice-mobile-gear strong { font-size: 10px; }
+  .delveworn-battle .practice-monster-heading h2 { font-size: 17px; }
+  .delveworn-battle .practice-enemy-hp-label { font-size: 14px; }
 }
-
-div:has(> img[src*="merchant-quartermaster-kevin"]) {
-  aspect-ratio: 16 / 9;
-  height: auto !important;
-}
-
-img[src^="/monsters/"],
-img[src*="merchant-quartermaster-kevin"] {
-  width: 100%;
-  height: 100%;
-  object-fit: cover !important;
-  object-position: center;
-}
-
-img[src^="/monsters/boss-"] {
-  transform: none !important;
-}
-
-.onchain-boss-focus .practice-main-card,
-.onchain-boss-focus .onchain-equipped-relic {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .practice-in-run .practice-header {
-    margin-bottom: 12px;
-  }
-
-  .practice-in-run .practice-header-eyebrow {
-    margin-bottom: 4px;
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-header-title {
-    font-size: 40px;
-    line-height: .95;
-  }
-
-  .practice-in-run .practice-header-subtitle {
-    margin-top: 5px;
-    font-size: 14px;
-  }
-
-  .practice-in-run .practice-header-meta {
-    margin-top: 4px;
-    font-size: 8px;
-  }
-
-  .practice-in-run .practice-header > div {
-    margin-top: 6px;
-  }
-
-  .practice-in-run .practice-hud-primary > div {
-    padding: 14px 16px 12px;
-  }
-
-  .practice-in-run .practice-hud-label {
-    color: #a1a1aa;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .06em;
-  }
-
-  .practice-in-run .practice-hud-value {
-    gap: 8px;
-    font-size: 19px;
-    line-height: 1.15;
-  }
-
-  .practice-in-run .practice-hud-value > :first-child {
-    font-size: 1.1em;
-  }
-
-  .practice-in-run .practice-player-health-bar {
-    height: 7px;
-    margin-top: 9px;
-  }
-
-  .practice-in-run .practice-hud-desktop-loadout > div {
-    padding: 12px 16px;
-  }
-
-  .practice-in-run .practice-loadout-value {
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 900;
-    line-height: 1.25;
-  }
-
-  .practice-in-run .practice-loadout-value > :first-child {
-    font-size: 1.15em;
-  }
-
-  .practice-in-run .practice-loadout-note {
-    font-size: 10px;
-  }
-
-  .onchain-shop-actions > div:first-child,
-  .onchain-shop-actions > div:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .practice-shell.onchain-boss-focus {
-    display: grid;
-    min-height: 100svh;
-    padding: 24px 32px;
-    place-items: center;
-    background:
-      radial-gradient(circle at 50% 15%, rgba(126, 34, 206, .22), transparent 38%),
-      #070708;
-  }
-
-  .onchain-boss-focus .practice-column {
-    max-width: 1280px;
-  }
-
-  .onchain-boss-focus .practice-header,
-  .onchain-boss-focus .practice-hud,
-  .onchain-boss-focus .practice-dungeon-log,
-  .onchain-boss-focus .practice-run-summary,
-  .onchain-boss-focus .practice-footer {
-    display: none;
-  }
-
-  .onchain-boss-focus .onchain-relic-offer {
-    display: flex;
-    width: 100%;
-    min-height: calc(100svh - 48px);
-    flex-direction: column;
-    justify-content: center;
-    padding: 36px 64px 42px;
-    border-color: rgba(167, 139, 250, .7);
-    box-shadow:
-      0 30px 90px rgba(0, 0, 0, .72),
-      0 0 90px rgba(109, 40, 217, .18);
-  }
-}
-
-.practice-entry-hero-fade {
-  background: linear-gradient(180deg, transparent 52%, rgba(24, 24, 27, .96) 100%);
-  pointer-events: none;
-}
-
-@media (min-width: 1024px) {
-  .practice-entry-hero-fade {
-    background:
-      linear-gradient(90deg, transparent 62%, rgba(24, 24, 27, .72) 100%),
-      linear-gradient(180deg, transparent 74%, rgba(9, 9, 11, .32) 100%);
-  }
-}
-
-/*
- * Practice Mode desktop boss reward
- *
- * Treat a boss victory as its own full-screen beat. The regular HUD, log and
- * footer return as soon as the player claims the awarded relic and meets the merchant.
- */
-@media (min-width: 1024px) {
-  .practice-shell.practice-boss-focus {
-    display: grid;
-    min-height: 100svh;
-    padding: 24px 32px;
-    place-items: center;
-    background:
-      radial-gradient(circle at 50% 15%, rgba(126, 34, 206, .22), transparent 38%),
-      #070708;
-  }
-
-  .practice-boss-focus .practice-column {
-    max-width: 1280px;
-  }
-
-  .practice-boss-focus .practice-header,
-  .practice-boss-focus .practice-hud,
-  .practice-boss-focus .practice-dungeon-log,
-  .practice-boss-focus .practice-run-summary,
-  .practice-boss-focus .practice-footer {
-    display: none;
-  }
-
-  .practice-boss-focus .practice-main-card {
-    width: 100%;
-    margin: 0;
-    border-color: rgba(167, 139, 250, .7);
-    box-shadow:
-      0 0 0 1px rgba(139, 92, 246, .16),
-      0 30px 90px rgba(0, 0, 0, .72),
-      0 0 90px rgba(109, 40, 217, .18);
-  }
-
-  .practice-boss-focus .practice-boss-reward {
-    position: relative;
-    min-height: calc(100svh - 48px);
-    max-width: none;
-    padding: 36px 64px 42px;
-  }
-
-  .practice-boss-focus .practice-boss-reward-icon,
-  .onchain-boss-focus .practice-boss-reward-icon {
-    font-size: 64px;
-    filter: drop-shadow(0 0 24px rgba(196, 181, 253, .36));
-  }
-
-  .practice-boss-focus .practice-boss-reward h2,
-  .onchain-boss-focus .onchain-relic-offer h2 {
-    font-size: clamp(2.5rem, 4vw, 3.8rem);
-    line-height: 1;
-    letter-spacing: -.04em;
-  }
-
-  .practice-boss-focus .practice-boss-reward h2 + p,
-  .onchain-boss-focus .onchain-relic-offer h2 + p {
-    max-width: 680px;
-    font-size: 15px;
-    line-height: 1.6;
-  }
-
-  .practice-boss-focus .boss-relic-card,
-  .onchain-boss-focus .boss-relic-card {
-    padding: 22px;
-  }
-
-  .practice-boss-reward-status {
-    grid-template-columns: repeat(3, auto);
-  }
-
-  .practice-boss-reward-status > div {
-    min-width: 104px;
-    padding: 10px 14px;
-    border-left: 1px solid rgba(63, 63, 70, .8);
-    text-align: center;
-  }
-
-  .practice-boss-reward-status > div:first-child {
-    border-left: 0;
-  }
-
-  .practice-boss-reward-status > div > span,
-  .practice-boss-reward-status > div > strong {
-    display: block;
-  }
-
-  .practice-boss-reward-status > div > span {
-    color: #71717a;
-    font-size: 8px;
-    font-weight: 900;
-    letter-spacing: .14em;
-  }
-
-  .practice-boss-reward-status > div > strong {
-    margin-top: 3px;
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 600px) {
-  .practice-boss-reward-status {
-    width: 100%;
-  }
-
-  .practice-boss-reward-status > div {
-    min-width: 0;
-    padding: 8px 5px;
-    border-left: 1px solid rgba(63, 63, 70, .8);
-    text-align: center;
-  }
-
-  .practice-boss-reward-status > div:first-child {
-    border-left: 0;
-  }
-
-  .practice-boss-reward-status > div > span,
-  .practice-boss-reward-status > div > strong {
-    display: block;
-  }
-
-  .practice-boss-reward-status > div > span {
-    color: #71717a;
-    font-size: 7px;
-    font-weight: 900;
-    letter-spacing: .1em;
-  }
-
-  .practice-boss-reward-status > div > strong {
-    margin-top: 3px;
-    font-size: 10px;
-  }
-}
-
-/*
- * Combat card height
- *
- * page.tsx still carries a portrait-era min-h-[610px] on the combat card.
- * Let the landscape combat card collapse to its natural content height so
- * there is no empty block below ENEMY DAMAGE / BASE REWARD.
- */
-.min-h-\[610px\] {
-  min-height: auto !important;
-}
-
-/*
- * Practice Mode mobile expedition layout
- *
- * Keep the combat overview and actions inside one phone viewport. This uses
- * the same compact HUD, action dock and collapsible log pattern as Market
- * Dungeon while leaving the wider desktop presentation unchanged.
- */
-@media (max-width: 600px) {
-  body:has(.practice-mode-link) main:not(.practice-in-run) {
-    padding-top: 64px;
-  }
-
-  body:has(.practice-in-run) .practice-mode-link {
-    display: none;
-  }
-
-  .practice-shell.practice-in-run {
-    padding: 0 8px calc(24px + env(safe-area-inset-bottom));
-    background: #070708;
-  }
-
-  .practice-in-run .practice-header,
-  .practice-in-run .practice-run-summary,
-  .practice-in-run .practice-footer {
-    display: none;
-  }
-
-  .practice-in-run .practice-hud {
-    top: 0;
-    display: grid;
-    grid-template-columns: 1.3fr repeat(4, 1fr);
-    margin: 0 -8px 7px;
-    overflow: hidden;
-    border-width: 0 0 1px;
-    border-radius: 0 0 13px 13px;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, .55);
-  }
-
-  .practice-in-run .practice-hud-primary {
-    display: contents;
-  }
-
-  .practice-in-run .practice-hud-primary > div,
-  .practice-in-run .practice-mobile-loadout,
-  .practice-in-run .practice-mobile-room {
-    min-width: 0;
-    padding: 7px 4px 6px;
-    border-right: 1px solid #27272a;
-    text-align: center;
-  }
-
-  .practice-in-run .practice-mobile-loadout,
-  .practice-in-run .practice-mobile-room {
-    display: block;
-  }
-
-  .practice-in-run .practice-mobile-room {
-    border-right: 0;
-  }
-
-  .practice-in-run .practice-hud-desktop-loadout,
-  .practice-in-run .practice-combat-potion-status {
-    display: none;
-  }
-
-  .practice-in-run .practice-hud p,
-  .practice-in-run .practice-mobile-loadout p,
-  .practice-in-run .practice-mobile-room > p {
-    margin: 0;
-    overflow: hidden;
-    color: #71717a;
-    font-size: 6px;
-    font-weight: 900;
-    letter-spacing: .08em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .practice-in-run .practice-hud-primary > div > .practice-hud-value,
-  .practice-in-run .practice-mobile-loadout > p:last-child {
-    margin-top: 3px;
-    color: white;
-    font-size: 10px;
-    letter-spacing: 0;
-  }
-
-  .practice-in-run .practice-player-health-bar {
-    width: calc(100% - 6px);
-    height: 3px;
-    margin: 3px auto 0;
-  }
-
-  .practice-in-run .practice-room-progress {
-    padding: 6px 7px;
-  }
-
-  .practice-in-run .practice-room-map {
-    gap: 3px;
-    padding: 4px;
-  }
-
-  .practice-in-run .practice-room-node {
-    width: 19px;
-    height: 19px;
-    font-size: 7px;
-  }
-
-  .practice-in-run .practice-mobile-room > div {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    margin-top: 2px;
-  }
-
-  .practice-in-run .practice-mobile-room strong {
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-mobile-room button {
-    display: grid;
-    width: 16px;
-    height: 16px;
-    place-items: center;
-    border: 1px solid #52525b;
-    border-radius: 50%;
-    background: #18181b;
-    color: #a1a1aa;
-    font-size: 10px;
-    line-height: 1;
-  }
-
-  .practice-in-run .practice-main-card {
-    margin-bottom: 7px;
-    border-radius: 14px;
-  }
-
-  .practice-in-run .practice-combat-card,
-  .practice-in-run .practice-merchant-card {
-    min-height: 0;
-  }
-
-  .practice-in-run .practice-monster-stage,
-  .practice-in-run .practice-merchant-stage {
-    width: 100%;
-    height: auto !important;
-    aspect-ratio: 16 / 9;
-  }
-
-  .practice-in-run img[src^="/monsters/orc-"] {
-    transform: scale(1.22);
-    transform-origin: center 48%;
-  }
-
-  .practice-in-run img[src^="/monsters/zombie-"] {
-    transform: scale(1.12);
-    transform-origin: center 48%;
-  }
-
-  .practice-in-run .practice-monster-info {
-    padding: 1px 12px 11px;
-  }
-
-  .practice-in-run .practice-monster-heading {
-    align-items: center;
-    margin-top: 2px;
-  }
-
-  .practice-in-run .practice-monster-heading h2 {
-    font-size: 21px;
-    line-height: 1;
-  }
-
-  .practice-in-run .practice-monster-heading h2 + p {
-    margin-top: 3px;
-    font-size: 8px;
-  }
-
-  .practice-in-run .practice-monster-heading > span {
-    padding: 4px 6px;
-    font-size: 7px;
-  }
-
-  .practice-in-run .practice-monster-flavor {
-    display: -webkit-box;
-    margin-top: 5px;
-    overflow: hidden;
-    font-size: 10px;
-    line-height: 1.25;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-  }
-
-  .practice-in-run .practice-enemy-hp-label {
-    margin-top: 8px;
-    margin-bottom: 4px;
-  }
-
-  .practice-in-run .practice-enemy-hp-label span {
-    font-size: 8px;
-  }
-
-  .practice-in-run .practice-enemy-hp-label span:last-child {
-    font-size: 11px;
-  }
-
-  .practice-in-run .practice-enemy-bar,
-  .practice-in-run .practice-enemy-bar > div {
-    height: 7px;
-  }
-
-  .practice-in-run .practice-enemy-stats {
-    gap: 6px;
-    margin-top: 7px;
-  }
-
-  .practice-in-run .practice-small-stat {
-    padding: 6px 8px;
-    border-radius: 9px;
-  }
-
-  .practice-in-run .practice-small-stat > p:first-child {
-    font-size: 6px;
-  }
-
-  .practice-in-run .practice-small-stat > p:last-child {
-    margin-top: 2px;
-    font-size: 9px;
-  }
-
-  .practice-in-run .practice-merchant-info {
-    padding: 0 12px 12px;
-  }
-
-  .practice-in-run .practice-merchant-kicker {
-    margin-top: 5px;
-    font-size: 8px;
-  }
-
-  .practice-in-run .practice-merchant-title {
-    margin-top: 4px;
-    font-size: 22px;
-  }
-
-  .practice-in-run .practice-merchant-role,
-  .practice-in-run .practice-merchant-flavor,
-  .practice-in-run .practice-merchant-stats {
-    display: none;
-  }
-
-  .practice-in-run .practice-result-view {
-    min-height: 300px;
-    padding: 24px 16px;
-  }
-
-  .practice-in-run .practice-boss-reward {
-    min-height: 0;
-    padding: 18px 12px 14px;
-  }
-
-  .practice-in-run .practice-boss-reward-icon {
-    font-size: 44px;
-  }
-
-  .practice-in-run .practice-boss-reward h2 {
-    font-size: 24px;
-    line-height: 1;
-  }
-
-  .practice-in-run .practice-boss-reward h2 + p {
-    font-size: 11px;
-    line-height: 1.4;
-  }
-
-  .practice-in-run .practice-boss-relic-card {
-    margin-top: 14px;
-    padding: 10px;
-  }
-
-  .practice-in-run .practice-boss-relic-artwork {
-    height: 88px;
-    margin-bottom: 8px;
-  }
-
-  .practice-in-run .practice-boss-relic-name {
-    margin-top: 2px;
-    font-size: 15px;
-  }
-
-  .practice-in-run .practice-boss-relic-effect {
-    margin-top: 4px;
-    line-height: 1.35;
-  }
-
-  .practice-in-run .practice-boss-relic-tradeoff {
-    margin-top: 6px;
-    padding: 6px 8px;
-  }
-
-  .practice-in-run .practice-boss-relic-actions {
-    gap: 7px;
-    margin-top: 8px;
-  }
-
-  .practice-in-run .practice-boss-relic-actions button {
-    min-height: 42px;
-    padding: 8px 10px;
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-action-dock {
-    position: sticky;
-    bottom: 0;
-    z-index: 40;
-    padding: 7px 7px calc(7px + env(safe-area-inset-bottom));
-    margin: 0 -1px 7px;
-    border-radius: 13px;
-  }
-
-  .practice-in-run .practice-combat-actions {
-    gap: 6px;
-  }
-
-  .practice-in-run .practice-combat-actions button {
-    min-height: 56px;
-    padding: 8px 9px;
-  }
-
-  .practice-in-run .practice-combat-actions button > p:first-child {
-    font-size: 11px;
-  }
-
-  .practice-in-run .practice-combat-actions button > p:nth-child(2) {
-    margin-top: 4px;
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-action-description,
-  .practice-in-run .practice-potion-description {
-    display: none;
-  }
-
-  .practice-in-run .practice-action-relic {
-    display: -webkit-box;
-    margin-top: 4px;
-    overflow: hidden;
-    padding: 3px 5px;
-    font-size: 7px;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .practice-in-run .practice-combat-actions .practice-potion-action {
-    min-height: 42px;
-    padding: 6px 12px !important;
-  }
-
-  .practice-in-run .practice-potion-action > div {
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .practice-in-run .practice-potion-action p:first-child {
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-potion-action > div > div {
-    margin-top: 0;
-    flex: 0 0 auto;
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-potion-action > div > div span {
-    display: none;
-  }
-
-  .practice-in-run .practice-between-actions {
-    display: grid;
-    grid-template-columns: .85fr 1.15fr;
-    gap: 6px;
-    border: 1px solid #3f3f46;
-    background: rgba(9, 9, 11, .97);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, .52);
-    backdrop-filter: blur(18px);
-  }
-
-  .practice-in-run .practice-between-actions > button {
-    min-height: 43px;
-    margin: 0;
-    padding: 8px 9px;
-    font-size: 10px;
-  }
-
-  .practice-in-run .practice-between-actions > button p {
-    display: none;
-  }
-
-  .practice-in-run .practice-dungeon-log {
-    margin-top: 7px;
-    padding: 9px 10px;
-  }
-
-  .practice-in-run .practice-log-heading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .practice-in-run .practice-log-label {
-    flex: 0 0 auto;
-    margin: 0;
-  }
-
-  .practice-in-run .practice-log-summary {
-    display: block;
-    flex: 1;
-    margin: 0;
-    overflow: hidden;
-    color: #a1a1aa;
-    font-size: 7px;
-    font-weight: 700;
-    text-align: right;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .practice-in-run .practice-log-toggle {
-    display: block;
-    flex: 0 0 auto;
-    padding: 5px 7px;
-    border: 1px solid #3f3f46;
-    border-radius: 7px;
-    background: #101012;
-    color: #a1a1aa;
-    font-size: 7px;
-    font-weight: 900;
-  }
-
-  .practice-in-run .practice-log-entries {
-    display: none;
-    padding-top: 7px;
-  }
-
-  .practice-in-run .practice-dungeon-log.mobile-open .practice-log-entries {
-    display: block;
-  }
-
-  .practice-in-run .practice-log-entries p {
-    font-size: 10px;
-    line-height: 1.35;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .practice-player-health-bar > div, .delveworn-enemy-track > span, .practice-combat-actions button { transition: none; }
 }

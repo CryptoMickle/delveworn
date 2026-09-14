@@ -1,0 +1,24 @@
+.panel { min-width: 0; padding: 20px; border: 1px solid #604366; border-radius: 18px; background: linear-gradient(145deg,#20152a,#100c16); color: #f7f0fc; }
+.heading { margin-bottom: 15px; }
+.heading > span { color: #e5b07b; font-size: 10px; font-weight: 850; letter-spacing: .15em; }
+.heading h3 { margin: 7px 0 0; font-size: 14px; font-weight: 850; line-height: 1.4; letter-spacing: .025em; }
+.preview { overflow: hidden; aspect-ratio: 16/9; border: 1px solid #604663; border-radius: 11px; background: #120d1b; box-shadow: 0 16px 38px #0005; }
+.preview img { display: block; width: 100%; height: auto; }
+.placeholder { display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: radial-gradient(ellipse,#33203e,#100c18); }
+.placeholder strong { color: #eac7a4; font-family: Georgia,serif; font-size: clamp(20px,3vw,36px); }
+.placeholder span { color: #c5b3d3; font-size: 14px; }
+.disclosure { margin: 12px 0 0; color: #d5c2e1; font-size: 12px; line-height: 1.5; }
+.actions { display: grid; grid-template-columns: minmax(0,1fr); align-items: start; gap: 10px; margin-top: 16px; }
+.actions[data-has-copy="true"] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.actions > button { display: flex; align-items: center; justify-content: space-between; min-width: 0; min-height: 48px; padding: 12px 15px; border: 1px solid #c9a4e4; border-radius: 10px; background: linear-gradient(135deg,#8050a1,#593273); color: #fff; font-size: 12px; font-weight: 850; cursor: pointer; }
+.actions > button:hover:not(:disabled) { background: #8757a9; }
+.actions > button:disabled { opacity: .45; cursor: default; }
+.actions :global(.run-result-share) { min-width: 0; margin-top: 0; }
+.actions :global(.run-result-share) > button { width: 100%; min-height: 48px; margin: 0; padding: 12px; border: 1px solid #e7d9ee; border-radius: 10px; background: #f2eaf7; color: #281733; font-size: 12px; font-weight: 850; cursor: pointer; }
+.actions :global(.run-result-share) > button:hover:not(:disabled) { background: #fff; }
+.actions :global(.run-result-share) > button:disabled { opacity: .55; cursor: default; }
+.status { min-height: 2.8em; margin: 10px 0 0; color: #c6b4d2; font-size: 11px; line-height: 1.4; }
+.retry { min-height: 44px; margin-top: 7px; padding: 10px 14px; border: 1px solid #8b6e9d; border-radius: 9px; background: #2c2038; color: #f3e8ff; font-size: 12px; font-weight: 800; cursor: pointer; }
+.panel button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 3px; }
+@media (max-width: 800px) { .panel { padding: 14px; } .actions { gap: 8px; } .actions > button { padding-inline: 11px; font-size: 11px; } }
+@media (max-width: 360px) { .actions[data-has-copy="true"] { grid-template-columns: minmax(0,1fr); } }

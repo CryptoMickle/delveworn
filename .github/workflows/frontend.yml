@@ -57,6 +57,9 @@ jobs:
       - name: Lint frontend
         run: npm run lint
 
+      - name: Test local game state and feedback
+        run: npm test
+
       - name: Build frontend
         env:
           NEXT_PUBLIC_DEPLOYMENT: ${{ matrix.deployment }}

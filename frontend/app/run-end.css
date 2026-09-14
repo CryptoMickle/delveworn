@@ -1,0 +1,99 @@
+.practice-main-card:has(.dungeon-run-end) {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.dungeon-run-end.practice-result-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
+  gap: 32px;
+  margin-top: 12px;
+  min-height: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.run-end-left { min-width: 0; padding-top: clamp(56px, 8vw, 128px); }
+
+.run-end-summary {
+  padding: 28px 24px;
+  border: 1px solid #782b32;
+  border-radius: 20px;
+  background: #17131e;
+  text-align: center;
+}
+
+.run-end-kicker {
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.run-end-summary h2 {
+  margin: 8px 0 12px;
+  color: #fafafa;
+  font-size: clamp(26px, 2.25vw, 34px);
+  font-weight: 850;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+}
+
+.run-end-reset-note { color: #b8afc5; font-size: 14px; line-height: 1.6; }
+
+.run-end-restart > button {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid #ff9a52;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #ed5900, #ff7917);
+  box-shadow: 0 12px 32px #ec5d001f;
+  color: #090909;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: .045em;
+  cursor: pointer;
+}
+
+.run-end-restart > button:hover:not(:disabled) { filter: brightness(1.1); }
+.run-end-restart > button:disabled { opacity: .5; cursor: not-allowed; }
+
+.run-end-log {
+  min-width: 0;
+  margin-top: 32px;
+  padding: 14px;
+  border: 1px solid #303036;
+  border-radius: 20px;
+  background: #17131e;
+  color: #c4b9d2;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.run-end-log header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.run-end-log h3 { font-size: 12px; font-weight: 800; letter-spacing: .1em; }
+.run-end-log header p { color: #d5cfdc; text-align: right; font-size: 12px; font-weight: 600; }
+.run-end-log > div > p, .run-end-log details > p { padding: 9px 0; border-top: 1px solid #ffffff12; }
+.run-end-log .run-end-feedback { padding: 8px 0; font-size: 12px; color: #e6bed0; }
+.run-end-log summary { padding: 10px 0 0; min-height: 44px; cursor: pointer; color: #d8b4fe; }
+.run-end-log summary:focus-visible { outline: 2px solid #67e8f9; outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .dungeon-run-end.practice-result-view { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .run-end-left { display: contents; }
+  .run-end-summary { order: 0; padding: 22px 18px; }
+  .dungeon-run-end > .run-card-panel { order: 1; }
+  .run-end-log { order: 2; margin-top: 0; }
+  .run-end-summary h2 { font-size: clamp(25px, 5vw, 32px); }
+}
+
+@media (max-width: 440px) {
+  .run-end-summary { padding: 20px 14px; border-radius: 16px; }
+  .run-end-reset-note { font-size: 12px; }
+  .run-end-log { border-radius: 16px; font-size: 12px; }
+  .run-end-log header { flex-wrap: wrap; gap: 4px; }
+}

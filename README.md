@@ -10,8 +10,9 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 
 | Experience | Link | What it demonstrates |
 | --- | --- | --- |
-| Practice Mode | [Play without a wallet](https://delveworn.vercel.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
-| Onchain beta | [Open the RISE Testnet game](https://delveworn.vercel.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
+| Practice Mode | [Play without a wallet](https://delveworn.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
+| Onchain beta | [Open the RISE Testnet game](https://delveworn.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
+| Previous version | [Open the original frontend](https://delveworn.vercel.app) | Preserved separately from the upgraded experience. |
 | Somnia Verified Run | [Open the canonical Somnia game](https://delveworn-somnia.vercel.app/onchain) | Contract-backed state, popup-free sponsored actions and Somnia-native verifiable randomness. |
 
 The primary production frontend uses RISE Testnet contract [`0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA). A separate canonical Somnia frontend uses Shannon contract [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292).
@@ -40,6 +41,10 @@ For a concise presentation sequence, use the [Somnia Verified Run 90-second demo
 
 The Foundry project remains at the repository root. All frontend commands run from `frontend/`.
 
+The frontend source now serves a neutral mode-selection home at `/`, local Practice at `/practice`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home or Practice route does not initialize the wallet bridge.
+
+For local frontend checks, run `npm test`, `npm run lint`, and `npm run build`. `npm run test:e2e` runs the interaction suite on desktop Chromium, Android-sized Chromium and small iPhone-sized WebKit; install its browsers with `npx playwright install chromium webkit`. The browser suite seeds explicitly local Practice states and does not submit onchain actions. Emulation is not a physical-device or live-wallet test.
+
 ## Game modes and trust boundaries
 
 ### Practice Mode
@@ -47,6 +52,8 @@ The Foundry project remains at the repository root. All frontend commands run fr
 Practice Mode runs locally in the browser and requires no wallet, RPC calls, transactions or VRF. Its randomness and game state are client-side simulations intended for learning encounters, testing builds and previewing the gameplay loop.
 
 Practice Mode is not onchain, does not persist authoritative state and does not provide verifiable randomness.
+
+Local saves are validated before restoration. Unavailable storage leaves the run playable, while malformed or newer-format saves stay untouched until the player explicitly replaces them. Cross-tab changes pause saving to protect the other run. Shared results label Practice progress as self-reported local simulation.
 
 ### Onchain Mode
 
@@ -236,7 +243,9 @@ The high Delveworn deployment gas limit accommodates Shannon's deployment gas ac
 
 ## Deployment
 
-Vercel is connected to this repository with `frontend` as its Root Directory. Changes merged to `main` trigger the production deployment. Configure deployment variables in Vercel rather than committing `.env.local`.
+The upgraded RISE frontend uses the `delveworn-app` Vercel project and `https://delveworn.app`, with `frontend` as its Root Directory and `upgrade/market-dungeon-experience` as its production branch. Push approved updates to that branch to update the new site.
+
+The original `delveworn` project keeps `https://delveworn.vercel.app` and its existing `main` production branch. The separate `delveworn-somnia` project is unchanged. Keep the upgraded branch separate from `main` to preserve those deployments. Configure deployment variables in Vercel rather than committing `.env.local`.
 
 At minimum, the selected public deployment needs its contract address. RISE Testnet uses:
 

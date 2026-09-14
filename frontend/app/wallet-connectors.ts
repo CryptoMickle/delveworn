@@ -2,6 +2,7 @@ import { metaMask } from "wagmi/connectors/metaMask";
 import { RiseWallet } from "rise-wallet";
 import { riseWallet } from "rise-wallet/wagmi";
 import { supportsWallet } from "./chain-runtime";
+import { SITE_ORIGIN } from "./site-origin";
 
 export function createActiveMetaMaskConnector() {
   if (!supportsWallet("metaMask")) {
@@ -13,7 +14,7 @@ export function createActiveMetaMaskConnector() {
       name: "Delveworn",
       url:
         typeof window === "undefined"
-          ? "https://delveworn.vercel.app"
+          ? SITE_ORIGIN
           : window.location.origin,
     },
   });

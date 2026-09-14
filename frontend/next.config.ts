@@ -15,6 +15,7 @@ const contentSecurityPolicy = [
     "wss://dream-rpc.somnia.network",
     "https://testnet.riselabs.xyz",
     "wss://testnet.riselabs.xyz",
+    "https://relay.wallet.risechain.com",
     "https://*.thirdweb.com",
     "wss://*.thirdweb.com",
     "https://*.walletconnect.com",
@@ -40,6 +41,7 @@ const contentSecurityPolicy = [
   ].join(" "),
   [
     "frame-src 'self'",
+    "https://wallet.risechain.com",
     "https://*.thirdweb.com",
     "https://*.walletconnect.com",
     "https://*.walletconnect.org",
@@ -102,24 +104,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  async redirects() {
-    return [
-      {
-        source: "/",
-        destination: "/practice",
-        permanent: false,
-      },
-    ];
-  },
   async rewrites() {
     return [
       {
-        source: "/onchain",
-        destination: "/",
-      },
-      {
         source: "/rise-testnet-demo",
-        destination: "/",
+        destination: "/onchain",
       },
     ];
   },

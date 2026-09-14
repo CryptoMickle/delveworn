@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import MobileMetaMaskInstantPlayBridge from "./mobile-metamask-instant-play-bridge";
-import PracticeModeLink from "./practice-mode-link";
+import { SITE_ORIGIN } from "./site-origin";
 import "./globals.css";
+import "./game-logo.css";
+import "./between-rooms.css";
+import "./run-end.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,10 +20,6 @@ const geistMono = Geist_Mono({
 const isSomniaDeployment =
   process.env.NEXT_PUBLIC_DEPLOYMENT === "somniaShannon";
 
-const canonicalOrigin = isSomniaDeployment
-  ? "https://delveworn-somnia.vercel.app"
-  : "https://delveworn.vercel.app";
-
 const title = isSomniaDeployment
   ? "Delveworn · Somnia Verified Run"
   : "Delveworn · Onchain Dungeon";
@@ -31,7 +29,7 @@ const description = isSomniaDeployment
   : "A fully onchain dungeon crawler with wallet-signed actions, verifiable randomness and contract-backed progress.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(canonicalOrigin),
+  metadataBase: new URL(SITE_ORIGIN),
   title,
   description,
   applicationName: "Delveworn",
@@ -67,8 +65,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <MobileMetaMaskInstantPlayBridge />
-        <PracticeModeLink />
         {children}
         <Analytics />
       </body>
