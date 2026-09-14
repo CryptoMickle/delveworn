@@ -6,6 +6,7 @@ import { transactionFailureMessage } from "./transaction-feedback";
 import { GameLogo } from "./game-logo";
 import { RunResultShare } from "./run-result-share";
 import { siteUrl } from "./site-origin";
+import { somniaTimingCopy } from "./deployment-copy";
 import { DungeonRecovery } from "./between-rooms";
 import { DungeonRunEnd } from "./run-end";
 import type { RunCardData } from "./run-card";
@@ -9373,7 +9374,7 @@ function DelvewornGame() {
           "Somnia" && (
           <details className="mb-4 rounded-xl border border-cyan-950/70 bg-cyan-950/10 p-4 text-zinc-500">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[10px] font-bold tracking-[0.2em] text-cyan-500 transition hover:text-cyan-300">
-              <span>TECHNICAL DETAILS · BUNDLER + VRF</span>
+              <span>{somniaTimingCopy(hasSomniaSession).heading}</span>
               <span className="shrink-0 font-mono tracking-normal text-zinc-600">
                 {latencySamples.length > 0
                   ? `${(latencySamples[0].totalMs / 1_000).toFixed(2)}s latest`
@@ -9384,7 +9385,7 @@ function DelvewornGame() {
             <div className="mt-4 border-t border-cyan-950/70 pt-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-xs text-zinc-500">
-                  Popup-free play still uses Thirdweb&apos;s ERC-4337 bundler, block inclusion and Somnia&apos;s verifiable-randomness callback. These timings are diagnostic and do not change the proof model.
+                  {somniaTimingCopy(hasSomniaSession).description}
                 </p>
 
                 {latencySamples.length >

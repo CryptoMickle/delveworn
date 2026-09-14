@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_ORIGIN } from "./site-origin";
+import { onchainMetadataCopy } from "./deployment-copy";
 import "./globals.css";
 import "./game-logo.css";
 import "./between-rooms.css";
@@ -17,16 +18,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const isSomniaDeployment =
-  process.env.NEXT_PUBLIC_DEPLOYMENT === "somniaShannon";
-
-const title = isSomniaDeployment
-  ? "Delveworn · Somnia Verified Run"
-  : "Delveworn · Onchain Dungeon";
-
-const description = isSomniaDeployment
-  ? "A Somnia Verified Run with contract-backed progress, popup-free sponsored actions and verifiable randomness."
-  : "A fully onchain dungeon crawler with wallet-signed actions, verifiable randomness and contract-backed progress.";
+const { title, description } = onchainMetadataCopy(
+  process.env.NEXT_PUBLIC_DEPLOYMENT,
+  process.env.NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED === "true",
+);
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),

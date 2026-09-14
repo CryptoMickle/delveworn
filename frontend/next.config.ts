@@ -13,6 +13,8 @@ const contentSecurityPolicy = [
     "connect-src 'self'",
     "https://dream-rpc.somnia.network",
     "wss://dream-rpc.somnia.network",
+    "https://api.infra.testnet.somnia.network",
+    "wss://api.infra.testnet.somnia.network",
     "https://testnet.riselabs.xyz",
     "wss://testnet.riselabs.xyz",
     "https://relay.wallet.risechain.com",

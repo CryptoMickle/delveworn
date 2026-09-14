@@ -1,6 +1,6 @@
 # Delveworn
 
-Delveworn is a fully onchain dungeon crawler. The public frontend remains on RISE Testnet and supports RISE Wallet session keys for fast, popup-free gameplay, plus MetaMask standard transactions. A separately selectable Somnia Shannon configuration uses MetaMask and Somnia Native VRF without changing the public RISE experience. Somnia ERC-4337 Instant Play is implemented behind an explicit, disabled-by-default feature flag.
+Delveworn is a fully onchain dungeon crawler. The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet, MetaMask standard transactions and Somnia Native VRF. The original `delveworn.vercel.app` keeps its RISE Testnet configuration. Somnia ERC-4337 Instant Play remains an optional feature and is disabled on `delveworn.app`.
 
 ## Status
 
@@ -26,17 +26,13 @@ Install dependencies:
 npm install
 ```
 
-Create `.env.local` and point the frontend at the deployed Delveworn contract:
-
-```bash
-NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS=0x...
-```
-
-To run the separately verified Somnia Shannon deployment instead:
+Copy `.env.example` to `.env.local` to use the same Somnia testnet configuration as `delveworn.app`:
 
 ```bash
 NEXT_PUBLIC_DEPLOYMENT=somniaShannon
+NEXT_PUBLIC_SITE_URL=https://delveworn.app
 NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
+NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=false
 ```
 
 Standard MetaMask play remains the Somnia default. To test the separate
@@ -77,11 +73,7 @@ The `delveworn-app` Vercel project connects this repository's `upgrade/market-du
 
 The original `delveworn` project and its `main` production branch continue serving the previous version at `https://delveworn.vercel.app`. The Somnia project remains separate. Do not merge the upgraded branch into `main` when preserving those versions.
 
-The preferred production variable for the current RISE Testnet deployment is:
-
-```text
-NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
-```
+Set `NEXT_PUBLIC_DEPLOYMENT=somniaShannon`, `NEXT_PUBLIC_SITE_URL=https://delveworn.app` and `NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS` in the new project. Use the public HTTPS/WSS/explorer values from `.env.example`. RISE deployments continue using `NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS` in their own projects.
 
 The legacy `NEXT_PUBLIC_DUNGEON_ADDRESS` variable is retained for deployment compatibility.
 
@@ -98,4 +90,4 @@ The repository includes `scripts/vrf-latency-monitor.mjs` for measuring request/
 
 ## Network
 
-The public frontend targets RISE Testnet. Somnia Shannon is available as an opt-in build configuration using chain ID `50312`, the official Dream RPC and Somnia Native VRF. Its Thirdweb ERC-4337 smart-account/session-key path is feature-flagged and must be explicitly configured and tested before public activation; MetaMask standard transactions remain available independently. Product naming remains chain-independent; contract addresses and network configuration must be selected per deployment before any mainnet release.
+The upgraded public frontend targets Somnia Shannon Testnet using chain ID `50312`, the official testnet RPC and Somnia Native VRF. The previous frontend stays on RISE Testnet. Somnia's Thirdweb ERC-4337 smart-account/session-key path is feature-flagged and must be explicitly configured and tested before public activation; MetaMask standard transactions remain available independently. Product naming remains chain-independent; contract addresses and network configuration must be selected per deployment before any mainnet release.

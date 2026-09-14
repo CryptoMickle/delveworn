@@ -11,11 +11,11 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 | Experience | Link | What it demonstrates |
 | --- | --- | --- |
 | Practice Mode | [Play without a wallet](https://delveworn.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
-| Onchain beta | [Open the RISE Testnet game](https://delveworn.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
+| Onchain beta | [Open the Somnia Testnet game](https://delveworn.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
 | Previous version | [Open the original frontend](https://delveworn.vercel.app) | Preserved separately from the upgraded experience. |
 | Somnia Verified Run | [Open the canonical Somnia game](https://delveworn-somnia.vercel.app/onchain) | Contract-backed state, popup-free sponsored actions and Somnia-native verifiable randomness. |
 
-The primary production frontend uses RISE Testnet contract [`0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA). A separate canonical Somnia frontend uses Shannon contract [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292).
+The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet (chain `50312`) and the existing contract [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292), with standard MetaMask transactions. The original `delveworn.vercel.app` remains on RISE Testnet contract [`0xf5d7…3DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA). The separate `delveworn-somnia.vercel.app` configuration is unchanged.
 
 Practice Mode is the fastest way to review the complete gameplay loop. Onchain Mode demonstrates the contract-backed state, wallet flow and randomness lifecycle, but depends on testnet and wallet availability.
 
@@ -243,21 +243,20 @@ The high Delveworn deployment gas limit accommodates Shannon's deployment gas ac
 
 ## Deployment
 
-The upgraded RISE frontend uses the `delveworn-app` Vercel project and `https://delveworn.app`, with `frontend` as its Root Directory and `upgrade/market-dungeon-experience` as its production branch. Push approved updates to that branch to update the new site.
+The upgraded Somnia Testnet frontend uses the `delveworn-app` Vercel project and `https://delveworn.app`, with `frontend` as its Root Directory and `upgrade/market-dungeon-experience` as its production branch. Push approved updates to that branch to update the new site.
 
 The original `delveworn` project keeps `https://delveworn.vercel.app` and its existing `main` production branch. The separate `delveworn-somnia` project is unchanged. Keep the upgraded branch separate from `main` to preserve those deployments. Configure deployment variables in Vercel rather than committing `.env.local`.
 
-At minimum, the selected public deployment needs its contract address. RISE Testnet uses:
-
-```text
-NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS
-```
-
-Somnia Shannon is opt-in and uses:
+The `delveworn-app` project uses the following public configuration:
 
 ```text
 NEXT_PUBLIC_DEPLOYMENT=somniaShannon
+NEXT_PUBLIC_SITE_URL=https://delveworn.app
 NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F4c292
+NEXT_PUBLIC_SOMNIA_SHANNON_RPC_URL=https://api.infra.testnet.somnia.network/
+NEXT_PUBLIC_SOMNIA_SHANNON_WS_URL=wss://api.infra.testnet.somnia.network/ws
+NEXT_PUBLIC_SOMNIA_SHANNON_EXPLORER_URL=https://shannon-explorer.somnia.network/
+NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=false
 ```
 
 The optional Somnia Popup-free Play session additionally requires:
@@ -276,7 +275,7 @@ limited onchain to zero-value calls against the configured Delveworn contract.
 Because the ERC-4337 smart account has its own address, it has separate player
 state from the owner's MetaMask EOA.
 
-Do not change the production deployment selector merely by merging Somnia support; the RISE URL is referenced by existing grant applications and remains the default.
+Keep the original `delveworn` project on RISE Testnet: its URL is referenced by existing grant applications. The network switch applies only to `delveworn-app`; it does not migrate player state between chains.
 
 Changes must pass the path-filtered contract and frontend workflows before they are merged to `main`.
 

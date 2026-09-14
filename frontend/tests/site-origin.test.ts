@@ -11,6 +11,7 @@ test("RISE defaults to the new domain while Somnia keeps its separate canonical 
 });
 
 test("an explicit public site URL is normalized and invalid non-web origins fail", () => {
+  assert.equal(getSiteOrigin("somniaShannon", "https://delveworn.app"), "https://delveworn.app");
   assert.equal(getSiteOrigin("riseTestnet", " https://preview.example.test/path/?query=1 "), "https://preview.example.test");
   assert.equal(getSiteOrigin("riseTestnet", "http://localhost:3100/"), "http://localhost:3100");
   assert.throws(() => getSiteOrigin("riseTestnet", "javascript:alert(1)"), /HTTP or HTTPS/);
