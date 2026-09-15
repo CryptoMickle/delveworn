@@ -3,9 +3,8 @@
 .dungeon-scene:focus-visible { outline:2px solid #eed197; }
 .dungeon-room-tint { fill:#35154b; opacity:.055; pointer-events:none; }
 .boss-room .dungeon-room-tint { fill:#820f1b; opacity:.19; }
-.dungeon-actor-position { transition:transform var(--walk-time,350ms) linear; }
 .dungeon-avatar { transform-origin:0 0; animation:dungeon-breathe 3.8s ease-in-out infinite; }
-.dungeon-avatar.is-walking { animation:dungeon-walk .25s ease-in-out infinite alternate; }
+.dungeon-avatar.is-walking { animation:none; }
 .dungeon-avatar.is-attacking { animation:dungeon-attack .5s ease-out; }
 .dungeon-avatar.takes-hit { animation:dungeon-hit .58s ease-out; }
 .dungeon-avatar.is-dead { animation:dungeon-fall .6s ease-out forwards; }
@@ -34,7 +33,6 @@
 .dungeon-floor-controls button span { padding-left:8px; }
 .dungeon-controls-help { position:absolute; bottom:3px; left:0; right:0; text-align:center; color:#b8a991; font-size:10px; margin:0; pointer-events:none; }
 @keyframes dungeon-breathe { 50% { translate:0 -2px; } }
-@keyframes dungeon-walk { from { translate:0 0; rotate:-1deg; } to { translate:0 -4px; rotate:1deg; } }
 @keyframes dungeon-float { 50% { translate:0 -6px; } }
 @keyframes dungeon-relic-pulse { 35% { opacity:.55; translate:0 -8px; } }
 @keyframes dungeon-attack { 20% { translate:-8px 5px; rotate:-5deg; } 42% { translate:22px -14px; rotate:6deg; } }
@@ -52,16 +50,29 @@
   .dungeon-scene-wrap { overflow:hidden; }
   .dungeon-floor-controls { bottom:27px; }
   .dungeon-controls-help { font-size:9px; bottom:6px; }
-  .dungeon-scene-wrap.has-room-hud { display:grid; grid-template-rows:auto minmax(180px,1fr) auto; border:0; background:#100d10 url('/dungeon/stone-room.webp') center/cover; }
-  .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; z-index:5; }
+  .dungeon-scene-wrap.has-room-hud {
+    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 131px);
+    --dungeon-controls-track:calc(302px + env(safe-area-inset-bottom));
+    display:grid;
+    grid-template-rows:var(--dungeon-hud-track) minmax(0,1fr) var(--dungeon-controls-track);
+    border:0;
+    background:#100d10 url('/dungeon/stone-room.webp') center/cover;
+  }
+  .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; min-height:0; z-index:5; }
   .dungeon-scene-wrap.has-room-hud > .dungeon-scene { height:100%; min-height:0; grid-row:2; }
-  .has-room-hud > .dungeon-scene-bottom { display:flex; flex-direction:column; position:relative; z-index:4; gap:0; padding-bottom:env(safe-area-inset-bottom); background:linear-gradient(#26182bf5,#09090b); }
-  .has-room-hud .dungeon-scene-footer { display:block; }
-  .dungeon-scene-wrap.has-room-hud .dungeon-scene-overlay { position:relative; inset:auto; }
+  .has-room-hud > .dungeon-scene-bottom { display:flex; flex-direction:column; justify-content:flex-end; position:relative; z-index:4; min-height:0; overflow:hidden; gap:0; padding-bottom:env(safe-area-inset-bottom); background:linear-gradient(transparent,#26182bf5 34%,#09090b 70%); }
+  .has-room-hud .dungeon-scene-footer { display:block; flex:0 0 auto; min-height:0; }
+  .dungeon-scene-wrap.has-room-hud .dungeon-scene-overlay { position:relative; inset:auto; flex:0 0 auto; min-height:0; }
   .has-room-hud .dungeon-floor-controls { position:relative; inset:auto; padding:6px 10px 10px; }
   .has-room-hud .dungeon-floor-controls:empty { display:none; }
   .has-room-hud .dungeon-floor-controls button { flex:1; min-height:48px; }
   .has-room-hud .dungeon-controls-help { display:none; }
+}
+@media(max-width:760px) and (max-height:700px) {
+  .dungeon-scene-wrap.has-room-hud { --dungeon-controls-track:calc(246px + env(safe-area-inset-bottom)); }
+}
+@media(max-width:760px) and (max-height:620px) {
+  .dungeon-scene-wrap.has-room-hud { --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 126px); }
 }
 @media(prefers-reduced-motion:reduce) {
   .dungeon-scene-wrap *, .dungeon-scene-wrap *::before { animation:none !important; transition:none !important; }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { clampRoomPoint, ENEMY_ART, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel } from "../app/dungeon/scene";
+import { roomLootPoint } from "../app/dungeon/movement";
 
 test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
   for (const width of [320,375,390,430]) for (const height of [220,390,500,650,800]) {
@@ -12,9 +13,10 @@ test("portrait camera keeps tier-one actors modest and walking inside the visibl
       const center=(x-left)*scale, halfWidth=88*camera.actorScale*scale;
       assert.ok(center-halfWidth >= 11.99 && center+halfWidth <= width-11.99, "walking keeps the full avatar on screen");
     }
-    const target=roomFloorTarget({x:450,y:65},true,0,true);
+    const loot=roomLootPoint(42,1,camera);
+    const target=roomFloorTarget({x:450,y:65},true,0,loot);
     assert.ok(target.point.x >= camera.minX && target.point.x <= camera.maxX);
-    assert.ok(nearRoomLoot(target.point), "resizing never prevents floor pickup");
+    assert.ok(nearRoomLoot(target.point,loot), "resizing never prevents floor pickup");
   }
 });
 
@@ -52,16 +54,16 @@ test("walking cannot reach the guarded doorway but the cleared exit is reachable
 });
 
 test("door and loot taps lead to reachable loot before allowing the next room", () => {
-  const door = { x: 450, y: 65 }, droppedItem = { x: 450, y: 218 };
+  const door = { x: 450, y: 65 }, droppedItem = { x: 550, y: 275 };
   for (const point of [door, droppedItem]) {
-    const target = roomFloorTarget(point, true, 0, true);
+    const target = roomFloorTarget(point, true, 0, droppedItem);
     assert.equal(target.destination, "loot");
-    assert.ok(nearRoomLoot(clampRoomPoint(target.point, true)), "the approach point must be within pickup range");
+    assert.ok(nearRoomLoot(clampRoomPoint(target.point, true),droppedItem), "the approach point must be within pickup range");
   }
-  assert.equal(nearRoomLoot({ x: 400, y: 391 }), false, "winning from the combat anchor does not collect remotely");
-  assert.equal(nearRoomLoot({ x: 420, y: 496 }), false, "reload at entry cannot collect remotely");
-  assert.equal(roomFloorTarget(door, true, 0, false).destination, "door");
-  assert.deepEqual(roomFloorTarget({ x: 300, y: 435 }, true, 0, true), { point: { x: 300, y: 435 } });
+  assert.equal(nearRoomLoot({ x: 400, y: 391 },droppedItem), false, "winning from the combat anchor does not collect remotely");
+  assert.equal(nearRoomLoot({ x: 420, y: 496 },droppedItem), false, "reload at entry cannot collect remotely");
+  assert.equal(roomFloorTarget(door, true, 0).destination, "door");
+  assert.deepEqual(roomFloorTarget({ x: 300, y: 435 }, true, 0, droppedItem), { point: { x: 300, y: 435 } });
 });
 
 test("floor reward labels distinguish actual loot and boss pickup from an equipped relic", () => {

@@ -24,7 +24,19 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — Practice controls inside the mobile room
+## Current checkpoint — stable room, continuous walking and automatic floor loot
+
+Phone review reported camera pumping and hopping during Approach. The mobile
+scene now has phase-independent, viewport-based HUD/floor/control tracks.
+Walking uses one animation clock for both the visible position and arrival;
+retargeting starts at the displayed point. The avatar mirrors horizontal travel.
+Loot uses independent seed/room presentation randomness on the reachable floor
+and is collected automatically when navigation enters pickup range. A true
+viewport resize cancels walking, and the next input targets the current floor.
+Original combat/RNG/save rules and artwork remain intact. Verification and the
+current preview are recorded in `docs/phase-1-evidence/verification.md`.
+
+### Previous checkpoint — Practice controls inside the mobile room
 
 Latest phone-review correction: use the actual shared `CombatActionDock` instead
 of the custom three-button imitation. Monster HP is a dedicated current/max +

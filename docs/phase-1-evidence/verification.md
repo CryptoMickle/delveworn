@@ -1,6 +1,42 @@
 # First Descent verification — 2026-09-15
 
-## Current correction — use Practice combat controls in the room
+## Current correction — stable room, walking and automatic loot
+
+User reported zooming on each attack, hopping during Approach and requested
+random floor drops, automatic pickup by proximity and horizontal avatar facing.
+
+- Mobile HUD/floor/control grid tracks now depend on the viewport, not changing
+  action descriptions. The same tracks apply through exploration, combat, loot
+  and recovery. Enemy/player HP and Storm/Potion/Attack placement are preserved.
+- One animation clock updates visible movement and arrival. Retargeting starts
+  from the visible point; arrival no longer snaps to a second combat anchor.
+  Walking bob is removed; the original avatar artwork mirrors left/right.
+- Loot position comes from an independent seed/room hash fitted to the visible
+  floor. Navigating within 32 room units automatically applies the existing
+  pending reward once. Pointer, arrows and accessible walking shortcuts work.
+  Reload reproduces placement at the same viewport; changing camera bounds
+  cancels movement so the next input targets the displayed drop.
+- Original combat model, RNG, save format, monster/loot artwork and contracts
+  are unchanged. No extra wallet, network service or analytics dependency.
+
+Actual checks: **107 unit/integration tests passed, 0 failed**; explicit
+TypeScript passed; Somnia standard production build passed. ESLint: **0 errors,
+14 existing warnings**. Browser discovery: **159 cases**, including 24 Descent
+device cases; discovery is not execution. New executable tests
+cover smooth movement, interrupted/retargeted walks, once-only proximity pickup,
+facing, and 25,000 reproducible/reachable loot placements across viewport sizes.
+Updated browser scenarios inspect actual SVG transforms while busy and after
+attacks, Approach continuity, visual mirroring, floor/keyboard pickup and resize.
+They remain **unexecuted** because the required browser admin-policy check is
+unavailable. No physical-phone or screenshot verification is claimed.
+
+Changed implementation: `app/dungeon/{movement.ts,scene.tsx,scene.css}`,
+`app/descent/{game.tsx,game.css,combat-panel.css}`. Tests:
+`tests/{dungeon-movement.test.ts,dungeon-scene.test.ts,e2e/descent.spec.ts}`.
+Play instructions and continuation record updated. This remains a review
+build, not production-ready.
+
+## Previous correction — use Practice combat controls in the room
 
 User reported missing monster HP and incorrect action placement. The live
 `https://delveworn.app/practice` review was attempted with the approved in-app

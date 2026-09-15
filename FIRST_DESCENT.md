@@ -15,17 +15,20 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 1. Start a run. The original starting state applies: **100 HP, three potions,
    zero gold, base weapon/armor and no owned or equipped relic**. No build or
    relic selection, wallet, account or payment.
-2. Tap the floor or use arrows/WASD to walk. Approach the monster guarding the
-   north door. E/Enter interacts with the current enemy, loot or exit.
+2. Tap the floor or use arrows/WASD to walk. The avatar turns left/right with
+   travel and moves continuously to the monster guarding the north door.
+   E/Enter interacts with the current enemy, loot or exit.
 3. Use **Storm (left) / Attack (right)** with **Potion below**. On short mobile
    viewports, the row is **Storm / Potion / Attack**. Keys **1 / 2 / 3** remain
    Attack / Storm / Potion; **A / S / P** work during combat. Attack has the original
    steady damage and critical chance. Storm has its original range and can roll
    zero. Potion heals 25 HP and receives the original half-strength retaliation
    during combat. Two combat potions per normal encounter, three per boss.
-4. After victory, walk to the dropped loot. Tap its image or **Pick up loot** to
-   walk there. The inventory updates only after arrival. Clicking the exit with
-   uncollected loot first leads to the loot. Reload does not collect or reroll it.
+4. After victory, loot appears at a seeded random location on the visible floor.
+   Tap the floor/loot or use arrows to walk there: entering pickup range collects
+   it automatically, without another button press. **Pick up loot**, E and the
+   exit remain walking shortcuts. Inventory changes once, on reaching the loot.
+   Reload does not collect or reroll the reward or its layout for that viewport.
 5. Heal or buy supplies after pickup, then walk through the north doorway.
    Supplies follow room 5; the room-9 camp retains its original 15 HP arrival
    recovery and existing shop prices.
@@ -35,8 +38,10 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 On mobile, the room panel fills the available browser viewport. Its background
 continues behind the HUD. Room/progress, inventory, sound and Menu occupy the top
 of the grid; HP, feedback and contextual actions occupy the bottom. The room
-camera fills the space between them without stretching artwork or enlarging
-monsters. Desktop retains its existing wider layout. Sound starts on interaction; mute is in the header. The UI uses the same background
+camera fills fixed viewport-based tracks between them, so action text, busy
+states and switching between exploration/combat/loot cannot resize the room.
+Artwork is not stretched and monsters are not enlarged. Desktop retains its
+existing wider layout. Sound starts on interaction; mute is in the header. The UI uses the same background
 as classic Practice/onchain and respects reduced motion and phone safe areas.
 
 ## Rules and authority
@@ -55,7 +60,10 @@ are blocked until collection. Camp/kill HP effects retain their original timing.
 The boss relic offer is rolled by the engine at victory, and claimed after pickup.
 
 A new run receives a local random seed. Seed and PRNG state are saved. Animation,
-walking, audio and loot collection do not draw new combat randomness. Local saves
+walking, audio and loot collection do not draw new combat randomness. Floor
+placement uses a separate seed/room hash, fitted to reachable camera bounds.
+Changing portrait camera bounds or leaving the page stops walking at its current
+position; the next input uses the newly displayed floor. Local saves
 are editable by their owner; validation rejects inconsistent/malformed data, not
 all cheating. This is local gameplay, not a competitive or onchain proof.
 
@@ -137,6 +145,8 @@ Use the latest owner-authorized preview link. Observe:
   middle; readable damage and potion reasons without hunting or scrolling.
 - Reading retaliation and understanding Storm misses and Potion healing.
 - Walking to loot; seeing the inventory update once; using the exit afterwards.
+- A steady room during repeated attacks; smooth Approach; left/right facing;
+  varied loot locations and automatic pickup using only floor taps or arrows.
 - Reload before and after pickup; recovery at supplies/camp and the boss relic.
 - Original background, item transparency, touch targets and sound on a phone.
 
