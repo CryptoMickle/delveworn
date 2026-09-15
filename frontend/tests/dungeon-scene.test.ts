@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { clampRoomPoint, DungeonScene, ENEMY_ART, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, type RoomView } from "../app/dungeon/scene";
+import { clampRoomPoint, DungeonScene, ENEMY_ART, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, type RoomView } from "../app/dungeon/scene";
 import { roomLootPoint } from "../app/dungeon/movement";
 
 test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
@@ -87,4 +87,17 @@ test("the explicit exit requires collected loot and respects a pending game acti
     assert.doesNotMatch(render({phase,loot:{type:2,amount:16,gold:21,relicId:0}}), /Enter room/);
   }
   assert.match(render({phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}), /Pick up loot/);
+});
+
+
+test("transient hidden or invalid room measurements cannot replace the active camera", () => {
+  for (const portrait of [false,true]) {
+    for (const invalid of [0,-1,NaN,Infinity,-Infinity]) {
+      assert.equal(measuredRoomCamera(invalid,390,portrait),null);
+      assert.equal(measuredRoomCamera(375,invalid,portrait),null);
+    }
+  }
+  assert.equal(measuredRoomCamera(1,390,true),null,"inverted visible bounds cannot displace an active walker");
+  assert.deepEqual(measuredRoomCamera(375,390,true),portraitRoomCamera(375,390));
+  assert.deepEqual(measuredRoomCamera(1365,500,false),{actorScale:1,minX:170,maxX:733});
 });

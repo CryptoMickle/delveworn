@@ -89,6 +89,13 @@ export function portraitRoomCamera(width: number, height: number) {
   return { actorScale, minX:Math.max(170,left+margin), maxX:Math.min(733,900-left-margin) };
 }
 
+/** Ignore hidden/transient layout samples instead of displacing the player. */
+export function measuredRoomCamera(width: number, height: number, portrait: boolean) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  const next=portrait ? portraitRoomCamera(width,height) : {actorScale:1,minX:170,maxX:733};
+  return next.minX <= next.maxX ? next : null;
+}
+
 /** Mount with a confirmed run/room key. Recovery never trusts saved coordinates. */
 export function DungeonScene({ view, actions, children, topOverlay, footer }: { view: RoomView; actions: RoomActions; children?: ReactNode; topOverlay?: ReactNode; footer?: ReactNode }) {
   const [position, setPosition] = useState<Point>(view.phase === "explore" ? ENTRY : STAGING);
@@ -123,7 +130,8 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
     let previousCamera: typeof camera | undefined;
     const update=() => {
       const rect=element.getBoundingClientRect();
-      const next=portrait.matches ? portraitRoomCamera(rect.width,rect.height) : {actorScale:1,minX:170,maxX:733};
+      const next=measuredRoomCamera(rect.width,rect.height,portrait.matches);
+      if (!next) return;
       const changed = previousCamera && (previousCamera.actorScale !== next.actorScale || previousCamera.minX !== next.minX || previousCamera.maxX !== next.maxX);
       previousCamera=next;
       setCamera(previous => previous.actorScale === next.actorScale && previous.minX === next.minX && previous.maxX === next.maxX ? previous : next);

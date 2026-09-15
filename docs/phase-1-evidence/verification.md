@@ -12,7 +12,7 @@ shop, camp, boss relic choice, terminal result and restart.
 | First frame repeatedly starts at zero elapsed time | Legacy code made zero progress under eight retargets immediately before successive frames. Movement now starts at input time; the same test moves 20.73 room units. |
 | Missing frames or unchanging frame timestamps | Legacy Approach never reached combat. Each frame now races an 80ms timer, with a shared monotonic clock. One winner updates the visible position; the losing callback is canceled. |
 | Invalid SVG floor coordinates | Legacy NaN positions propagated into all later walks and queued frames forever. Singular/non-finite pointer conversions are ignored and the movement API rejects invalid points before scheduling. |
-| Camera changes during walking | The old resize handler canceled the requested arrival. It now resumes the same intent from the displayed point using current reachable bounds and loot location. |
+| Camera changes during walking | The old resize handler canceled the requested arrival. It now resumes the same intent from the displayed point using current reachable bounds and loot location. Zero/non-finite or inverted room measurements are ignored. |
 | Another tab holds the save lock | The old request could wait indefinitely with actions locked. Non-queuing acquisition now returns a retry message without writing or switching to session-only play. |
 | Save conflict behind a mobile panel | Blocked controls now reflect the actual lock. Save notices/recovery are also inside shop, reward and terminal panels; a valid restored save clears stale blocked state. |
 
@@ -24,9 +24,10 @@ format and the Somnia/chain boundary are unchanged.
 
 ### Actual verification
 
-- **120 unit/integration tests passed, 0 failed.** New scheduler tests cover
+- **121 unit/integration tests passed, 0 failed.** New scheduler tests cover
   missing/throwing RAF, stale/constant timestamps, fallback cancellation, first
-  frame progress, retargeting, invalid coordinates and once-only pickup. Six
+  frame progress, retargeting, invalid coordinates and once-only pickup. Camera
+  tests reject hidden/invalid measurements before they can displace a walker. Six
   save-lock tests cover acquisition, held locks, retry, fallback and conflict
   preservation. Existing Practice/Weekly golden traces pass.
 - TypeScript and Somnia standard production build passed.
@@ -57,7 +58,8 @@ or test package, account, wallet, RPC, telemetry service or transaction was adde
 
 Changed code: `app/dungeon/{movement.ts,scene.tsx}`,
 `app/descent/{game.tsx,save-lock.ts}`, `tests/dungeon-movement.test.ts`,
-`tests/descent-save-lock.test.ts`, `tests/e2e/descent.spec.ts`; documentation:
+`tests/descent-save-lock.test.ts`, `tests/dungeon-scene.test.ts`,
+`tests/e2e/descent.spec.ts`; documentation:
 `FIRST_DESCENT.md`, `phase-1-status.md` and this record.
 
 Status: **review build; not production-ready until actual phone verification**.
