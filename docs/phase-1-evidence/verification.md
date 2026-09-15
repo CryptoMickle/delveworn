@@ -36,6 +36,16 @@ Changed implementation: `app/dungeon/{movement.ts,scene.tsx,scene.css}`,
 Play instructions and continuation record updated. This remains a review
 build, not production-ready.
 
+Current preview: source `e10f0ac749add0a4189c769fa13d9a2d6bdddb3e`, deployment
+`dpl_Gi5zAp9ckc9vtA2GaMK9zhYQ3dmi`, **READY**.
+<https://delveworn-je3id3u2k-crypto-mickle.vercel.app/play>
+
+Deployment-specific seven-day access link delivered in the conversation; token
+never committed. HTTP delivery checks: `/play` 200 with expected title; room,
+avatar, Grave Belle and potion assets 200. These checks are not browser gameplay
+verification. Earlier previews below are superseded. No production release,
+remote Git push or contract transaction.
+
 ## Previous correction — use Practice combat controls in the room
 
 User reported missing monster HP and incorrect action placement. The live
