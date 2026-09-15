@@ -24,12 +24,18 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Latest implementation checkpoint — C–E implemented locally, F open
+## Current checkpoint — C–E available in preview, F open
 
 The new playable slice is **`/play`**, linked from the mode-selection home as
 "Play The First Descent". `/concept` remains a development-only historical
 review. Classic Practice, Weekly and the existing Somnia onchain mode remain.
-No publication, remote CI run, merge or contract transaction has occurred.
+A Vercel preview was explicitly authorized and created on 2026-09-15 for phone
+testing. Project: `delveworn-app`; source: `4ebf5cb`; deployment:
+`dpl_9ua69oNVJ9jghrixShS6sRn5xyxE`. Its build is READY, and `/play` plus the room,
+avatar and zombie assets return HTTP 200 through a deployment-specific shareable
+link (seven days, delivered in the conversation; token not committed).
+No production release, remote GitHub CI run, merge or contract transaction has
+occurred. A deployment/HTTP check does not complete browser or phone gameplay QA.
 
 ### Milestone C — local dungeon implementation
 

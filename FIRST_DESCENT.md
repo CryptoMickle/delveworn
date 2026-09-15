@@ -1,7 +1,11 @@
-# The First Descent — local Phase 1 review build
+# The First Descent — Phase 1 review build
 
-Status: implementation available locally; browser/device verification remains
-open. No deployment or contract transaction is included in this phase.
+Status: implementation available locally and in a user-authorized Vercel preview;
+browser/device verification remains open. No production release or contract
+transaction is included. The phone-test preview uses source commit `4ebf5cb`:
+<https://delveworn-iph4uuz9a-crypto-mickle.vercel.app/play>.
+The deployment remains protected; the user received a seven-day shareable link
+in the conversation on 2026-09-15. Its access token is not stored in the repo.
 
 ## Start and play
 

@@ -1,5 +1,20 @@
 # First Descent verification — 2026-09-15
 
+## User-authorized Vercel phone-test preview
+
+- Project `delveworn-app`, root `frontend`, source commit
+  `4ebf5cb8797e56ac6618ebfc4fabab4be52a6c89` exported from tracked files only.
+- Deployment `dpl_9ua69oNVJ9jghrixShS6sRn5xyxE`: **READY**, preview target.
+  <https://delveworn-iph4uuz9a-crypto-mickle.vercel.app/play>
+- Preview build overrides: Somnia configuration, session keys disabled. Existing
+  production settings/domains were not changed; no Git push was needed.
+- Created a deployment-specific, seven-day shareable link for the user's phone.
+  Its token is not committed. Project-wide Vercel authentication remains enabled.
+- HTTP check through that link: `/play` returns **200**, expected First Descent
+  title/content; room, adventurer and Grave Belle WebP assets return **200**.
+- This verifies deployment and asset delivery, not browser interaction or mobile
+  rendering. The remaining Phase 1 gameplay/device checks below still apply.
+
 ## Door-guard layout follow-up — 2026-09-15
 
 - Moved all four tier 1 actors to the north-door path; reduced their sprite
