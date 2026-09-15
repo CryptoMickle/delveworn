@@ -9994,6 +9994,7 @@ function DelvewornGame() {
         roomTurns={sceneRoomTurns}
         incoming={`${player.monsterDamageMin}–${player.monsterDamageMax}`}
         combatActions={combatActions}
+        combatPotions={{ used: player.combatPotionUses, limit: combatPotionLimit }}
         healAction={recoveryHealAction}
         safePotion={safePotionPhase ? {
           onUse: useSafePotion,

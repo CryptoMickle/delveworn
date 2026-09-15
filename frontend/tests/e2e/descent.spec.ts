@@ -4,6 +4,8 @@ import { DESCENT_SAVE_KEY } from "../../app/descent/storage";
 import { informedPolicy } from "../helpers/descent-policy";
 
 const saved = (page: Page): Promise<Descent> => page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),DESCENT_SAVE_KEY);
+const playerHud = (page: Page) => page.locator(".dungeon-original-hud .practice-hud:visible");
+const safePotion = (page: Page) => page.locator(".dungeon-recovery-controls > button.dungeon-inventory-potions:visible");
 type RoomPoint = { x: number; y: number };
 type FloorFrame = { a: number; b: number; c: number; d: number; e: number; f: number; x: number; y: number; width: number; height: number };
 
@@ -203,11 +205,10 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
     const currentPhase=phase(run), action=informedPolicy(run), expected=transition(run,action);
     const names={engage:/Approach/,enter:/Enter room/,"skip-loot":"Leave loot", collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
     const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
-    const recoveryPotion=action === "potion" && currentPhase === "recovery";
+    const safePotionAction=action === "potion" && (currentPhase === "loot" || currentPhase === "recovery");
     if (isMobile && shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
-    if (recoveryPotion) await page.locator(isMobile ? ".descent-mobile-menu > summary" : ".descent-supplies-menu > summary").click();
     const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})
-      : recoveryPotion ? page.locator(isMobile ? ".descent-mobile-menu-panel" : ".descent-supplies-menu")
+      : safePotionAction ? page.locator(".dungeon-recovery-controls:visible")
       : ["attack","storm","potion"].includes(action) ? page.getByRole("group",{name:"Combat actions"}) : page;
     if (currentPhase === "reward") await expect(page.getByRole("region",{name:"Boss relic reward"}).getByRole("button")).toHaveCount(2);
     if (action === "collect") {
@@ -216,7 +217,6 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
     } else await scope.getByRole("button",{name:names[action]}).click();
     await expect.poll(async()=>(await saved(page)).revision).toBe(expected.revision);
     expect(await saved(page)).toEqual(expected);
-    if (recoveryPotion) await page.locator(isMobile ? ".descent-mobile-menu > summary" : ".descent-supplies-menu > summary").click();
     if (isMobile && shopAction) await page.getByRole("button",{name:"Close Kevin's shop"}).click();
     run=expected;
     if ([5,9,10].includes(run.game.roomsCleared) && !reloaded.has(run.game.roomsCleared)) {
@@ -269,16 +269,19 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await expect.poll(async()=>(await saved(page)).revision).toBe(collected.revision);
   expect(await saved(page)).toEqual(collected);
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
-  await expect(page.getByRole("button",{name:/Enter room 2/})).toBeVisible();
-  const recoveryInventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
-  await expect(recoveryInventory.getByRole("button",{name:"Open relic collection"})).toHaveCount(0);
-  await expect(recoveryInventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
-  const recoveryPotion=page.locator(isMobile ? ".descent-mobile-footer" : ".descent-sidebar")
-    .locator(":scope > .dungeon-inventory-potions");
+  await expect(page.getByRole("button",{name:/Enter room 2/})).toHaveClass(/dungeon-enter-room/);
+  const recoveryInventory=playerHud(page);
+  await expect(recoveryInventory).toContainText(`${collected.game.hp}/${collected.game.maxHp}`);
+  await expect(recoveryInventory).toContainText(`${collected.game.potions}/5`);
+  await expect(recoveryInventory).toContainText(`Lv ${collected.game.weaponLevel} · +${collected.game.weaponLevel*2} damage`);
+  await expect(recoveryInventory).toContainText(`Lv ${collected.game.armorLevel} · blocks up to ${collected.game.armorLevel}`);
+  await expect(recoveryInventory).toContainText("ROOM 1");
+  await expect(page.getByRole("button",{name:"Open relic collection"})).toHaveCount(0);
+  const recoveryPotion=safePotion(page);
   await expect(recoveryPotion).toHaveAccessibleName(/Use potion/);
 });
 
-test("the safe potion below the room heals with loot waiting and the door can still leave that loot",async({page,isMobile})=>{
+test("the safe potion below the room heals with loot waiting and the door can still leave that loot",async({page})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   const combat=transition(createDescent(99,"loot-inventory-potion"),"engage");
   const run=transition({...combat,game:{...combat.game,hp:40,monsterHp:1}},"attack");
@@ -286,14 +289,14 @@ test("the safe potion below the room heals with loot waiting and the door can st
   expect(run.pendingLoot).not.toBeNull();
   await seed(page,run);
 
-  const inventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
+  const inventory=playerHud(page);
+  await expect(inventory).toContainText(`${run.game.hp}/${run.game.maxHp}`);
+  await expect(inventory).toContainText(`${run.game.potions}/5`);
   await expect(inventory.getByRole("button",{name:/Use potion/})).toHaveCount(0);
-  await expect(inventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
-  const potion=page.locator(isMobile ? ".descent-mobile-footer" : ".descent-sidebar")
-    .locator(":scope > .dungeon-inventory-potions");
+  const potion=safePotion(page);
   await expect(potion).toBeVisible();
-  await expect(potion).toContainText("Potion +25 HP");
-  await expect(potion).toContainText(`${run.game.potions} / 5`);
+  await expect(potion).toContainText(`POTION · ${run.game.potions}/5`);
+  await expect(potion).toContainText("+25 HP · No enemy retaliation");
 
   await potion.click();
   const healed=transition(run,"potion");
@@ -302,6 +305,8 @@ test("the safe potion below the room heals with loot waiting and the door can st
   expect(healed.pendingLoot).toEqual(run.pendingLoot);
   expect(healed.rngState).toBe(run.rngState);
   expect(healed.turns).toBe(run.turns);
+  await expect(inventory).toContainText(`${healed.game.hp}/${healed.game.maxHp}`);
+  await expect(inventory).toContainText(`${healed.game.potions}/5`);
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","loot");
   await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
   await expect(potion).toBeEnabled();
@@ -318,22 +323,22 @@ test("the safe potion below the room heals with loot waiting and the door can st
   expect(entered.game.armorLevel).toBe(healed.game.armorLevel);
 });
 
-test("the safe potion below the room stays discoverable but disabled at full health",async({page,isMobile})=>{
+test("the safe potion below the room stays discoverable but disabled at full health",async({page})=>{
   const combat=transition(createDescent(99,"full-inventory-potion"),"engage");
   const run=transition({...combat,game:{...combat.game,monsterHp:1}},"attack");
   expect(phase(run)).toBe("loot");
   expect(run.game.hp).toBe(run.game.maxHp);
   await seed(page,run);
 
-  const inventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
+  const inventory=playerHud(page);
+  await expect(inventory).toContainText(`${run.game.hp}/${run.game.maxHp}`);
+  await expect(inventory).toContainText(`${run.game.potions}/5`);
   await expect(inventory.getByRole("button",{name:/Use potion/})).toHaveCount(0);
-  await expect(inventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
-  const potion=page.locator(isMobile ? ".descent-mobile-footer" : ".descent-sidebar")
-    .locator(":scope > .dungeon-inventory-potions");
+  const potion=safePotion(page);
   await expect(potion).toHaveAccessibleName(/HP is already full/);
   await expect(potion).toBeVisible();
   await expect(potion).toBeDisabled();
-  await expect(potion).toContainText("Potion +25 HP");
+  await expect(potion).toContainText(`POTION · ${run.game.potions}/5`);
   expect(await saved(page)).toEqual(run);
   await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
 });
@@ -558,7 +563,15 @@ test("responsive room keeps compact combat controls inside the scene",async({pag
     expect(Math.abs(box!.width-viewport.width)).toBeLessThanOrEqual(1);
     expect(viewport.scroll).toBeLessThanOrEqual(viewport.height+1);
     await expect(scene.getByText("Room 1 / 10",{exact:true})).toBeVisible();
-    await expect(scene.locator(".descent-mobile-inventory")).toBeInViewport();
+    const compactHud=scene.locator(".descent-mobile-top .practice-hud");
+    await expect(compactHud).toBeInViewport();
+    await expect(compactHud).toContainText("100/100");
+    await expect(compactHud).toContainText("3/5");
+    const gear=compactHud.getByRole("button",{name:"Gear details: weapon 0, armor 0"});
+    await gear.click();
+    const gearDialog=page.getByRole("dialog",{name:"Gear details"});
+    await expect(gearDialog).toContainText("Weapon level 0: +0 damage");
+    await gearDialog.getByRole("button",{name:"Close gear details"}).click();
     await page.getByText("Menu",{exact:true}).click();
     await expect(scene.getByRole("heading",{name:"Dungeon menu"})).toBeVisible();
     await page.getByText("Menu",{exact:true}).click();

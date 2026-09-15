@@ -24,7 +24,19 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — swap Potion and Relics; remove the sustained room tone
+## Current checkpoint — restore the original top status bar and clear recovery actions
+
+The grid now reuses the actual original `GameHud` in Practice, `/play` and
+onchain. HP, potion stock, gold, equipment and room stay above the room in loot
+and recovery, with the original mobile Gear details. Relics has a separate
+header button and cannot replace the stock display. The lower Potion control
+uses the original green recovery-button style and remains available before
+and after collection; Enter room is orange and still walks to the doorway.
+The mobile header reserves a constant height for the restored status bar so
+HP updates and normal phase changes do not resize the room on every action.
+Gameplay, pickup, bypass, combat controls and the removed drone remain intact.
+
+## Previous checkpoint — swap Potion and Relics; remove the sustained room tone
 
 Between rooms, Potion now occupies the former Relics control below the report
 on mobile and in the recovery sidebar on desktop. Relics opens from the former

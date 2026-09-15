@@ -305,7 +305,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     {children && <div className="dungeon-scene-overlay">{children}</div>}
     <div className="dungeon-floor-controls">
       {view.phase === "explore" && <button onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending}>Approach {view.enemyName} <span>↗</span></button>}
-      {view.phase === "recovery" && <><button onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
+      {view.phase === "recovery" && <><button className="dungeon-enter-room" onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
       {view.phase === "combat" && !children && <span>Your turn · Choose an action below</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>

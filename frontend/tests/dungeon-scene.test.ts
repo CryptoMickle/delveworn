@@ -119,8 +119,8 @@ test("loot rooms expose both physical exits and no action buttons", () => {
   const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
     view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{},collect:()=>{},skipLoot:()=>{}},
   }));
-  assert.match(render(), /<button>Enter room 2 /);
-  assert.match(render({pending:true}), /<button disabled="">Enter room 2 /);
+  assert.match(render(), /<button\b[^>]*>Enter room 2 /);
+  assert.match(render({pending:true}), /<button\b[^>]* disabled=""[^>]*>Enter room 2 /);
   for (const phase of ["explore","combat","reward","won","lost"] as const) {
     assert.doesNotMatch(render({phase,loot:{type:2,amount:16,gold:21,relicId:0}}), /Enter room/);
   }

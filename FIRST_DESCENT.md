@@ -39,13 +39,14 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    Reload does not collect or reroll the reward or its layout for that viewport.
    No separate pickup or bypass button is required or shown.
    The existing boss relic decision remains separate.
-5. Tap **Potion +25 HP** below the room report on mobile (in the recovery
-   sidebar on desktop) to heal after a kill,
-   before or after picking up loot. It consumes one potion without retaliation,
+5. The original status bar remains above the room, including HP, potion stock,
+   gold, equipment and room. Tap the green **POTION** button below the report
+   on mobile (in the recovery sidebar on desktop) to heal after a kill, before
+   or after picking up loot. It consumes one potion without retaliation,
    a combat turn or a random draw; held loot stays on the floor. Full HP, empty
    inventory and pending actions disable it. Recovery healing also remains in
    **Menu**. Combat's Potion remains in its established position.
-   **Enter room** walks to the north doorway;
+   The orange **Enter room** button walks to the north doorway;
    the room changes only after arrival. A floor tap or E uses the same walk.
    Kevin appears in person after rooms 5 and 9: tap his figure, walk beside him,
    or use **Visit Kevin** to approach and open trade. His original illustration

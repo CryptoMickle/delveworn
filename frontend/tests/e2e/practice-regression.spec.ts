@@ -27,6 +27,9 @@ async function savedGrid(page: Page): Promise<PracticeGridState> {
   return page.evaluate(key => JSON.parse(localStorage.getItem(key)!).grid, PRACTICE_RUN_STORAGE_KEY);
 }
 
+const playerHud = (page: Page) => page.locator(".dungeon-original-hud .practice-hud:visible");
+const safePotion = (page: Page) => page.locator(".dungeon-recovery-controls > button.dungeon-inventory-potions:visible");
+
 async function waitForPhase(page: Page, phase: string) {
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", phase);
 }
@@ -165,13 +168,13 @@ test("own potion heals safely between rooms, commits immediately and survives re
   expect(healed.monsterHp).toBe(0);
   expect(healed.roomsCleared).toBe(1);
   expect(healed.gold).toBe(100);
-  await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "85");
+  await expect(playerHud(page).getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "85");
   await expect(heal).toContainText("2/5");
   await menu.getByRole("button", { name: "Close Dungeon menu" }).click();
   await expect(page.getByRole("button", { name: /Enter room 2/ })).toBeEnabled();
   await page.reload();
   expect(await savedGame(page)).toEqual(healed);
-  await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "85");
+  await expect(playerHud(page).getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "85");
   await page.locator("button:visible").filter({ hasText: /Menu/ }).first().click();
   menu = page.getByRole("dialog", { name: "Dungeon menu" });
   heal = menu.getByRole("button", { name: /USE OWN POTION SAFELY/ });
@@ -196,14 +199,39 @@ test("the safe potion below the room heals before and after collecting held loot
   await waitForPhase(page, "loot");
 
   const mobile = page.viewportSize()!.width < 768;
-  const inventory = mobile
-    ? page.locator(".descent-mobile-inventory")
-    : page.locator(".descent-hud");
-  const safeActions = page.locator(mobile ? ".descent-mobile-footer" : ".descent-sidebar");
-  await expect(inventory.getByRole("button", { name: /Use potion/ })).toHaveCount(0);
-  await expect(inventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
-  let potion = safeActions.locator(":scope > .dungeon-inventory-potions");
+  const hud = playerHud(page);
+  await expect(hud).toHaveAccessibleName("Player status and equipment");
+  await expect(hud).toContainText("HEALTH");
+  await expect(hud).toContainText("60/100");
+  await expect(hud).toContainText("POTIONS");
+  await expect(hud).toContainText("2/5");
+  await expect(hud).toContainText("GOLD");
+  await expect(hud).toContainText("100");
+  await expect(hud.getByRole("button", { name: /Use potion/ })).toHaveCount(0);
+  if (mobile) {
+    await expect(hud.locator(".practice-mobile-room")).toContainText("ROOM");
+    await expect(hud.locator(".practice-mobile-room")).toContainText("1");
+    const gear = hud.getByRole("button", { name: "Gear details: weapon 0, armor 0" });
+    await expect(gear).toBeVisible();
+    await gear.click();
+    const dialog = page.getByRole("dialog", { name: "Gear details" });
+    await expect(dialog).toContainText("Weapon level 0: +0 damage");
+    await expect(dialog).toContainText("Armor level 0: absorbs up to 0 damage");
+    await dialog.getByRole("button", { name: "Close gear details" }).click();
+  } else {
+    await expect(hud.locator(".practice-room-status")).toContainText("ROOM 1");
+    const equipment = hud.locator(".practice-hud-desktop-loadout");
+    await expect(equipment).toBeVisible();
+    await expect(equipment).toContainText("WEAPON");
+    await expect(equipment).toContainText("Lv 0 · +0 damage");
+    await expect(equipment).toContainText("ARMOR");
+    await expect(equipment).toContainText("Lv 0 · blocks up to 0");
+  }
+
+  let potion = safePotion(page);
   await expect(potion).toHaveAccessibleName(/Use potion/);
+  await expect(potion).toContainText("POTION · 2/5");
+  await expect(potion).toContainText("+25 HP · No enemy retaliation");
   await expect(potion).toBeEnabled();
   const healedWithLootHeld = await clickAndRead(potion);
   expect(healedWithLootHeld.hp).toBe(85);
@@ -211,13 +239,19 @@ test("the safe potion below the room heals before and after collecting held loot
   expect(healedWithLootHeld.lastMonsterDamage).toBe(0);
   expect(healedWithLootHeld.combatPotionsUsed).toBe(0);
   expect(await savedGrid(page)).toEqual(grid);
+  await expect(hud).toContainText("85/100");
+  await expect(hud).toContainText("1/5");
 
   await collectFloorLoot(page, "recovery");
+  await expect(page.getByRole("button", { name: /Enter room 2/ })).toHaveClass(/dungeon-enter-room/);
   expect((await savedGrid(page)).pendingLoot).toBeNull();
   expect((await savedGame(page)).potions).toBe(2);
+  await expect(hud).toContainText("85/100");
+  await expect(hud).toContainText("2/5");
 
-  await expect(inventory.getByRole("button", { name: /Use potion/ })).toHaveCount(0);
-  const relics = inventory.getByRole("button", { name: "Open relic collection" });
+  await expect(hud.getByRole("button", { name: /Use potion/ })).toHaveCount(0);
+  const relics = page.locator(mobile ? ".descent-mobile-topbar" : ".descent-header")
+    .getByRole("button", { name: "Open relic collection" });
   await expect(relics).toBeVisible();
   await expect(relics).toContainText("Relics");
   await relics.click();
@@ -226,11 +260,13 @@ test("the safe potion below the room heals before and after collecting held loot
   await relicPanel.getByRole("button", { name: "Close Your relics" }).click();
   await expect(relicPanel).not.toBeVisible();
 
-  potion = safeActions.locator(":scope > .dungeon-inventory-potions");
+  potion = safePotion(page);
   const healedAfterCollection = await clickAndRead(potion);
   expect(healedAfterCollection.hp).toBe(100);
   expect(healedAfterCollection.potions).toBe(1);
   expect(healedAfterCollection.lastMonsterDamage).toBe(0);
+  await expect(hud).toContainText("100/100");
+  await expect(hud).toContainText("1/5");
   await expect(potion).toBeDisabled();
 });
 
@@ -257,7 +293,12 @@ test("same-tick shop dispatch charges once and the door advances only on arrival
   expect(next.monsterHp).toBeGreaterThan(0);
   expect(next.monsterType).toBe(3);
   expect(next.gold).toBe(140);
-  await expect(page.locator(".descent-hud > div").filter({ hasText: "WEAPON" })).toContainText("3");
+  const hud = playerHud(page);
+  if (page.viewportSize()!.width < 768) {
+    await expect(hud.getByRole("button", { name: "Gear details: weapon 3, armor 2" })).toBeVisible();
+  } else {
+    await expect(hud.locator(".practice-hud-desktop-loadout")).toContainText("Lv 3 · +6 damage");
+  }
   await expect(page.getByRole("heading", { name: "Room 10 · The Dungeon Lord", exact: true })).toBeVisible();
 });
 

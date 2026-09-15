@@ -3,6 +3,7 @@ import { EMPTY_GAME, type PracticeGame } from "../../app/practice/engine";
 import { isStoredPracticeGame, PRACTICE_RUN_STORAGE_KEY } from "../../app/practice/storage";
 
 const base: PracticeGame = { ...EMPTY_GAME, hasStarted: true, active: true, hp: 60, monsterHp: 30, monsterMaxHp: 30, gold: 100, log: [] };
+const playerHud = (page: Page) => page.locator(".dungeon-original-hud .practice-hud:visible");
 
 async function seed(page: Page, overrides: Partial<PracticeGame>) {
   const game = { ...base, ...overrides };
@@ -51,7 +52,7 @@ async function walkThrough(page: Page, name: RegExp, phase: string) {
 }
 
 async function openRelics(page: Page) {
-  await page.locator("button:visible").filter({ hasText: /Relics/ }).first().click();
+  await page.locator(".dungeon-relic-menu:visible").click();
   await expect(page.getByRole("dialog", { name: "Your relics" })).toBeVisible();
 }
 
@@ -98,7 +99,7 @@ test("neutral home waits for a mode choice before routing into a dungeon", async
 
 test("potion preserves combat layout, shows net HP and survives reload", async ({ page }) => {
   await seed(page, {});
-  const hp = page.getByRole("progressbar", { name: "Your health" }).first();
+  const hp = playerHud(page).getByRole("progressbar", { name: "Player health" });
   await expect(hp).toHaveAttribute("aria-valuenow", "60");
   const dock = page.getByLabel("Combat actions");
   await expect(dock).toContainText("60/100");
@@ -119,7 +120,7 @@ test("keyboard and pointer attacks share guarded result path", async ({ page }) 
   await seed(page, { monsterHp: 1 });
   await page.keyboard.press("a");
   await waitForPhase(page, "loot");
-  await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "60");
+  await expect(playerHud(page).getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "60");
   await passLootAtDoor(page, "explore");
   await walkThrough(page, /^Approach /, "combat");
   await expect(page.getByRole("button", { name: /⚔️ ATTACK/ })).toBeEnabled();
@@ -131,13 +132,20 @@ test("keyboard and pointer attacks share guarded result path", async ({ page }) 
 test("Kevin keeps inventory visible through purchase and enters boss", async ({ page }) => {
   await seed(page, { roomsCleared: 9, monsterHp: 0, weaponLevel: 2, armorLevel: 2 });
   await expect(page.getByRole("heading", { name: "Kevin is here." })).toBeVisible();
-  await expect(page.locator(".descent-hud")).toContainText(/60 \/ 100/);
+  const hud = playerHud(page);
+  await expect(hud).toContainText("60/100");
+  await expect(hud).toContainText("3/5");
+  await expect(hud).toContainText("100");
   await page.getByRole("button", { name: "Visit Kevin" }).click();
   const shop = page.getByRole("dialog", { name: "Kevin's shop" });
   await expect(shop).toBeVisible();
   await shop.getByRole("button", { name: /WEAPON/ }).click();
-  await expect(page.locator(".descent-hud > div").filter({ hasText: "WEAPON" })).toContainText("3");
-  await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "60");
+  if (page.viewportSize()!.width < 768) {
+    await expect(hud.getByRole("button", { name: "Gear details: weapon 3, armor 2" })).toBeVisible();
+  } else {
+    await expect(hud.locator(".practice-hud-desktop-loadout")).toContainText("Lv 3 · +6 damage");
+  }
+  await expect(hud.getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "60");
   await shop.getByRole("button", { name: "Close Kevin's shop" }).click();
   await walkThrough(page, /Enter room 10/, "explore");
   await expect(page.getByRole("heading", { name: "Room 10 · The Dungeon Lord" })).toBeVisible();
@@ -150,7 +158,7 @@ test("boss reward retains HUD and progression, relic survives reload", async ({ 
   await waitForPhase(page, "loot");
   await passLootAtDoor(page, "reward");
   await expect(page.getByRole("heading", { name: "MANAGEMENT DEFEATED" })).toBeVisible();
-  await expect(page.locator(".descent-hud")).toBeVisible();
+  await expect(playerHud(page)).toBeVisible();
   await page.getByRole("button", { name: "KEEP NO RELIC" }).click();
   await waitForPhase(page, "recovery");
   await openRelics(page);

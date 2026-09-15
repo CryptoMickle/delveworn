@@ -82,7 +82,7 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
       homeArt: bounds("[data-home-art]"),
       homeCopy: bounds("[data-home-copy]"),
       header: bounds(".endless-room > .descent-header"),
-      hud: bounds(".descent-hud"),
+      hud: bounds(".dungeon-original-hud .practice-hud"),
       progress: bounds(".descent-mobile-progress"),
       scene: bounds("[data-room-scene]"),
       floor: bounds("svg.dungeon-scene"),
@@ -157,6 +157,17 @@ test("capture six representative local experience states", async ({ page }, test
     { ...createPracticeGrid(73), engaged: false, pendingLoot: { gold: 12, potions: 0, weapon: 1, armor: 0 }, roomTurns: 2 },
   );
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
+  const lootHud = page.locator(".dungeon-original-hud .practice-hud:visible");
+  await expect(lootHud).toContainText("60/100");
+  await expect(lootHud).toContainText("3/5");
+  await expect(lootHud).toContainText("GOLD");
+  await expect(lootHud).toContainText("WEAPON");
+  await expect(lootHud).toContainText("ARMOR");
+  if (testInfo.project.name === "desktop-chromium") {
+    await expect(lootHud.locator(".practice-hud-desktop-loadout")).toBeVisible();
+  } else {
+    await expect(lootHud.getByRole("button", { name: "Gear details: weapon 0, armor 0" })).toBeVisible();
+  }
   await expect(page.getByRole("img", { name: /Loot on the floor: 12 gold · Weapon \+1/ })).toBeVisible();
   await expect(page.locator(".dungeon-floor-controls button")).toHaveCount(0);
   measurements.loot = await capture(page, testInfo, "loot");

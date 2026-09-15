@@ -18,10 +18,12 @@
 .dungeon-inventory-potions small,.dungeon-inventory-relics small { font-size:10px; white-space:nowrap; }
 button.dungeon-inventory-relics { background:#25182e; border-color:#91719f; color:#e3c9ef; }
 .dungeon-inventory-relics strong { font-size:13px; }
-.descent-sidebar > button.dungeon-inventory-potions { width:100%; flex-direction:row; gap:10px; }
-button.dungeon-inventory-potions { background:#173126; border-color:#729b7e; color:#bbefd0; cursor:pointer; }
-button.dungeon-inventory-potions:disabled { background:#18141d; border-color:#514653; color:#b1a4ac; cursor:default; }
-button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outline-offset:2px; }
+.dungeon-desktop-status { padding:12px 0 4px; }
+.dungeon-original-hud .practice-hud { position:relative; top:auto; z-index:auto; margin:0; box-shadow:none; }
+.recovery-heal.dungeon-recovery-controls > button { margin:0; gap:0; }
+.dungeon-header-actions { display:flex; justify-content:flex-end; align-items:center; gap:4px; }
+.descent-shell button.dungeon-relic-menu { min-height:44px; padding:6px 8px; border:1px solid #8b5cf6; border-radius:10px; background:#25182e; color:#e9d5ff; font-size:11px; font-weight:800; }
+.dungeon-floor-controls button.dungeon-enter-room { border:1px solid #fb923c; border-radius:13px; background:linear-gradient(135deg,#ea580c,#f97316); color:#1c0b02; font-weight:950; letter-spacing:.04em; }
 .descent-vitality > span { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
 .descent-meter { height:9px; border:1px solid #89714f; background:#080709; border-radius:2px; padding:1px; }
 .descent-meter > span { display:block; height:100%; background:linear-gradient(90deg,#41674a,#8cb06e); transition:width .22s ease; }
@@ -176,6 +178,7 @@ button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outl
   .descent-shell[data-descent-phase] { width:100%; height:100vh; height:100svh; height:100dvh; min-height:0; padding:0; overflow:hidden; }
   .descent-shell[data-descent-phase] > .descent-header,
   .descent-shell[data-descent-phase] > .descent-hud,
+  .descent-shell[data-descent-phase] > .dungeon-desktop-status,
   .descent-shell[data-descent-phase] > .descent-notice,
   .descent-shell[data-descent-phase] > .descent-room-heading,
   .descent-shell[data-descent-phase] > .descent-journal,
@@ -190,6 +193,8 @@ button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outl
   .descent-mobile-top { display:block; position:relative; z-index:10; width:100%; padding:max(4px,env(safe-area-inset-top)) 8px 0; color:#f3e6d3; background:linear-gradient(180deg,#130d18fa 70%,#130d18df); pointer-events:none; }
   .descent-mobile-top button,.descent-mobile-top a,.descent-mobile-top details,.descent-mobile-top dialog { pointer-events:auto; }
   .descent-mobile-topbar { display:grid; grid-template-columns:70px minmax(0,1fr) 52px; align-items:center; min-height:45px; gap:6px; }
+  .endless-room .descent-mobile-topbar { grid-template-columns:64px minmax(0,1fr) 110px; }
+  .descent-mobile-top .dungeon-original-hud { height:50px; margin:4px 0; }
   .descent-mobile-menu { position:relative; }
   .descent-mobile-menu > summary { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:6px; border:1px solid #7d6042; border-radius:8px; background:#100c14e8; color:#edd1a1; font-size:12px; cursor:pointer; list-style:none; }
   .descent-mobile-menu > summary::-webkit-details-marker { display:none; }
@@ -223,7 +228,7 @@ button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outl
 
   .descent-mobile-footer { display:grid; width:100%; min-height:0; color:#eee1cf; background:#0b0910f2; pointer-events:none; }
   .descent-mobile-footer button { pointer-events:auto; }
-  .descent-mobile-footer > button.dungeon-inventory-potions { width:100%; flex-direction:row; gap:10px; min-height:44px; border-radius:0; }
+  .descent-mobile-footer > .dungeon-recovery-controls { padding:6px 10px; }
   .descent-mobile-health { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; gap:8px; min-height:42px; padding:4px 8px; border-top:1px solid #4f3b50; }
   .descent-mobile-health > div { display:grid; grid-template-columns:auto minmax(60px,1fr); align-items:center; gap:9px; min-width:0; }
   .descent-mobile-health > div > span { color:#c9bfc7; font-size:11px; white-space:nowrap; }

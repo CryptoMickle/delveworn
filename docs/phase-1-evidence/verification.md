@@ -1,8 +1,54 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — swap Potion and Relics; remove the exploration drone
+## Current correction — restore the original status bar and recovery buttons
 
-### Current phone preview
+### Correction
+
+Practice, First Descent and the shared onchain room reuse the actual original
+`GameHud`: HP/health bar, potion stock, gold, equipment and room above the grid
+through combat, pending loot and recovery. Mobile Gear opens the original
+equipment details. Relics has a separate header button during recovery.
+
+The lower safe Potion control uses the original green recovery styling and
+works both before and after loot collection. Enter room uses the original
+orange styling and retains walking to the door before entry. A direct door tap
+still bypasses loot. Existing safe-healing authority, combat controls, merchant
+and boss relic behavior are unchanged. The sustained room tone remains removed.
+Mobile room tracks reserve constant space for the restored HUD across phases.
+
+### Actual checks
+
+- **156 automated tests passed, 0 failed, 0 skipped.** Safe healing, pending
+  loot, pickup, bypass, full HP, empty stock and stale actions remain covered.
+- TypeScript passed; ESLint **0 errors, 14 existing warnings**; whitespace
+  checks passed. Browser discovery: **189 scenarios in 10 files**, not executed.
+- All three existing frontend CI build configurations passed locally: RISE
+  compatibility, Somnia standard and Somnia session keys. Remote GitHub CI was
+  not triggered for these unpublished commits.
+- A no-DOM harness exercised the actual Practice page and original HUD:
+  current HP, stock, gold and equipment before/after pickup; mobile Gear and
+  Relics dialog callbacks; healing before/after pickup; full HP, empty stock,
+  stale callbacks and legacy combat restore. Healing preserves held loot and
+  room turns without randomness or retaliation; subsequent door bypass works.
+- Browser regressions now target the original HUD, Gear dialog, separate
+  Relics button and lower safe Potion control. They were statically checked
+  and discovered, not run in a browser.
+- Browser access remains blocked by the previously reported administration
+  policy/automatic approval review. No browser retry or alternative browser
+  workaround was attempted. Actual mobile/desktop rendering remains unverified.
+- No live onchain transaction was sent; these changes do not validate the
+  unresolved Somnia adapter setup.
+
+Phone check: defeat a monster below full HP, leave loot on the floor, then use
+the green **POTION** button. Confirm the top HP/stock update and loot remains.
+Collect the drop and repeat healing. Check **Gear**, **Relics**, and the orange
+**Enter room** button; direct door taps should still skip unwanted loot.
+
+**Review preview; native gameplay checks remain required for production.**
+
+## Previous correction — swap Potion and Relics; remove the exploration drone
+
+### Previous phone preview
 
 - Source `eec95c6e4099a9b564e56e9f7b95c2d25380b357`; Vercel deployment
   `dpl_Dt9DT2h4iaBsfSS3odPAkMJoMvcT`: **READY**, preview target.

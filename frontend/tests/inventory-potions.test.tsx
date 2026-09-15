@@ -9,8 +9,8 @@ test("the inventory exposes safe healing and delegates one use to its existing a
   const markup = renderToStaticMarkup(control);
   assert.match(markup, /<button type="button"/);
   assert.match(markup, /Use potion · 3 left · Restore up to 25 HP. No enemy retaliation./);
-  assert.match(markup, /Potion \+25 HP/);
-  assert.match(markup, /3 \/ 5/);
+  assert.match(markup, /POTION · 3\/5/);
+  assert.match(markup, /\+25 HP · No enemy retaliation/);
   control.props.onClick();
   assert.equal(uses, 1);
 

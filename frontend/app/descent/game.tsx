@@ -9,6 +9,7 @@ import { cryptoRandomInt } from "../practice/random";
 import { getRelicDefinition } from "../relics";
 import { useGameAudio } from "../use-game-audio";
 import { GameLogo } from "../game-logo";
+import { GameHud } from "../game-ui";
 import { DungeonScene, ENEMY_ART, type SceneCue } from "../dungeon/scene";
 import { ROOMS, createDescent, enemyIntent, phase, roomNumber, transition, type Descent, type DescentAction, type PendingLoot } from "./model";
 import { DESCENT_SAVE_KEY, loadDescent, saveDescent } from "./storage";
@@ -183,9 +184,12 @@ export default function DescentGame() {
     : g.potions === 0 ? "No potions left."
     : g.hp >= g.maxHp ? "HP is already full."
     : null;
-  const inventoryPotions=<InventoryPotions potions={g.potions} />;
   const safePotionControl=safePotionPhase ? <InventoryPotions potions={g.potions}
     onUse={() => void act("potion")} disabledReason={safePotionDisabledReason} /> : null;
+  const actualGameHud=<GameHud hp={g.hp} maxHp={g.maxHp} potions={g.potions} maxPotions={5}
+    gold={g.gold} weaponLevel={g.weaponLevel} weaponBonus={g.weaponLevel*2}
+    armorLevel={g.armorLevel} armorAbsorption={g.armorLevel} armorReductionPercent={50}
+    room={room} combatPotions={combat ? {used:g.combatPotionsUsed,limit:g.monsterType === 3 ? 3 : 2} : undefined} />;
   const shop: { action: ShopAction; title: string; cost: number; detail: string; disabled: boolean }[] = room === 5 ? [
     {action:"supply-bandage",title:"Bandage",cost:20,detail:"Recover 25 HP · once",disabled:g.supplyBandageUsed || g.hp === g.maxHp},
     {action:"supply-potion",title:"Potion",cost:25,detail:`Take it with you · ${2-g.supplyPotionsBought} left`,disabled:g.supplyPotionsBought >= 2 || g.potions >= 5},
@@ -223,7 +227,7 @@ export default function DescentGame() {
       <button className="descent-mobile-sound" onClick={audio.toggleSound} disabled={!audio.available} aria-label={soundLabel} aria-pressed={audio.enabled}>{audio.enabled ? "♫" : "♪"}<span>{audio.paused && audio.enabled ? "Resume" : audio.enabled ? "On" : "Off"}</span></button>
     </div>
     <div className="descent-mobile-progress" role="progressbar" aria-label={`Dungeon progress, room ${room} of 10`} aria-valuemin={1} aria-valuemax={10} aria-valuenow={room}><span style={{width:`${room*10}%`}} /></div>
-    <div className="descent-mobile-inventory" role="group" aria-label="Inventory"><span><small>Gold</small><strong>{g.gold}</strong></span><span><small>Weapon</small><strong>+{g.weaponLevel}</strong></span><span><small>Armor</small><strong>+{g.armorLevel}</strong></span>{inventoryPotions}</div>
+    <div className="dungeon-original-hud">{actualGameHud}</div>
     {!terminal && p !== "reward" && <DescentEnemyStatus name={art.name} hp={g.monsterHp} maxHp={g.monsterMaxHp} incoming={range(reply)} isBoss={g.monsterType === 3} />}
     {saveNotice && <div className="descent-mobile-notice" role="status"><span>{saveNotice}</span>{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</div>}
     {hasMerchant && <dialog ref={shopDialog} className="descent-mobile-shop" onClose={() => setShopOpen(false)} onCancel={() => setShopOpen(false)}>{renderMerchant(true)}</dialog>}
@@ -231,12 +235,11 @@ export default function DescentGame() {
     {terminal && <div className="descent-mobile-phase-sheet">{renderTerminal(true)}</div>}
   </div>;
   const mobileFooter=<div className="descent-mobile-footer">
-    {!combat && <div className="descent-mobile-health"><div><span>HP <strong>{g.hp} / {g.maxHp}</strong></span><Meter label="Your health near room controls" value={g.hp} max={g.maxHp} /></div></div>}
     {renderReport(true)}
-    {safePotionControl}
+    {safePotionControl && <div className="recovery-heal dungeon-recovery-controls">{safePotionControl}</div>}
   </div>;
   return <main className="descent-shell" onKeyDown={keyboard} data-descent-phase={p} data-descent-revision={run.revision}>{header}
-    <div className="descent-hud"><div className="descent-vitality"><span>VITALITY <strong>{g.hp} / {g.maxHp}</strong></span><Meter label="Your health" value={g.hp} max={g.maxHp} /></div><div><span>GOLD</span><strong>{g.gold}</strong></div><div><span>WEAPON</span><strong>{g.weaponLevel}</strong></div><div><span>ARMOR</span><strong>{g.armorLevel}</strong></div><div>{inventoryPotions}</div></div>
+    <div className="dungeon-desktop-status dungeon-original-hud">{actualGameHud}</div>
     {saveNotice && <p className="descent-notice" role="status">{saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
     <div className="descent-room-heading"><div><p className="descent-kicker">ROOM {room} / 10 · {roomStatus}</p><h1>{roomInfo.title}</h1></div>
       <ol className="descent-map" aria-label="Dungeon progress">{ROOMS.map((r,i) => <li key={r.title} className={i < g.roomsCleared ? "cleared" : i+1 === room ? "current" : "unseen"} aria-label={`Room ${i+1}: ${i < g.roomsCleared ? "cleared" : i+1 === room ? "current" : "unexplored"}`} aria-current={i+1 === room ? "step" : undefined}><span>{i < g.roomsCleared ? "✓" : i+1 === room ? i+1 : "·"}</span></li>)}</ol>
@@ -256,7 +259,7 @@ export default function DescentGame() {
           {g.monsterHp > 0 ? <div className="descent-intent"><strong>{intent.name} · {range(reply)} damage</strong><p>{intent.hint}</p><small>Only if the enemy survives your action.</small></div> : p === "loot" ? <div className="descent-intent"><strong>Loot dropped</strong><p>Walk to the drop to add it to your inventory.</p><small>Tap the loot to pick it up, or tap the door to leave it behind.</small></div> : <div className="descent-intent"><strong>Room secured</strong><p>{practiceLoot(g)}</p><small>{room === 9 ? "Camp arrival restored up to 15 HP." : "Heal safely, then enter the next room."}</small></div>}
         </div></section>}
       {relic && relic.imageSrc && <section className="descent-relic-card" aria-label="Equipped relic"><Image src={relic.imageSrc} alt="" width={86} height={86} /><div><p className="descent-kicker">{relic.rarity} · EQUIPPED</p><h2>{relic.name}</h2><p>{relic.effect}</p><p className="descent-relic-cost">{relic.tradeoff}</p></div><details><summary>How this relic changes your turn</summary><p>{combatRelicSummary(g,false)} on Attack.</p><p>{combatRelicSummary(g,true) ?? "Normal damage"} on Storm. Shown damage ranges include the relic.</p></details></section>}
-      {safePotionControl}
+      {safePotionControl && <div className="recovery-heal dungeon-recovery-controls">{safePotionControl}</div>}
       {renderMerchant()}
       {renderReward()}
       {renderTerminal()}

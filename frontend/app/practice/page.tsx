@@ -787,6 +787,7 @@ export default function PracticePage() {
         roomTurns={grid.roomTurns}
         incoming={`${incoming[0]}–${incoming[1]}`}
         combatActions={combatActions}
+        combatPotions={{ used: game.combatPotionsUsed, limit: combatPotionLimit }}
         healAction={phase === "loot" || phase === "recovery" ? recoveryHealAction : undefined}
         safePotion={safePotion}
         shop={merchantVisit && recoveryActive ? recoveryShop : undefined}

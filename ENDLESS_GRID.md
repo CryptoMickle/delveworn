@@ -20,11 +20,14 @@ boss cadence, relic rules and respective randomness authorities.
   on door arrival; canceling/retargeting the walk preserves it. Failed room entry
   preserves the previous state and pending loot for retry.
 - **Enter room** walks to the north doorway and advances only on arrival.
-- After a kill, **Potion +25 HP** is below the room report on mobile (in the
-  recovery sidebar on desktop), replacing the former Relics control. It works
-  before or after collecting loot. **Relics** moves to the top inventory/HUD
-  slot during recovery and opens the existing collection. Full HP, empty stock
-  and pending actions disable healing; floor loot and room turns are preserved.
+- The original **GameHud** stays above the room: HP and its health bar, potion
+  stock, gold, equipment and room. Mobile Gear opens the existing equipment
+  details. Picking up loot no longer replaces the potion count with Relics.
+- After a kill, the original green **POTION** style is used below the report
+  on mobile (in the recovery sidebar on desktop). It works before and after
+  collecting loot. Full HP, empty stock and pending actions disable healing;
+  floor loot and room turns are preserved. **Relics** has its own header button
+  during recovery, and **Enter room** uses the original orange action style.
   **Menu** also retains recovery healing. Combat controls keep their positions.
 - There is no sustained exploration drone. Short action/character/outcome
   effects and the boss score retain their existing sound controls.

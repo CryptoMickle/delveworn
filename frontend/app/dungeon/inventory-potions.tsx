@@ -18,6 +18,7 @@ export function InventoryPotions({ potions, maxPotions = 5, onUse, disabledReaso
   return <button type="button" className="dungeon-inventory-potions" disabled={reason !== null}
     aria-label={`Use potion · ${potions} left · ${description}`} title={description}
     onClick={() => { if (reason === null) onUse(); }}>
-    <small>Potion +{healAmount} HP</small><strong>{potions} / {maxPotions}</strong>
+    <span>🧪 POTION · {potions}/{maxPotions}</span>
+    <small>{reason ?? `+${healAmount} HP · No enemy retaliation`}</small>
   </button>;
 }
