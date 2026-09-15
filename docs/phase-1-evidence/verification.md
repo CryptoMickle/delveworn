@@ -20,8 +20,16 @@
   at 375×812/635/568 without changing the saved game.
 - Browser execution was attempted again through the approved in-app tool. Its
   mandatory admin-policy check still failed. No browser bypass was used.
-- A new phone preview follows the local code commit; previous links below
-  identify earlier revisions. This remains a review build, not production-ready.
+- Current preview source: `861687cd1a8f08d4335280c866825c26c431f3ea`;
+  deployment `dpl_2WUeAcHLxBppLFGjAFo5dtqcsuZ8`: **READY**.
+  <https://delveworn-qmkq2lana-crypto-mickle.vercel.app/play>
+- Deployment-specific seven-day access link delivered in the conversation;
+  token not committed. `/play` returned HTTP 200 with the expected title and
+  `width=device-width, initial-scale=1, viewport-fit=cover`. Room, avatar, Grave
+  Belle and potion assets returned HTTP 200. These are delivery checks, not
+  browser interaction evidence. Previous preview links below are superseded.
+- This remains a review build, not production-ready. No production release,
+  remote Git push/CI run or onchain transaction.
 
 ## Previous correction — original core, floor loot and mobile controls
 
