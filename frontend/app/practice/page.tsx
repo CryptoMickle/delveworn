@@ -46,6 +46,7 @@ import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText, 
 import { useGameAudio } from "../use-game-audio";
 import { DungeonRecovery } from "../between-rooms";
 import { DungeonRunEnd } from "../run-end";
+import { GameAutoScroll } from "../game-auto-scroll";
 
 const MAX_POTIONS = 5;
 const SHOP_POTION_STOCK = 2;
@@ -173,7 +174,9 @@ export default function PracticePage() {
     if (!encounterFocusRequested.current) return;
     encounterFocusRequested.current = false;
     arenaRef.current?.focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: "instant" });
+    // A restart in Room 1 can keep the same room/phase key.
+    arenaRef.current?.parentElement?.querySelector("[data-game-scroll-anchor]")
+      ?.scrollIntoView({ behavior: "instant", block: "start" });
   });
 
   useEffect(() => {
@@ -630,6 +633,10 @@ export default function PracticePage() {
             </div>
           </div>
         )}
+
+        <GameAutoScroll encounter={game.hasStarted && !bossRewardActive
+          ? `${game.roomsCleared}:${endedActive ? "ended" : game.monsterHp > 0 ? "combat" : merchantVisit ?? "recovery"}`
+          : null} />
 
         {game.hasStarted && (
           <GameHud

@@ -8,6 +8,7 @@ import { RunResultShare } from "./run-result-share";
 import { siteUrl } from "./site-origin";
 import { somniaTimingCopy } from "./deployment-copy";
 import { OnchainWalletControls } from "./onchain-wallet-controls";
+import { GameAutoScroll } from "./game-auto-scroll";
 import { createWalletViewGuard, type WalletView } from "./wallet-view-guard";
 import { DungeonRecovery } from "./between-rooms";
 import { DungeonRunEnd } from "./run-end";
@@ -9601,6 +9602,10 @@ function DelvewornGame() {
         {/* ===================================================
             COMPACT STICKY HUD
         =================================================== */}
+
+        <GameAutoScroll encounter={player.hasStarted && !(player.supportsRelicCollection && player.relicOfferAvailable)
+          ? `${connectedAddress}:${player.roomsCleared}:${!player.active ? "ended" : player.monsterHp > 0 ? "combat" : player.campOpen ? "camp" : player.supplyOpen ? "supply" : "recovery"}`
+          : null} />
 
         {player.hasStarted && (
           <GameHud
