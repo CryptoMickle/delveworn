@@ -2,6 +2,21 @@
 
 ## Current correction — optional loot, endless shared grid and readable Kevin shop
 
+### Current phone preview
+
+- Source `b258bc2f06675c68f51ff3a3a51a72c48e8e9d0d`; Vercel deployment
+  `dpl_DakWn5rJzNipw8t2DH68kQhh2att`: **READY**, preview target.
+- <https://delveworn-nqcr0qc2s-crypto-mickle.vercel.app/practice>
+  (the deployment-specific seven-day phone access link is delivered in the
+  conversation; its token is not committed).
+- `/practice`, `/play` and `/onchain` each returned **HTTP 200** with their
+  expected Delveworn titles; onchain identifies Somnia. Kevin, tier-4 Meatwall
+  and the transparent potion assets returned **HTTP 200**, `image/webp`.
+- Exported tracked frontend files only; Somnia standard configuration, session
+  keys disabled. No production release, domain/configuration change, remote Git
+  push/merge, account creation or contract transaction. These HTTP checks verify
+  delivery only; browser/phone gameplay remains the review gate below.
+
 Active Practice and onchain runs reuse `EndlessRoom`, `DungeonScene` and the
 existing action/shop/relic controls. They retain their existing progression and
 authorities. All four original artwork tiers are presented without changing the
