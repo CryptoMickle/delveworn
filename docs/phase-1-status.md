@@ -7,12 +7,116 @@ Updated: 2026-09-15. Scope: a top-down, turn-based Delveworn vertical slice.
 The user's revised request explicitly requires approval of milestone B's small
 visual prototype **before producing or integrating a complete new asset set**.
 Milestones C–F must wait for that approval. A prototype is not a finished Phase 1.
-No approval has been received yet.
+Approval received on 2026-09-15: **"Veldig bra. Fortsett"**, following the
+original-style revision. Milestones C–F are authorized. Preserve the original
+monster artwork style; do not reopen the visual approval gate.
 
 **User correction (2026-09-15):** "Nei, behold stilen i monsternes
 originalgrafikk". The original monster artwork is now the fixed visual source
 of truth. The painted target and flat vector character style were rejected.
-This decides the style requirement; it does not approve full assets or C–F.
+The subsequent approval authorizes the small matching asset set and C–F.
+
+**Further correction:** "Kanskje gjøre spilleren mindre binær kjønnsmessig?"
+The selected base avatar is now androgynous: less broad shoulders, neutral
+proportions, practical clothing and a hidden face. Same plum cloak/art style.
+
+## Latest implementation checkpoint — C–E implemented locally, F open
+
+The new playable slice is **`/play`**, linked from the mode-selection home as
+"Play The First Descent". `/concept` remains a development-only historical
+review. Classic Practice, Weekly and the existing Somnia onchain mode remain.
+No publication, remote CI run, merge or contract transaction has occurred.
+
+### Milestone C — local dungeon implementation
+
+- Ten curated combat rooms; entrance, supply after 5, camp after 9, boss 10,
+  boss relic collection and final recap. One continuously visible room layout
+  supports exploration, combat, loot, shop and recovery.
+- Keyboard/floor-tap movement, accessible approach/door buttons, physically
+  walking to the north door, explored/current/unseen ten-node progress strip.
+- A read-only `RoomView` / `RoomActions` renderer has no wallet, RPC or chain
+  dependencies. One authoritative `Descent` state wraps the actual Practice
+  transitions. Position, animation and audio do not consume gameplay RNG.
+- Save namespace `delveworn_first_descent_v1`, rules `first-descent-1`. Seed
+  and RNG position persist with health, items, room/turn and chosen build.
+  Reload restores a safe entry/combat anchor. Unknown saves are preserved;
+  denied storage permits a clearly labeled session-only run.
+- Revision guards reject stale actions. Save writes use a named Web Lock where
+  supported plus compare-before-write; storage events synchronize other tabs.
+  Without Web Locks the fallback is best-effort, not an atomic cross-tab CAS.
+- Original Practice saves and onchain snapshots are not migrated or rewritten.
+  The new room renderer is currently wired to the local slice. Classic Practice
+  and onchain retain their existing shared renderer and original art; binding
+  that renderer boundary to a live onchain snapshot remains unverified/unshipped.
+
+### Milestone D — gameplay implementation and model verification
+
+- Opt-in intent context applies only to the local training rules. Zombie wind-up
+  and heavy reply, Gary's guard, Thud's alternating swings and the boss's
+  three-step cycle are shown before acting. Storm bypasses guards.
+- Normal damage: roll → critical → relic rounding → floor(guard percentage).
+  Reply: roll → floor(intent percentage) → armor → relic rounding. A zero
+  wind-up remains zero; Potion then halves the reply with upward rounding.
+- Warden/Iron Shell, Duelist/Echo Lens and Stormcaller/Stormglass use existing
+  relic effects. They are explicitly training loadouts, not earned onchain items.
+- Guarded action feedback, visible HP deltas, damage/critical/Storm/heal/revive
+  effects, next intention, safe healing and priced camp decisions.
+- Three pre-change golden traces prove identical classic Practice/Weekly
+  game state, logs and RNG. All three builds finish the seeded integration run;
+  every transition round-trips through validated persistence, including death,
+  supply, camp, boss reward and completion.
+- 600 additional runs (200 seeds/build), documented policy: Warden **67.5%**,
+  Duelist **69%**, Stormcaller **76%** completion; mean **51.33 / 49.42 / 46.845**
+  combat turns. These are automated policy results, not human success rates or
+  measured 10–15-minute sessions. Main difficulty is rooms 9–10.
+
+### Milestone E — presentation implementation
+
+- Original Gary, Grave Belle, Thud and Dungeon Lord images remain untouched.
+  Runtime SVG silhouette clips reuse those same files as room actors. Original
+  full portraits, relics, merchant, loot and logo remain in the HUD.
+- Small ImageGen set: one stone room (414 KiB) and one androgynous base avatar
+  (27 KiB), WebP encoded. Source prompts and selected outputs are recorded in
+  `phase-1-evidence/production-assets.md`. No flat replacement monster designs.
+- Avatar idle/walk/attack/hit/death are lightweight transforms of the base pose;
+  not a hand-drawn multi-frame sprite sheet. Weapon/armor highlights and floating
+  relic use separate layers. Reduced motion disables motion/flash effects.
+- Shared scene layout through all local room phases; compact mobile health,
+  intent and action controls, native page scrolling, 44px-or-larger action targets.
+- Existing action/boss cues reused. Optional two-tone exploration ambience has
+  no scheduler or downloads. Sound requires interaction and stops on blur/mute.
+- Four static scene illustrations were exported from React/SVG and inspected.
+  **These are illustration exports, not browser screenshots or responsive QA.**
+
+### Milestone F — verification status and remaining gate
+
+- Frontend tests: **88 passed, 0 failed** (including new rules/persistence,
+  classic golden traces, audio lifecycle and existing wallet/snapshot guards).
+- Lint: **0 errors, 14 pre-existing warnings**. Explicit TypeScript check passed.
+- Foundry formatting and size build passed; **143 contract tests passed** in
+  13 suites. Optional signature-cache write warning from the sandbox only.
+- Production builds passed for all three existing CI configurations (RISE
+  legacy, Somnia standard, Somnia session keys), with `/play` generated and
+  `/concept` remaining production-404. Results are recorded in
+  `phase-1-evidence/verification.md`; no remote CI is claimed.
+- Added five Playwright scenarios (15 device/project cases): wallet-free start,
+  keyboard/rapid input/reload, full ten-room UI run, responsive/reduced motion,
+  malformed/blocked storage. Suite discovery: **150 tests in 10 files**.
+- **Browser tests were not executed in this checkpoint.** In-app browser access
+  again failed because its admin-enforced security policy could not be verified.
+  Do not bypass that restriction with another browser automation path.
+- Fixes implemented for the two baseline issues: immediate terminal boss-score
+  cleanup (unit-tested) and a compact short-screen navigation row (CSS). Their
+  real-browser regressions remain unverified. The old baseline was 129 passed,
+  2 failed, 4 skipped, not a passing current browser run.
+- Requested direct user feedback on `/play` while completing code checks.
+  Pending: actual desktop/touch/phone visual and interaction checks, full current
+  Playwright pass, measured first-run duration and the 5–10-person blind test.
+
+**Status: local review build; not production-ready and not yet certified
+blind-test-ready. Phase 1 is not marked complete while F is blocked.**
+
+See `FIRST_DESCENT.md` for play/recovery/rules and the blind-test checklist.
 
 ## Workspace and baseline
 
@@ -123,7 +227,7 @@ adapter correctness, wallet flow or VRF health is asserted by local tests.
 - In-app Browser navigation was denied three times because its admin-policy check
   was unavailable. No alternative interactive browser was used to bypass it.
 
-## Milestone B — prepared for visual review; approval pending
+## Milestone B — approved; C–F in progress
 
 Specification: `docs/phase-1-vertical-slice.md`. Review/test instructions:
 `docs/phase-1-review.md`. Audit commit: `c96cee1`.
@@ -167,7 +271,7 @@ Specification: `docs/phase-1-vertical-slice.md`. Review/test instructions:
   Foundry tests pass. The full CI build matrix is for the later F checkpoint;
   only default/Somnia standard builds were rerun in this work.
 
-### Current local state
+### B review state (historical)
 
 #### Revision 02 — preserve original monster style
 
@@ -194,21 +298,19 @@ Specification: `docs/phase-1-vertical-slice.md`. Review/test instructions:
 The local dev server was left running at `http://127.0.0.1:3100/concept` for
 the user's review on this Mac. Restart instructions are in the review guide.
 All work is local. No push, merge, production deploy or onchain transaction.
-**Not production-ready or blind-test-ready.** Await approval before full assets
-and dungeon integration. Browser QA still needs resolution even if approved.
+That B approval has since been received. The new `/play` implementation and
+remaining browser-verification gate are recorded at the top of this file.
 
 ## Resume checklist
 
 1. Read this file, the specification and review guide; inspect Git status and
    preserve both prior Weekly commits and all newer remote work.
-2. Preserve the now-decided original monster style. Obtain/record approval of
-   the revised one-room concept/layout at the B gate; do not reopen rejected
-   style alternatives or treat silence as approval.
-3. When Browser policy checking is available again, verify the actual `/concept`
-   layout and controls with the Browser skill. Do not bypass the restriction.
-4. After approval: C dungeon/state integration; D versioned local training
-   mechanics; E small asset set matching the original monster graphics; F full verification, fix the
-   two baseline regressions, and prepare a 5–10-person blind test.
+2. Preserve the approved original-monster style and androgynous avatar. Do not
+   reopen the B approval gate; C–F were authorized with "Veldig bra. Fortsett".
+3. Resolve the Browser policy-check outage, then verify `/play` on desktop and
+   touch/phone with the Browser skill. Do not bypass the restriction.
+4. Run the current full browser suite, verify both baseline fixes and the new
+   ten-room controls/recovery. Follow `FIRST_DESCENT.md` for the blind test.
 5. Preserve actual onchain rules; Somnia stays behind its existing boundary.
    No transaction/deployment. Update this file after every milestone.
 

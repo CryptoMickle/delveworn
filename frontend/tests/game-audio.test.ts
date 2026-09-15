@@ -104,6 +104,25 @@ function fixture(overrides: Partial<GameAudioEnvironment> = {}) {
 
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 
+test("room ambience needs a gesture, stops at combat/blur, and owns no scheduler", () => {
+  const {controller,context,timers,creations} = fixture();
+  controller.setExploration(true);
+  assert.equal(creations(),0);
+  controller.playAction("click");
+  const drones=context.sources.filter(s => [82.4,123.5].includes(s.frequency.value));
+  assert.equal(drones.length,2); assert.equal(timers.size,0);
+  controller.setExploration(true);
+  assert.equal(context.sources.filter(s => [82.4,123.5].includes(s.frequency.value)).length,2);
+  controller.setExploration(false);
+  assert.ok(drones.every(s => s.stops.length === 1 && s.connections.length === 0));
+  controller.setExploration(true);
+  const count=context.sources.length;
+  controller.pause();
+  controller.setExploration(true);
+  assert.equal(context.sources.length,count);
+  controller.destroy();
+});
+
 function scoreTrace(context: FakeContext) {
   return context.sources.map(source => {
     const route: unknown[] = [];
@@ -252,7 +271,7 @@ for (const outcome of ["victory", "death"] as const) {
     const before = [...context.sources];
     controller.playOutcome(outcome);
     assert.equal(timers.size, 0);
-    assert.ok(before.some(source => source.stops.length > 1 && source.stops.at(-1)! <= context.currentTime + 0.06));
+    assert.ok(before.some(source => source.stops.length > 1 && source.stops.at(-1)! === context.currentTime));
     assert.ok(context.sources.length > before.length);
     controller.destroy();
   });

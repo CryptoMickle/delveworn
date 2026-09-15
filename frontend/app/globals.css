@@ -444,6 +444,10 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
 }
 @media (max-width: 800px) and (max-height: 650px) {
   .practice-shell, .practice-shell.practice-in-run { padding-top: 4px; }
+  .practice-in-run .delveworn-navigation { grid-template-columns:minmax(44px,.6fr) minmax(0,2.4fr) auto; grid-template-areas:"home modes sound"; min-height:52px; gap:5px; }
+  .practice-in-run .delveworn-navigation .delveworn-brand-logo { width:70px; }
+  .practice-in-run .delveworn-navigation .delveworn-modes a { min-height:44px; font-size:9px; padding:0 3px; }
+  .practice-in-run .delveworn-navigation .delveworn-sound { max-width:52px; font-size:9px; padding:5px 3px; }
   .practice-room-progress { padding-top: 0; padding-bottom: 0; }
   .practice-room-caption { min-height: 13px; line-height: 12px; padding-bottom: 1px; }
   .practice-room-map { padding-top: 1px; padding-bottom: 1px; }

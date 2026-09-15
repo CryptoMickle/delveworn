@@ -1,7 +1,7 @@
 # Delveworn — the first descent
 
-Milestone B proposal, 2026-09-15. Status: **awaiting visual approval**.
-The one-room concept illustrates this proposal; it does not implement C–F.
+Milestone B specification, 2026-09-15. **Approved** with the correction to retain
+the original monster artwork style. User: "Veldig bra. Fortsett". C–F authorized.
 
 ## Product promise
 
@@ -156,6 +156,10 @@ is decided by the user; it does not need another preference question.
 
 ### Avatar/relic layers
 
+User refinement during implementation: make the player less binary in gender
+expression. Use an androgynous base with neutral proportions, modest shoulders,
+practical gear and the face hidden in the hood; retain the plum cloak/style.
+
 - One base adventurer; facing/idle/walk/attack/hit/death states.
 - Separate weapon and armor attachments keyed to equipment level.
 - A relic anchor next to the shoulder: object/icon + rarity halo; no 15× avatar
@@ -198,6 +202,11 @@ Contract snapshot ───────┘                │
                                          ├─ HUD / combat / recovery
 Confirmed result delta ───────────────────└─ VFX + sound (no game RNG)
 ```
+
+Implementation checkpoint: `/play` implements the local training adapter and
+room renderer. Existing classic Practice and onchain keep their current shared
+UI and original artwork. The proposed live-snapshot binding to the new renderer
+is not shipped; it requires its own browser recovery/pending-state verification.
 
 - `SceneView`: confirmed room key, phase, avatar equipment, enemy, resources,
   allowed actions, pending/error and previous resolved delta.

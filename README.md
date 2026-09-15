@@ -8,6 +8,12 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 
 ## Try Delveworn
 
+The new **First Descent** vertical slice is available locally at `/play`: ten
+connected 2D rooms, three training relic builds, enemy intentions, supplies,
+camp and a boss. It starts without a wallet. This working-branch feature is
+not yet published or fully browser-verified. See [First Descent](FIRST_DESCENT.md)
+for controls, recovery, test commands and the blind-test gate.
+
 | Experience | Link | What it demonstrates |
 | --- | --- | --- |
 | Weekly Verified Challenge | [Play the current weekly seed](https://delveworn.app/challenge) | A wallet-free 10-room sprint with deterministic replay verification and challenge links. |

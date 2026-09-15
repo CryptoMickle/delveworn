@@ -21,6 +21,14 @@ export type MonsterType = 0 | 1 | 2 | 3;
 export type LootType = 0 | 1 | 2 | 3 | 4;
 export type RelicRarityId = 0 | 1 | 2 | 3 | 4 | 5;
 
+/** Opt-in local training rules. Omitted in Practice v1 and contract adapters. */
+export type CombatContext = Readonly<{ attackPercent: number; replyPercent: number }>;
+const CLASSIC_COMBAT: CombatContext = { attackPercent: 100, replyPercent: 100 };
+
+function intentDamage(damage: number, percent: number): number {
+  return Math.floor(damage * percent / 100);
+}
+
 export type PracticeGame = {
   hp: number;
   maxHp: number;
@@ -186,13 +194,16 @@ function applyArmor(armorLevel: number, damage: number): number {
 
 function rollMonsterDamage(
   state: PracticeGame,
-  randomInt: RandomInt
+  randomInt: RandomInt,
+  context: CombatContext = CLASSIC_COMBAT
 ): number {
   const room = state.roomsCleared + 1;
   const raw = monsterDamage(state.monsterType, room) - 1 + randomInt(3);
+  const modified = intentDamage(raw, context.replyPercent);
+  if (modified === 0) return 0;
   return scaleIncoming(
     state.equippedRelic,
-    applyArmor(state.armorLevel, raw)
+    applyArmor(state.armorLevel, modified)
   );
 }
 
@@ -243,12 +254,15 @@ function rollRelicOffer(
 
 function spawnMonster(
   state: PracticeGame,
-  randomInt: RandomInt
+  randomInt: RandomInt,
+  encounter?: MonsterType
 ): PracticeGame {
   const room = state.roomsCleared + 1;
   let type: MonsterType;
 
-  if (room % 10 === 0) {
+  if (encounter !== undefined) {
+    type = encounter;
+  } else if (room % 10 === 0) {
     type = 3;
   } else {
     const roll = randomInt(100);
@@ -453,7 +467,7 @@ function defeatMonster(
   return withLog(next, ...messages);
 }
 
-export function startRun(randomInt: RandomInt = cryptoRandomInt): PracticeGame {
+export function startRun(randomInt: RandomInt = cryptoRandomInt, encounter?: MonsterType): PracticeGame {
   return spawnMonster({
     ...EMPTY_GAME,
     hasStarted: true,
@@ -463,12 +477,13 @@ export function startRun(randomInt: RandomInt = cryptoRandomInt): PracticeGame {
       `🧪 Starting supplies: ${EMPTY_GAME.potions} potions of disputed origin.`,
       "📝 No wallet. No VRF. No witnesses.",
     ],
-  }, randomInt);
+  }, randomInt, encounter);
 }
 
 export function attack(
   state: PracticeGame,
-  randomInt: RandomInt = cryptoRandomInt
+  randomInt: RandomInt = cryptoRandomInt,
+  context: CombatContext = CLASSIC_COMBAT
 ): PracticeGame {
   if (!state.active || state.monsterHp <= 0) return withLog(state, "There is nothing to attack.");
 
@@ -477,6 +492,7 @@ export function attack(
   const critical = randomInt(100) < criticalChance(state.equippedRelic);
   if (critical) rolled *= criticalMultiplier(state.equippedRelic);
   rolled = scaleOutgoing(state.equippedRelic, rolled, false);
+  rolled = intentDamage(rolled, context.attackPercent);
 
   const actual = Math.min(rolled, state.monsterHp);
   const persona = getMonsterLogPersona(
@@ -504,7 +520,7 @@ export function attack(
   }
 
   next = { ...next, monsterHp: state.monsterHp - rolled };
-  const incoming = rollMonsterDamage(next, randomInt);
+  const incoming = rollMonsterDamage(next, randomInt, context);
   next = takeDamage({ ...next, lastMonsterDamage: incoming }, incoming);
   const revived = !state.relicReviveUsed && next.relicReviveUsed;
   next = withLog(
@@ -521,7 +537,8 @@ export function attack(
 
 export function stormAttack(
   state: PracticeGame,
-  randomInt: RandomInt = cryptoRandomInt
+  randomInt: RandomInt = cryptoRandomInt,
+  context: CombatContext = CLASSIC_COMBAT
 ): PracticeGame {
   if (!state.active || state.monsterHp <= 0) return withLog(state, "There is nothing to attack.");
 
@@ -559,7 +576,7 @@ export function stormAttack(
   }
 
   next = { ...next, monsterHp: state.monsterHp - rolled };
-  const incoming = rollMonsterDamage(next, randomInt);
+  const incoming = rollMonsterDamage(next, randomInt, context);
   next = takeDamage({ ...next, lastMonsterDamage: incoming }, incoming);
   const revived = !state.relicReviveUsed && next.relicReviveUsed;
   next = withLog(
@@ -576,7 +593,8 @@ export function stormAttack(
 
 export function usePotion(
   state: PracticeGame,
-  randomInt: RandomInt = cryptoRandomInt
+  randomInt: RandomInt = cryptoRandomInt,
+  context: CombatContext = CLASSIC_COMBAT
 ): PracticeGame {
   if (!state.active) return withLog(state, "The run is over.");
   if (state.potions <= 0) return withLog(state, "No potions left.");
@@ -600,7 +618,7 @@ export function usePotion(
   const limit = state.monsterType === 3 ? 3 : 2;
   if (state.combatPotionsUsed >= limit) return withLog(state, "Combat potion limit reached.");
 
-  const incoming = Math.floor((rollMonsterDamage(state, randomInt) + 1) / 2);
+  const incoming = Math.floor((rollMonsterDamage(state, randomInt, context) + 1) / 2);
   let hp = state.hp + 25;
   hp = hp > incoming ? hp - incoming : 0;
   hp = Math.min(state.maxHp, hp);
@@ -636,7 +654,8 @@ export function usePotion(
 
 export function enterNextRoom(
   state: PracticeGame,
-  randomInt: RandomInt = cryptoRandomInt
+  randomInt: RandomInt = cryptoRandomInt,
+  encounter?: MonsterType
 ): PracticeGame {
   if (!state.active) return withLog(state, "The run is over.");
   if (state.monsterHp > 0) return withLog(state, "Defeat the monster first.");
@@ -657,7 +676,7 @@ export function enterNextRoom(
     );
   }
 
-  return spawnMonster(next, randomInt);
+  return spawnMonster(next, randomInt, encounter);
 }
 
 export function claimRelic(state: PracticeGame, equip: boolean): PracticeGame {
@@ -827,11 +846,11 @@ export function buy(state: PracticeGame, action: ShopAction): PracticeGame {
   );
 }
 
-export function attackRange(state: PracticeGame): [number, number] {
+export function attackRange(state: PracticeGame, context: CombatContext = CLASSIC_COMBAT): [number, number] {
   const base = 10 + state.weaponLevel * 2;
   return [
-    scaleOutgoing(state.equippedRelic, base - 2, false),
-    scaleOutgoing(state.equippedRelic, base + 2, false),
+    intentDamage(scaleOutgoing(state.equippedRelic, base - 2, false), context.attackPercent),
+    intentDamage(scaleOutgoing(state.equippedRelic, base + 2, false), context.attackPercent),
   ];
 }
 
@@ -840,12 +859,13 @@ export function stormRange(state: PracticeGame): [number, number] {
   return [0, scaleOutgoing(state.equippedRelic, base * 2, true)];
 }
 
-export function incomingRange(state: PracticeGame): [number, number] {
+export function incomingRange(state: PracticeGame, context: CombatContext = CLASSIC_COMBAT): [number, number] {
   const base = monsterDamage(state.monsterType, state.roomsCleared + 1);
-  return [
-    scaleIncoming(state.equippedRelic, applyArmor(state.armorLevel, base - 1)),
-    scaleIncoming(state.equippedRelic, applyArmor(state.armorLevel, base + 1)),
-  ];
+  const scaled = (raw: number) => {
+    const modified = intentDamage(raw, context.replyPercent);
+    return modified === 0 ? 0 : scaleIncoming(state.equippedRelic, applyArmor(state.armorLevel, modified));
+  };
+  return [scaled(base - 1), scaled(base + 1)];
 }
 
 export function currentCriticalChance(state: PracticeGame): number {

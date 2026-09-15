@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import ConceptRoom from "./room";
 import "./review.css";
@@ -16,9 +17,10 @@ export default function ConceptPage() {
   if (process.env.NODE_ENV !== "development") notFound();
   return <div className="concept-review">
     <header className="concept-review-header">
-      <Image src="/assets/delveworn-logo-v1.png" alt="Delveworn" width={220} height={65} unoptimized priority />
-      <span>ROOM CONCEPT · REVISION 02</span>
+      <Image src="/assets/delveworn-logo-v1.png" alt="Delveworn" width={2172} height={724} unoptimized priority />
+      <span>APPROVED DIRECTION · LOCAL BUILD</span>
     </header>
+    <section className="concept-playable" aria-label="Current playable build"><Image src="/dungeon/adventurer.webp" alt="The updated androgynous adventurer with a plum hood and practical armor" width={110} height={114} /><div><p className="concept-review-kicker">THE FIRST DESCENT</p><h2>The rooms are now connected.</h2><p>The playable build uses the original monsters and the updated androgynous adventurer.</p><Link href="/play">Play the ten-room build →</Link></div></section>
     <section className="concept-review-direction" aria-labelledby="concept-review-title">
       <p className="concept-review-kicker">ORIGINAL MONSTER ARTWORK</p>
       <h1 id="concept-review-title">The same Delveworn. A world to walk through.</h1>
@@ -36,7 +38,7 @@ export default function ConceptPage() {
     </section>
     <section className="concept-review-proposal" aria-labelledby="concept-revision-heading">
       <h2 id="concept-revision-heading">One-room visual revision</h2>
-      <p>A concept illustration using the original monsters as references. The final room art and animations are still awaiting review.</p>
+      <p>The approved concept illustration, retained for reference. The playable build above contains the later avatar refinement.</p>
       <Image className="concept-revision-image" src="/concept/original-style-revision.png" alt="Revised dungeon concept with the original Gary design, a visible adventurer and a floating Stormglass relic." width={1536} height={1024} unoptimized priority />
     </section>
     <details className="concept-layout-study">

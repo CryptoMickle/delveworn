@@ -86,3 +86,8 @@
   .mode { font-size: 10px; }
   .copy { grid-template-rows: minmax(300px,1fr) 62px 179px; padding: 16px; }
 }
+.firstDescent { display:flex; align-items:center; justify-content:space-between; gap:15px; color:#f0d5aa; border:1px solid #a78650; padding:18px 22px; background:linear-gradient(110deg,#31241d,#251c30); margin:0 0 20px; text-decoration:none; min-height:64px; }
+.firstDescent > span { font-size:10px; letter-spacing:1px; }
+.firstDescent strong { font:23px Georgia,serif; }
+.firstDescent b { padding-left:12px; font-size:22px; }
+@media(max-width:800px) { .firstDescent { flex-wrap:wrap; gap:7px; padding:15px; } .firstDescent strong { order:-1; width:100%; } .firstDescent > span { font-size:8px; } }

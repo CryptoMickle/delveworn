@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DesktopNavigation } from "./desktop-navigation";
@@ -33,7 +34,7 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
   } : mode === "onchain" ? {
     eyebrow: `WALLET · ${onchainNetwork.toUpperCase()}`,
     title: "Enter the dungeon onchain.",
-    intro: `Fight the same dungeon on ${onchainNetwork}. Your wallet authorizes your actions, and the contract keeps your progress.`,
+    intro: `Play classic Delveworn on ${onchainNetwork}. Your wallet authorizes your actions, and the contract keeps your progress.`,
     points: ["Connect your wallet and review the network before starting.", "Return with the same wallet to continue your onchain player."],
     facts: [onchainNetwork, "Wallet required", "Onchain progress"],
     resume: "Wallet connection comes next. Choosing a mode sends no transaction.",
@@ -62,6 +63,7 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
           <h1>Your call. Your way in.</h1>
           <p>Fight the monsters. Face the boss. Live with your choices.</p>
         </header>
+        <Link href="/play" className={styles.firstDescent}><span>NEW · NO WALLET NEEDED</span><strong>Play The First Descent</strong><span>Ten rooms · Three relic builds <b>↗</b></span></Link>
         <div data-keyboard-actions>
           <div className={styles.modes} role="group" aria-label="Choose your dungeon">
             {(["practice", "challenge", "onchain"] as const).map(value => (
