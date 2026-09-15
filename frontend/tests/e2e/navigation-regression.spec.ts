@@ -1,23 +1,30 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { EMPTY_GAME, type PracticeGame } from "../../app/practice/engine";
+import { createPracticeGrid, type PracticeGridState } from "../../app/practice/grid-state";
 import { isStoredPracticeGame, PRACTICE_RUN_STORAGE_KEY } from "../../app/practice/storage";
 
-async function restore(page: Page, overrides: Partial<PracticeGame> = {}, dismiss = true) {
+async function restore(page: Page, overrides: Partial<PracticeGame> = {}, dismiss = true, grid?: PracticeGridState) {
   const game = { ...EMPTY_GAME, hasStarted: true, active: true, hp: 60, monsterHp: 9999, monsterMaxHp: 9999, armorLevel: 5, gold: 200, log: [], ...overrides };
   expect(isStoredPracticeGame(game)).toBe(true);
   await page.goto("/practice");
   // This is a fresh Playwright context, never the user's saved browser session.
-  await page.evaluate(({ key, game }) => localStorage.setItem(key, JSON.stringify({ version: 1, game })), { key: PRACTICE_RUN_STORAGE_KEY, game });
+  await page.evaluate(({ key, game, grid }) => localStorage.setItem(key, JSON.stringify({ version: 1, game, ...(grid ? { grid } : {}) })), { key: PRACTICE_RUN_STORAGE_KEY, game, grid });
   await page.reload();
-  await expect(page.getByRole("button", { name: "Dismiss restore notice" })).toBeVisible();
-  if (dismiss) await page.getByRole("button", { name: "Dismiss restore notice" }).click();
+  await expect(page.locator(".endless-room, .practice-result-view").first()).toBeVisible();
+  if (dismiss) {
+    const visibleDismiss = page.locator('button[aria-label="Dismiss restore notice"]:visible');
+    if (await visibleDismiss.count() === 0) await page.getByRole("button", { name: "Run status · view details" }).click();
+    await page.locator('button[aria-label="Dismiss restore notice"]:visible').first().click();
+    const status = page.getByRole("dialog", { name: "Run status" });
+    if (await status.isVisible()) await status.getByRole("button", { name: "Close Run status" }).click();
+  }
 }
 
 const storedRun = (page: Page) => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).game as PracticeGame, PRACTICE_RUN_STORAGE_KEY);
 const attack = (page: Page) => page.getByRole("button", { name: /⚔️ ATTACK/ });
 const storm = (page: Page) => page.getByRole("button", { name: /⚡ STORM/ });
 const potion = (page: Page) => page.getByRole("button", { name: /POTION ·/ });
-const resetFocus = (page: Page) => page.locator("main").evaluate(element => { element.tabIndex = -1; element.focus({ preventScroll: true }); });
+const resetFocus = (page: Page) => page.locator(".endless-room, main").first().evaluate(element => { (element as HTMLElement).tabIndex = -1; (element as HTMLElement).focus({ preventScroll: true }); });
 
 async function expectVisibleFocus(control: Locator) {
   await expect(control).toBeFocused();
@@ -30,72 +37,37 @@ async function expectVisibleFocus(control: Locator) {
   })).toBe(true);
 }
 
-test("recovery arrows enter the requested edge and traverse actions without entering log history", async ({ page }, info) => {
+test("recovery arrows walk the floor and the door acts only after arrival", async ({ page }, info) => {
   const viewport = page.viewportSize()!;
   const widths = info.project.name === "desktop-chromium" ? [820, 1365, 1920] : [viewport.width];
-  const relicCounts = Array<number>(16).fill(0); relicCounts[1] = 1;
   for (const width of widths) {
     await page.setViewportSize({ width, height: viewport.height });
-    await restore(page, { roomsCleared: 3, monsterHp: 0, ownedRelics: [1], relicCounts, log: Array.from({ length: 6 }, (_, index) => `Resolved entry ${index + 1}`) });
+    await restore(page, { roomsCleared: 3, monsterHp: 0 });
     const before = await storedRun(page);
-    // Opening a long log can scroll the first action under the sticky HUD.
-    await page.getByText("Earlier entries", { exact: true }).click();
-    await page.mouse.move(0, 0);
-    const panel = page.locator(".recovery-panel");
-    const controls = await panel.locator("button:visible:enabled, summary:visible").all();
-    const positions = await Promise.all(controls.map(async item => ({ item, box: (await item.boundingBox())! })));
-    positions.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
-    expect(positions).toHaveLength(3);
-    for (const direction of ["ArrowDown", "ArrowUp"]) {
-      await resetFocus(page);
-      await page.keyboard.press(direction);
-      const selected = positions[direction === "ArrowUp" ? 0 : 2].item;
-      await expectVisibleFocus(selected);
-      if (width === 1920 && direction === "ArrowUp") {
-        const placement = await selected.evaluate(element => ({
-          top: element.getBoundingClientRect().top,
-          hudBottom: document.querySelector("[data-keyboard-scroll-header]")!.getBoundingClientRect().bottom,
-        }));
-        expect(placement.top).toBeGreaterThanOrEqual(placement.hudBottom + 7);
-      }
-    }
-    for (const position of positions.slice(1)) {
-      await page.keyboard.press("ArrowDown");
-      await expectVisibleFocus(position.item);
-    }
-    await page.keyboard.press("ArrowDown");
-    await expect(positions[2].item).toBeFocused();
-    await expect(page.getByText("Earlier entries", { exact: true })).not.toBeFocused();
+    const floor = page.getByRole("group", { name: /Room 3 floor/ });
+    const avatar = page.locator("[data-avatar-position]");
+    await floor.focus();
+    const start = await avatar.getAttribute("data-avatar-position");
+    await page.keyboard.press("ArrowLeft");
+    await expect.poll(() => avatar.getAttribute("data-avatar-position")).not.toBe(start);
     expect(await storedRun(page)).toEqual(before);
+    await page.keyboard.press("e");
+    await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "explore");
+    expect((await storedRun(page)).roomsCleared).toBe(3);
   }
 });
 
-test("arrows re-enter gameplay after restore, sound, HUD and home controls without activating a move", async ({ page }) => {
-  await restore(page, {}, false);
+test("exploration movement cannot dispatch combat and approach reveals the action field", async ({ page }) => {
+  await restore(page, {}, true, createPracticeGrid(91));
   const before = await storedRun(page);
-  const dismiss = page.getByRole("button", { name: "Dismiss restore notice" });
-  await dismiss.focus();
-  await page.keyboard.press("ArrowDown");
-  await expectVisibleFocus(attack(page));
-  await dismiss.click();
-  await page.locator(".delveworn-sound").click();
-  await page.keyboard.press("ArrowRight");
-  await expectVisibleFocus(attack(page));
-  const roomControl = page.locator(".practice-room-status button:visible, .practice-mobile-room button:visible").first();
-  await roomControl.focus();
-  await page.keyboard.press("ArrowDown");
-  await expectVisibleFocus(attack(page));
-  const gear = page.locator(".practice-mobile-gear button");
-  if (await gear.isVisible()) {
-    await gear.focus();
-    await page.keyboard.press("ArrowRight");
-    await expectVisibleFocus(attack(page));
-  }
-  await page.getByRole("link", { name: "Delveworn home" }).focus();
-  await page.keyboard.press("ArrowRight");
-  await expectVisibleFocus(attack(page));
-  await expect(page).toHaveURL(/\/practice$/);
+  await expect(page.getByLabel("Combat actions")).toHaveCount(0);
+  const floor = page.getByRole("group", { name: /Room 1 floor/ });
+  await floor.focus();
+  await page.keyboard.press("a");
   expect(await storedRun(page)).toEqual(before);
+  await page.getByRole("button", { name: /^Approach / }).click();
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "combat");
+  await expect(attack(page)).toBeEnabled();
 });
 
 test("battle arrows stay in the action field and retain the selected vertical lane", async ({ page, browserName }) => {
@@ -125,6 +97,9 @@ test("boss reward arrows enter KEEP from above and EQUIP from below", async ({ p
   await restore(page, { roomsCleared: 9, monsterType: 3, monsterHp: 1 });
   await resetFocus(page);
   await page.keyboard.press("a");
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
+  await page.getByRole("button", { name: "Leave loot" }).click();
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "reward");
   await expect(page.getByRole("heading", { name: "MANAGEMENT DEFEATED" })).toBeVisible();
   const before = await storedRun(page);
   await page.keyboard.press("ArrowDown");
@@ -135,39 +110,21 @@ test("boss reward arrows enter KEEP from above and EQUIP from below", async ({ p
   expect(await storedRun(page)).toEqual(before);
 });
 
-test("a first arrow during encounter and boss transitions survives the next frame and Enter still acts", async ({ page }) => {
-  for (const phase of ["encounter", "boss-reward"]) {
-    await restore(page, phase === "encounter"
-      ? { roomsCleared: 3, monsterHp: 0 }
-      : { roomsCleared: 9, monsterType: 3, monsterHp: 1 });
-    const trigger = page.getByRole("button", { name: phase === "encounter" ? /ENTER ROOM 4/ : /⚔️ ATTACK/ });
-    const result = await trigger.evaluate((button: HTMLButtonElement, { selector, arrow }) => new Promise<{ immediately: string | null; afterFrames: string | null }>(resolve => {
-      const observer = new MutationObserver(() => {
-        if (!document.querySelector(selector)) return;
-        observer.disconnect();
-        // This delivers the first arrow after the new controls mount but before
-        // a previously scheduled animation-frame focus callback could run.
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: arrow, bubbles: true }));
-        const selected = document.activeElement;
-        const immediately = selected instanceof HTMLButtonElement ? selected.textContent : null;
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve({
-          immediately, afterFrames: document.activeElement === selected ? immediately : null,
-        })));
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      button.click();
-    }), { selector: phase === "encounter" ? ".practice-attack-action" : ".practice-boss-relic-actions", arrow: phase === "encounter" ? "ArrowRight" : "ArrowDown" });
-    expect(result.immediately).toMatch(phase === "encounter" ? /ATTACK/ : /EQUIP /);
-    expect(result.afterFrames).toBe(result.immediately);
-    const before = await storedRun(page);
-    await page.keyboard.press("Enter");
-    const after = await storedRun(page);
-    if (phase === "encounter") expect(after.monsterHp).toBeLessThan(before.monsterHp);
-    else {
-      expect(after.relicOfferAvailable).toBe(false);
-      expect(after.equippedRelic).toBeGreaterThan(0);
-    }
-  }
+test("room entry keeps exploration separate and action focus survives combat mount", async ({ page }) => {
+  await restore(page, { roomsCleared: 3, monsterHp: 0 });
+  await page.getByRole("button", { name: /Enter room 4/ }).click();
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "explore");
+  await expect(page.getByLabel("Combat actions")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Approach / }).click();
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "combat");
+  await resetFocus(page);
+  await page.keyboard.press("ArrowRight");
+  await expectVisibleFocus(attack(page));
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(attack(page)).toBeFocused();
+  const before = await storedRun(page);
+  await page.keyboard.press("Enter");
+  expect((await storedRun(page)).monsterHp).toBeLessThan(before.monsterHp);
 });
 
 test("priority overlay owns arrows and Enter while wallet controls and inputs keep native keys", async ({ page }) => {
@@ -176,7 +133,7 @@ test("priority overlay owns arrows and Enter while wallet controls and inputs ke
   await page.keyboard.press("ArrowRight");
   await expect(attack(page)).toBeFocused();
   const before = await storedRun(page);
-  await page.locator("main").evaluate(main => {
+  await page.locator(".endless-room").evaluate(main => {
     const overlay = document.createElement("div");
     overlay.id = "navigation-test-overlay";
     overlay.dataset.keyboardActionScope = "overlay";
@@ -199,7 +156,7 @@ test("priority overlay owns arrows and Enter while wallet controls and inputs ke
   await expect(retry).toHaveAttribute("data-clicks", "1");
   expect(await storedRun(page)).toEqual(before);
   await page.locator("#navigation-test-overlay").evaluate(element => element.remove());
-  await page.locator("main").evaluate(main => {
+  await page.locator(".endless-room").evaluate(main => {
     const wallet = document.createElement("div");
     wallet.dataset.walletControls = "true";
     const button = document.createElement("button");

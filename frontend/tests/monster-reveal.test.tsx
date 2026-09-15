@@ -23,36 +23,40 @@ test("a fresh combat briefly shows the detailed original monster illustration", 
   assert.match(markup, /Grave Belle monster close-up/);
   assert.match(markup, /src="\/monsters\/zombie-1-grave-belle\.webp"/);
   assert.doesNotMatch(markup, /\/_next\/image/);
-  assert.match(markup, /Continue fight/);
+  assert.match(markup, /Close artwork/);
   assert.match(markup, /aria-valuenow="30"/);
 });
 
 test("reloads after a combat action stay collapsed but keep an optional health-linked view", () => {
   assert.equal(shouldAutoRevealMonster("combat", 1, 24), false);
   const markup = renderToStaticMarkup(createElement(MonsterReveal, { ...base, hp: 24, roomTurns: 1, cueId: 3 }));
-  assert.doesNotMatch(markup, /Continue fight/);
+  assert.doesNotMatch(markup, /Close artwork/);
   assert.match(markup, /View monster/);
   assert.match(markup, /Grave Belle · 24 \/ 30 HP/);
   assert.match(markup, /aria-label="View Grave Belle monster close-up, 24 of 30 health"/);
 });
 
-test("the first combat action dismisses an automatic or manually reopened close-up", () => {
-  assert.equal(isMonsterRevealVisible({ phase: "combat", roomTurns: 0, hp: 30, cueId: 2, dismissedAt: null, manualAt: null }), true);
-  const reopened = monsterRevealReducer({ dismissedAt: 2, manualAt: null, artReady: true }, { type: "view", cueId: 2 });
-  assert.equal(isMonsterRevealVisible({ phase: "combat", roomTurns: 1, hp: 24, cueId: 2, ...reopened }), true, "manual view stays open before the action revision arrives");
-  assert.equal(isMonsterRevealVisible({ phase: "combat", roomTurns: 1, hp: 24, cueId: 3, ...reopened }), false, "the action revision dismisses it without waiting for its timer");
-  assert.equal(renderToStaticMarkup(createElement(MonsterReveal, { ...base, pending: true })), "", "the initiating action hides it before save or animation timers finish");
+test("combat actions and even a killing hit do not shorten the timed illustration", () => {
+  const shown = { automatic: true, manual: false, artReady: true };
+  assert.equal(isMonsterRevealVisible("combat", 30, shown), true);
+  assert.equal(isMonsterRevealVisible("combat", 14, shown), true);
+  assert.equal(isMonsterRevealVisible("loot", 0, shown), true, "the same timer finishes after a killing hit");
+  const pending = renderToStaticMarkup(createElement(MonsterReveal, { ...base, pending: true }));
+  assert.match(pending, /Close artwork/, "starting an action must leave the art visible");
+  const reopened = monsterRevealReducer({ automatic: false, manual: false, artReady: true }, { type: "view" });
+  assert.equal(isMonsterRevealVisible("combat", 14, reopened), true);
+  assert.equal(isMonsterRevealVisible("loot", 0, reopened), false, "manual views end when the fight ends");
 });
 
 test("close and automatic timeout share the nonblocking dismiss behavior", () => {
-  const dismissed = monsterRevealReducer({ dismissedAt: null, manualAt: 4, artReady: true }, { type: "dismiss", cueId: 4 });
-  assert.deepEqual(dismissed, { dismissedAt: 4, manualAt: null, artReady: true });
-  assert.equal(isMonsterRevealVisible({ phase: "combat", roomTurns: 0, hp: 30, cueId: 4, ...dismissed }), false);
+  const dismissed = monsterRevealReducer({ automatic: true, manual: false, artReady: true }, { type: "dismiss" });
+  assert.deepEqual(dismissed, { automatic: false, manual: false, artReady: true });
+  assert.equal(isMonsterRevealVisible("combat", 30, dismissed), false);
   const markup = renderToStaticMarkup(createElement(MonsterReveal, base));
   assert.doesNotMatch(markup, /aria-modal|role="dialog"|disabled/);
 });
 
-test("the automatic timer dismisses after two seconds and cleans up on an early action", () => {
+test("the automatic timer dismisses after two seconds and cleans up when closed or unmounted", () => {
   let scheduled: (() => void) | undefined;
   let delay = 0;
   let cleared: number | undefined;
@@ -70,7 +74,7 @@ test("the automatic timer dismisses after two seconds and cleans up on an early 
 });
 
 test("the automatic timer waits until the original art loads or errors", () => {
-  const loading = { dismissedAt: null, manualAt: null, artReady: false };
+  const loading = { automatic: true, manual: false, artReady: false };
   assert.equal(shouldScheduleMonsterRevealDismiss(true, false, loading.artReady), false);
   const loaded = monsterRevealReducer(loading, { type: "art-ready" });
   assert.equal(shouldScheduleMonsterRevealDismiss(true, false, loaded.artReady), true);

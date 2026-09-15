@@ -1,6 +1,78 @@
 # First Descent verification — 2026-09-15
 
-## Current correction — visible door travel, inward-facing Kevin and original monster close-ups
+## Current correction — optional loot, endless shared grid and readable Kevin shop
+
+Active Practice and onchain runs reuse `EndlessRoom`, `DungeonScene` and the
+existing action/shop/relic controls. They retain their existing progression and
+authorities. All four original artwork tiers are presented without changing the
+source raster assets; rooms continue beyond 40. `/play` retains its ten rooms.
+
+Local **Leave loot** forfeits held floor resources. Onchain floor choices only
+acknowledge rewards already credited by the contract. Neither movement nor
+pickup/skip consumes combat RNG or submits a contract transaction. Boss relic
+decisions still use their existing independent flow.
+
+Kevin's shop includes his complete figure and current HP, gold, potions, weapon
+and armor. Monster artwork persists for exactly two seconds after image load
+even during normal or lethal attacks, unless explicitly closed.
+
+### Actual verification
+
+- **143 unit/integration tests passed, 0 failed, 0 skipped.** Coverage includes
+  optional loot, once-only/stale choices, reload, boss relic separation, original
+  Practice/Weekly traces, legacy Practice saves, wallet-scoped presentation,
+  confirmed onchain reward acknowledgement, and all artwork tiers. Practice
+  progression is exercised through rooms 1, 11, 21, 31, 41 and into 42 with a
+  healed fixture (a progression check, not a balance or human-survival claim).
+- An additional 100 seeded Practice flow simulations use normal HP, both loot
+  choices and a fixed healing/shop policy: **6,046 combat actions, 881 pickups,
+  293 skips and 10,999 valid save/restore checks**. All eventually end in a valid
+  death; the deepest clears room 27. This verifies transition/persistence safety,
+  not human balance or a promise of achievable depth.
+- ESLint: **0 errors, 14 existing warnings**. Git whitespace validation passed.
+- TypeScript passed. All three existing frontend CI build configurations passed
+  on the final implementation: **RISE compatibility, Somnia standard, Somnia
+  session keys**. `/practice`, `/onchain` and `/play` were generated; development
+  `/concept` retains its production 404. These are local matrix checks, not a
+  remote GitHub CI run on the unpublished commit.
+- Actual no-DOM Practice page callbacks complete start → approach → kill → leave
+  loot → next room; a legacy living encounter restores directly into combat.
+- Actual monster component with a controlled clock remains visible at 1,999ms
+  and closes at 2,000ms for both a normal and killing attack. Pending at 450ms
+  and resolution at 800ms preserve the original deadline. No timer survives
+  unmount.
+- Actual scene callbacks: **Leave loot** during a pickup walk cancels movement,
+  acknowledges once and never collects, including when a stale canceled frame
+  is delivered. No app frames or timers remain.
+- Actual shared-room callbacks: Kevin's shop opens only after arrival; the
+  complete merchant figure and all five supply values are present. Updating
+  parent values after a purchase updates the open shop. Closing/unmounting
+  leaves no app timers or frames.
+- Browser suite discovery: **178 cases in 10 files**, including updated Practice
+  navigation and optional-loot cases. Discovery is not browser execution.
+- The twelve higher-tier silhouettes were inspected as static SVG exports,
+  including at their intended room heights. They use the original raster files
+  with hand-traced clip paths. This checks illustration composition, not native
+  browser compositing or mobile performance.
+
+The approved Browser was retried; its mandatory admin-policy check still blocks
+access. No alternate browser bypass was used. The component probes are not
+browser screenshots or evidence of native touch/responsive rendering. Actual
+phone/desktop play and live Somnia remain unverified. The previously reported
+VRF adapter mismatch is unresolved; no wallet/contract transaction was attempted.
+
+Changed files include `app/dungeon/{scene.tsx,endless-room.*,shop-vitals.*,tier-art.ts}`,
+`app/descent/{game.tsx,model.ts,monster-reveal.tsx}`,
+`app/practice/{page.tsx,grid-state.ts,storage.ts,practice.test.ts}`,
+`app/{onchain-game.tsx,onchain-presentation.ts,wallet-view-guard.ts}`,
+relevant unit/browser specifications and the three gameplay/evidence documents.
+
+Status: **review preview, not production-ready**. First phone check: use
+`/practice`, attack during the artwork, try both floor-loot choices, visit Kevin
+after room 5 and verify shop stats, then finish the boss and enter room 11.
+See `ENDLESS_GRID.md` for the detailed checklist and authority boundary.
+
+## Previous correction — visible door travel, inward-facing Kevin and original monster close-ups
 
 **Enter room** now uses the resilient movement clock and commits entry only
 after reaching the doorway. Retargeting cancels the old arrival; fallback timers

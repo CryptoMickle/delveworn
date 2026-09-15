@@ -24,7 +24,37 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — physical doors, Kevin and detailed monster reveals
+## Current checkpoint — optional loot and a shared endless room
+
+The walking grid now serves active Practice and onchain runs through a shared
+presentation component. Practice's existing engine and onchain's confirmed
+snapshots remain authoritative. Their endless progression, every-tenth-room
+bosses, shops, relics and starting kit are preserved. All four original monster
+artwork sets appear at their existing tiers; the final set continues after room
+40 while the original difficulty progression continues.
+
+**Leave loot** is available in `/play` and the shared room. Local pickup grants
+the held reward once; leaving it forfeits that reward without a turn or RNG draw.
+Boss relic decisions remain separate. Onchain rewards are already credited by
+the contract, so either floor choice only clears the presentation and cannot
+change those balances or submit a transaction. The UI explains this difference.
+
+Monster close-ups now last the same two seconds after image load, including
+while attacking or defeating the monster. Only explicit **Close artwork** cuts
+the automatic display short. Kevin's shop shows his complete original clipped
+figure and current HP, gold, potions, weapon and armor inside the panel; player
+values stay visible while scrolling the purchase choices.
+
+Practice saves game and optional grid metadata atomically in the existing save
+envelope. Older saves resume their prior credited balances and combat phase.
+Onchain presentation is isolated by wallet/player/run identity. No contract or
+VRF configuration was changed; Somnia's adapter mismatch remains unresolved.
+
+See `ENDLESS_GRID.md` for behavior and the phone checklist, and
+`docs/phase-1-evidence/verification.md` for exact checks and preview delivery.
+This is a review preview pending actual browser/phone and live Somnia checks.
+
+## Previous checkpoint — physical doors, Kevin and detailed monster reveals
 
 The user's latest direction keeps travel visible: **Enter room** now uses the
 resilient walk and commits entry only at the doorway. Kevin appears as a person

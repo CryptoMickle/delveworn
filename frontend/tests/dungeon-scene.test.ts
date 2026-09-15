@@ -89,7 +89,7 @@ test("Kevin taps approach the figure inside every visible room and loose loot st
   }
 });
 
-test("the original Kevin figure belongs only to cleared supply and camp rooms", () => {
+test("the original Kevin figure follows the confirmed merchant callback between rooms", () => {
   const base:RoomView={room:5,enemy:0,enemyName:"Grave Belle",enemyHp:0,hp:85,
     relic:0,weapon:0,armor:0,phase:"recovery",pending:false,cue:null,cueId:0,damage:0,incoming:0};
   const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
@@ -102,7 +102,8 @@ test("the original Kevin figure belongs only to cleared supply and camp rooms", 
     assert.match(markup,/role="img" aria-label="Quartermaster Kevin\. Walk here to trade\."/);
     assert.match(markup,/\/characters\/merchant-quartermaster-kevin\.webp/);
   }
-  for(const room of [1,4,6,8,10]) assert.doesNotMatch(render({room}),/data-merchant-position/);
+  for(const room of [15,19,20,25,29,40,49]) assert.match(render({room}),/data-merchant-position/);
+  assert.doesNotMatch(render({room:5,phase:"combat"}),/data-merchant-position/);
   assert.doesNotMatch(render({room:5,phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}),/data-merchant-position/);
 });
 

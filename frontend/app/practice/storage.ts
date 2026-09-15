@@ -1,5 +1,6 @@
 import { getMaxHpForRelic } from "../relics";
 import type { PracticeGame } from "./engine";
+import { isPracticeGridCompatible, isPracticeGridState, legacyPracticeGrid, type PracticeGridState } from "./grid-state";
 
 export const PRACTICE_RUN_STORAGE_KEY = "delveworn_practice_run_v1";
 const PRACTICE_RUN_STORAGE_VERSION = 1;
@@ -10,7 +11,7 @@ export type PracticeRunStorage = Pick<Storage, "getItem" | "setItem">;
 type StorageSource = PracticeRunStorage | (() => PracticeRunStorage);
 export type PracticeRunLoad =
   | { status: "empty" }
-  | { status: "restored"; game: PracticeGame }
+  | { status: "restored"; game: PracticeGame; grid: PracticeGridState; legacy: boolean }
   | { status: "invalid"; reason: "format" | "version" }
   | { status: "unavailable" };
 export type PracticeRunSave = "saved" | "invalid" | "unavailable";
@@ -86,7 +87,12 @@ export function inspectPracticeRun(source: StorageSource): PracticeRunLoad {
     if (!isRecord(stored)) return { status: "invalid", reason: "format" };
     if (stored.version !== PRACTICE_RUN_STORAGE_VERSION) return { status: "invalid", reason: "version" };
     if (!isStoredPracticeGame(stored.game)) return { status: "invalid", reason: "format" };
-    return { status: "restored", game: stored.game };
+    if (stored.grid === undefined) {
+      return { status: "restored", game: stored.game, grid: legacyPracticeGrid(stored.game), legacy: true };
+    }
+    if (!isPracticeGridState(stored.grid)) return { status: "invalid", reason: "format" };
+    if (!isPracticeGridCompatible(stored.game, stored.grid)) return { status: "invalid", reason: "format" };
+    return { status: "restored", game: stored.game, grid: stored.grid, legacy: false };
   } catch {
     return { status: "unavailable" };
   }
@@ -97,11 +103,11 @@ export function loadPracticeRun(source: StorageSource): PracticeGame | null {
   return loaded.status === "restored" ? loaded.game : null;
 }
 
-export function savePracticeRun(source: StorageSource, game: PracticeGame): PracticeRunSave {
-  if (!isStoredPracticeGame(game)) return "invalid";
+export function savePracticeRun(source: StorageSource, game: PracticeGame, grid: PracticeGridState = legacyPracticeGrid(game)): PracticeRunSave {
+  if (!isStoredPracticeGame(game) || !isPracticeGridState(grid) || !isPracticeGridCompatible(game, grid)) return "invalid";
   try {
     const storage = typeof source === "function" ? source() : source;
-    storage.setItem(PRACTICE_RUN_STORAGE_KEY, JSON.stringify({ version: PRACTICE_RUN_STORAGE_VERSION, game }));
+    storage.setItem(PRACTICE_RUN_STORAGE_KEY, JSON.stringify({ version: PRACTICE_RUN_STORAGE_VERSION, game, grid }));
     return "saved";
   } catch {
     return "unavailable";

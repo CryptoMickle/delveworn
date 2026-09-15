@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BossRelicReward,
   CombatActionDock,
@@ -47,6 +47,22 @@ import { useGameAudio } from "../use-game-audio";
 import { DungeonRecovery } from "../between-rooms";
 import { DungeonRunEnd } from "../run-end";
 import { GameAutoScroll } from "../game-auto-scroll";
+import { cryptoRandomInt } from "./random";
+import {
+  collectPracticeLoot,
+  countPracticeTurn,
+  createPracticeGrid,
+  engagePracticeGrid,
+  enterPracticeRoom,
+  holdPracticeLoot,
+  legacyPracticeGrid,
+  practiceGridPhase,
+  practiceLootSummary,
+  skipPracticeLoot,
+  type PracticeGridState,
+} from "./grid-state";
+import { EndlessRoom } from "../dungeon/endless-room";
+import type { SceneCue } from "../dungeon/scene";
 
 const MAX_POTIONS = 5;
 const SHOP_POTION_STOCK = 2;
@@ -106,7 +122,7 @@ function getBossTier(room: number): number {
 }
 
 function getMonsterPersona(game: PracticeGame): MonsterPersona {
-  const room = game.roomsCleared + 1;
+  const room = game.monsterHp > 0 ? game.roomsCleared + 1 : Math.max(1, game.roomsCleared);
   const variants = MONSTER_PERSONAS[game.monsterType];
   const tier = game.monsterType === 3
     ? getBossTier(room)
@@ -149,6 +165,7 @@ function ShopButton({
 
 export default function PracticePage() {
   const [game, setGame] = useState<PracticeGame>(EMPTY_GAME);
+  const [grid, setGrid] = useState<PracticeGridState>(() => legacyPracticeGrid(EMPTY_GAME));
   const [practiceStorageReady, setPracticeStorageReady] = useState(false);
   const [storageNotice, setStorageNotice] = useState<"restored" | "invalid" | "unavailable" | "conflict" | null>(null);
   const [restartRequested, setRestartRequested] = useState(false);
@@ -156,28 +173,18 @@ export default function PracticePage() {
   const [shareNotice, setShareNotice] = useState("");
   const [shareFallback, setShareFallback] = useState(false);
   const [mobileLogOpen, setMobileLogOpen] = useState(false);
+  const [cue, setCue] = useState<SceneCue>(null);
+  const [cueId, setCueId] = useState(0);
   const gameRef = useRef<PracticeGame>(EMPTY_GAME);
+  const gridRef = useRef<PracticeGridState>(legacyPracticeGrid(EMPTY_GAME));
   const actionBusyRef = useRef(false);
   const canSaveRef = useRef(false);
   const savedGameRef = useRef<string | null>(null);
-  const encounterFocusRequested = useRef(false);
-  const arenaRef = useRef<HTMLElement | null>(null);
   const bossRewardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     return () => { actionBusyRef.current = false; };
   }, []);
-
-  // Align a new encounter before paint. A deferred animation frame could
-  // otherwise erase the action selected by the player's first arrow key.
-  useLayoutEffect(() => {
-    if (!encounterFocusRequested.current) return;
-    encounterFocusRequested.current = false;
-    arenaRef.current?.focus({ preventScroll: true });
-    // A restart in Room 1 can keep the same room/phase key.
-    arenaRef.current?.parentElement?.querySelector("[data-game-scroll-anchor]")
-      ?.scrollIntoView({ behavior: "instant", block: "start" });
-  });
 
   useEffect(() => {
     const changedElsewhere = (event: StorageEvent) => {
@@ -194,9 +201,11 @@ export default function PracticePage() {
       const restored = inspectPracticeRun(() => window.localStorage);
       canSaveRef.current = restored.status === "restored" || restored.status === "empty";
       if (restored.status === "restored") {
-        savedGameRef.current = JSON.stringify(restored.game);
+        savedGameRef.current = JSON.stringify({ game: restored.game, grid: restored.grid });
         gameRef.current = restored.game;
+        gridRef.current = restored.grid;
         setGame(restored.game);
+        setGrid(restored.grid);
         if (restored.game.hasStarted) setStorageNotice("restored");
       } else if (restored.status !== "empty") {
         setStorageNotice(restored.status);
@@ -209,10 +218,16 @@ export default function PracticePage() {
 
   const busy = !practiceStorageReady || restartRequested;
   const room = game.roomsCleared + 1;
+  const phase = practiceGridPhase(game, grid);
   const roomCleared = game.hasStarted && game.monsterHp === 0;
   const isBoss = game.monsterType === 3 && game.monsterHp > 0;
   const persona = getMonsterPersona(game);
-  const audio = useGameAudio({ bossActive: game.active && game.hp > 0 && isBoss, encounter: game.active && game.monsterHp > 0 ? persona.name : undefined });
+  const audio = useGameAudio({
+    bossActive: phase === "combat" && isBoss,
+    exploring: phase === "explore" || phase === "loot" || phase === "recovery",
+    encounter: phase === "combat" ? persona.name : undefined,
+    encounterKey: room,
+  });
   const relic = getRelicDefinition(game.equippedRelic);
   const attackDamage = attackRange(game);
   const stormDamage = stormRange(game);
@@ -226,23 +241,14 @@ export default function PracticePage() {
   const awardedRelic = getRelicDefinition(game.relicOfferId);
   const awardedRelicCount = game.relicCounts[game.relicOfferId] ?? 0;
   const totalRelicDrops = game.relicCounts.reduce((total, count) => total + count, 0);
-  const bossRewardActive = roomCleared && game.relicOfferAvailable;
-  const recoveryActive = game.active && roomCleared && !bossRewardActive;
+  const bossRewardActive = phase === "reward";
+  const recoveryActive = phase === "recovery";
   const endedActive = game.hasStarted && !game.active;
   const relicEquipPreview = describeRelicEquipImpact({
     currentMaxHp: game.maxHp,
     baseMaxHp: game.baseMaxHp,
     relicId: awardedRelic.id,
   });
-
-  useLayoutEffect(() => {
-    if (!bossRewardActive) return;
-    bossRewardRef.current?.focus({ preventScroll: true });
-    bossRewardRef.current?.scrollIntoView({
-      behavior: "instant",
-      block: "start",
-    });
-  }, [bossRewardActive]);
 
   const canChangeRelic = game.active && roomCleared && !busy;
   const roomHealDisabledReason = busy
@@ -307,31 +313,28 @@ export default function PracticePage() {
   else if (isBoss) subtitle = "Room " + room + " · BOSS";
   else if (game.hasStarted) subtitle = "Room " + room;
 
-  const persist = (next: PracticeGame) => {
+  const persist = (nextGame: PracticeGame, nextGrid: PracticeGridState) => {
     if (!canSaveRef.current) return;
-    const result = savePracticeRun(() => window.localStorage, next);
+    const result = savePracticeRun(() => window.localStorage, nextGame, nextGrid);
     if (result !== "saved") {
       canSaveRef.current = false;
       setStorageNotice(result === "invalid" ? "invalid" : "unavailable");
     } else {
-      savedGameRef.current = JSON.stringify(next);
+      savedGameRef.current = JSON.stringify({ game: nextGame, grid: nextGrid });
     }
   };
 
-  const commit = (next: PracticeGame) => {
-    gameRef.current = next;
-    setGame(next);
-    persist(next);
-  };
-
-  const revealEncounter = () => {
-    encounterFocusRequested.current = true;
+  const commit = (nextGame: PracticeGame, nextGrid = gridRef.current) => {
+    gameRef.current = nextGame;
+    gridRef.current = nextGrid;
+    setGame(nextGame);
+    setGrid(nextGrid);
+    persist(nextGame, nextGrid);
   };
 
   const restart = (replaceSave = false) => {
     if (!practiceStorageReady || actionBusyRef.current) return;
     actionBusyRef.current = true;
-    setMobileLogOpen(false);
     setRestartRequested(false);
     setShareNotice("");
     setShareFallback(false);
@@ -339,9 +342,11 @@ export default function PracticePage() {
     if (canSaveRef.current) setStorageNotice(null);
     try {
       const next = startRun();
-      commit(next);
-      revealEncounter();
-      setFeedback({ title: "Your first choice", detail: "Attack is steady. Storm may roll zero. A killing blow stops the monster from hitting back.", tone: "neutral" });
+      const nextGrid = createPracticeGrid(cryptoRandomInt(0x1_0000_0000));
+      commit(next, nextGrid);
+      setCue(null);
+      setCueId(0);
+      setFeedback({ title: "Enter the room", detail: "Walk toward the enemy to begin combat.", tone: "neutral" });
       audio.playAction("click");
     } catch {
       setFeedback({ title: "The dungeon could not open", detail: "Local randomness is unavailable. Your previous run is unchanged. Try reloading the page.", tone: "danger" });
@@ -350,15 +355,36 @@ export default function PracticePage() {
     }
   };
 
-  const settleAction = (before: PracticeGame, next: PracticeGame, kind: PracticeActionKind) => {
-    commit(next);
+  const settleAction = (
+    before: PracticeGame,
+    next: PracticeGame,
+    kind: PracticeActionKind,
+    beforeGrid = gridRef.current,
+  ) => {
+    let nextGame = next;
+    let nextGrid = beforeGrid;
+    const combatTurn = before.monsterHp > 0 && (kind === "attack" || kind === "storm" || kind === "potion");
+    if (combatTurn) nextGrid = countPracticeTurn(nextGrid);
+    const held = holdPracticeLoot(before, nextGame, nextGrid);
+    nextGame = held.game;
+    nextGrid = held.grid;
+    if (!nextGame.active) nextGrid = { ...nextGrid, engaged: false };
+    if (kind === "encounter") nextGrid = enterPracticeRoom(nextGrid);
+    commit(nextGame, nextGrid);
     setStorageNotice((notice) => notice === "restored" ? null : notice);
-    if (kind === "encounter") revealEncounter();
-    setFeedback(describePracticeAction(before, next, kind));
-    if (!next.active) audio.playOutcome("death");
-    else if (next.roomsCleared > before.roomsCleared) audio.playOutcome(before.monsterType === 3 ? "victory" : "loot");
+    setCue(combatTurn ? (nextGame.relicReviveUsed && !before.relicReviveUsed ? "revive" : nextGame.lastCritical ? "critical" : kind === "storm" ? "storm" : kind === "potion" ? "potion" : "attack") : null);
+    setCueId((id) => id + 1);
+    setFeedback(nextGrid.pendingLoot && beforeGrid.pendingLoot === null
+      ? {
+          title: `${kind === "storm" ? "Storm" : nextGame.lastCritical ? "Critical attack" : "Attack"} · ${nextGame.lastPlayerDamage} damage`,
+          detail: `Room ${nextGame.roomsCleared} cleared. Walk to the loot to collect it or leave it behind.`,
+          tone: "good",
+        }
+      : describePracticeAction(before, nextGame, kind));
+    if (!nextGame.active) audio.playOutcome("death");
+    else if (nextGrid.pendingLoot) audio.playOutcome(nextGame.lastCritical ? "critical" : "hit");
     else if (kind === "relic") audio.playOutcome("relic");
-    else if ((kind === "attack" || kind === "storm") && next.lastPlayerDamage > 0) audio.playOutcome(next.lastCritical ? "critical" : "hit");
+    else if ((kind === "attack" || kind === "storm") && nextGame.lastPlayerDamage > 0) audio.playOutcome(nextGame.lastCritical ? "critical" : "hit");
   };
 
   const actionFailed = () => {
@@ -390,7 +416,7 @@ export default function PracticePage() {
     action: (current: PracticeGame) => PracticeGame,
   ) => {
     const before = gameRef.current;
-    if (!before.active || before.relicOfferAvailable) return;
+    if (!before.active || before.relicOfferAvailable || gridRef.current.pendingLoot) return;
     if (kind === "encounter" ? before.monsterHp > 0 : kind !== "potion" && before.monsterHp === 0) return;
     if (kind === "potion" && (before.potions === 0 || before.hp >= before.maxHp || (before.monsterHp > 0 && before.combatPotionsUsed >= (before.monsterType === 3 ? 3 : 2)))) return;
     resolveLocalAction(kind, action);
@@ -404,6 +430,34 @@ export default function PracticePage() {
     resolveLocalAction("relic", action);
   };
 
+  const approach = () => {
+    if (busy || actionBusyRef.current || phase !== "explore") return;
+    const nextGrid = engagePracticeGrid(gridRef.current);
+    commit(gameRef.current, nextGrid);
+    setFeedback({ title: "Your turn", detail: "A killing blow prevents the enemy's reply.", tone: "neutral" });
+    audio.playAction("click");
+  };
+
+  const collectLoot = () => {
+    if (busy || actionBusyRef.current || gridRef.current.pendingLoot === null) return;
+    const before = gridRef.current.pendingLoot;
+    const next = collectPracticeLoot(gameRef.current, gridRef.current);
+    commit(next.game, next.grid);
+    setCue(null);
+    setFeedback({ title: "Loot collected", detail: practiceLootSummary(before), tone: "good" });
+    audio.playOutcome(gameRef.current.monsterType === 3 ? "victory" : "loot");
+  };
+
+  const leaveLoot = () => {
+    if (busy || actionBusyRef.current || gridRef.current.pendingLoot === null) return;
+    const discarded = gridRef.current.pendingLoot;
+    commit(gameRef.current, skipPracticeLoot(gridRef.current));
+    setCue(null);
+    setFeedback({ title: "Loot left behind", detail: `${practiceLootSummary(discarded)} discarded.`, tone: "neutral" });
+    if (gameRef.current.monsterType === 3) audio.playOutcome("victory");
+    else audio.playAction("click");
+  };
+
   const retryStorage = () => {
     const restored = inspectPracticeRun(() => window.localStorage);
     if (gameRef.current.hasStarted) {
@@ -412,19 +466,22 @@ export default function PracticePage() {
         return;
       }
       // A session-only run must not silently replace another saved run.
-      if (!canSaveRef.current && restored.status === "restored" && restored.game.hasStarted && JSON.stringify(restored.game) !== savedGameRef.current) {
+      if (!canSaveRef.current && restored.status === "restored" && restored.game.hasStarted
+        && JSON.stringify({ game: restored.game, grid: restored.grid }) !== savedGameRef.current) {
         setStorageNotice("conflict");
         return;
       }
       canSaveRef.current = true;
       setStorageNotice(null);
-      persist(gameRef.current);
+      persist(gameRef.current, gridRef.current);
     } else if (restored.status === "restored" || restored.status === "empty") {
       canSaveRef.current = true;
       if (restored.status === "restored") {
-        savedGameRef.current = JSON.stringify(restored.game);
+        savedGameRef.current = JSON.stringify({ game: restored.game, grid: restored.grid });
         gameRef.current = restored.game;
+        gridRef.current = restored.grid;
         setGame(restored.game);
+        setGrid(restored.grid);
       }
       setStorageNotice(restored.status === "restored" && restored.game.hasStarted ? "restored" : null);
     } else {
@@ -469,7 +526,7 @@ export default function PracticePage() {
             />
   );
 
-  const clearedPersona = getMonsterPersona({ ...game, roomsCleared: Math.max(0, game.roomsCleared - 1) });
+  const clearedPersona = getMonsterPersona(game);
   const recoveryEnterAction = (
     <button type="button" data-keyboard-default="true" onClick={() => runLocalAction("encounter", enterNextRoom)} disabled={busy}>
       {room % 10 === 0 ? `ENTER BOSS ROOM ${room}` : `ENTER ROOM ${room}`}
@@ -587,6 +644,122 @@ export default function PracticePage() {
     </>
   );
 
+  if (game.hasStarted && game.active) {
+    const pendingLoot = grid.pendingLoot;
+    const sceneLoot = pendingLoot ? {
+      type: game.lastLootType,
+      amount: game.lastLootAmount,
+      gold: pendingLoot.gold,
+      // The boss relic is a separate keep/equip decision after regular loot.
+      relicId: 0,
+    } : undefined;
+    const notices = (
+      <>
+        {storageNotice && (
+          <div className={`practice-storage-banner${storageNotice === "restored" ? " practice-restored-notice" : ""}`} role="status">
+            {storageNotice === "restored" ? (
+              <div className="flex items-center justify-between gap-2">
+                <p>Local run restored · Room {practiceRoom(game)}</p>
+                <button type="button" onClick={() => setStorageNotice(null)} aria-label="Dismiss restore notice" className="min-h-11 min-w-11 text-lg">×</button>
+              </div>
+            ) : (
+              <>
+                <p className="font-bold">{storageNotice === "unavailable" ? "Browser saving is unavailable" : "Saved run kept unchanged"}</p>
+                <p>{storageNotice === "unavailable"
+                  ? "You can keep playing this visit. Progress may be lost when you close or reload the page."
+                  : storageNotice === "conflict"
+                    ? "Another saved run may have changed in a different tab. Saving is paused to protect it. This visit can continue without saving."
+                    : "The saved run could not be safely restored. Play without saving, retry, or explicitly replace the saved run."}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <button type="button" onClick={retryStorage} disabled={busy} className="min-h-11 underline">Retry saving / restore</button>
+                  {storageNotice !== "unavailable" && <button type="button" disabled={busy} onClick={() => setRestartRequested(true)} className="min-h-11 underline">Replace save & start new run</button>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {restartRequested && (
+          <div className="practice-storage-banner" role="group" aria-label="Start a new run">
+            <p className="font-bold">Start over? Your current local run will end.</p>
+            <p>{storageNotice === "invalid" || storageNotice === "conflict" ? "This will also replace the saved run on this browser." : "Your new run starts in Room 1."}</p>
+            <div className="mt-2 flex gap-3">
+              <button type="button" onClick={() => setRestartRequested(false)} className="min-h-11 rounded-lg border border-zinc-600 px-4">Keep playing</button>
+              <button type="button" onClick={() => restart(storageNotice === "invalid" || storageNotice === "conflict")} className="min-h-11 rounded-lg bg-orange-500 px-4 font-bold text-black">End run & restart</button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+    const reward = bossRewardActive ? (
+      <BossRelicReward
+        idPrefix="practice"
+        room={game.roomsCleared}
+        hp={game.hp}
+        maxHp={game.maxHp}
+        gold={game.gold}
+        ownedRelicCount={game.ownedRelics.length}
+        totalRelicDrops={totalRelicDrops}
+        awardedRelic={awardedRelic}
+        awardedRelicCount={awardedRelicCount}
+        currentRelic={game.equippedRelic === 0 ? null : relic}
+        equipPreview={relicEquipPreview}
+        busy={busy}
+        onKeep={() => runRelicAction((current) => claimRelic(current, false))}
+        onEquip={() => runRelicAction((current) => claimRelic(current, true))}
+        containerRef={bossRewardRef}
+        className="practice-boss-reward mx-auto max-w-5xl"
+      />
+    ) : undefined;
+
+    return (
+      <EndlessRoom
+        key={grid.seed}
+        mode="practice"
+        view={{
+          room: practiceRoom(game),
+          seed: grid.seed,
+          enemy: game.monsterType,
+          enemyName: persona.name,
+          enemyHp: game.monsterHp,
+          hp: game.hp,
+          relic: game.equippedRelic,
+          weapon: game.weaponLevel,
+          armor: game.armorLevel,
+          phase,
+          loot: sceneLoot,
+          pending: busy,
+          cue,
+          cueId,
+          damage: game.lastPlayerDamage,
+          incoming: game.lastMonsterDamage,
+        }}
+        actions={{
+          approach,
+          enter: () => runLocalAction("encounter", enterNextRoom),
+          collect: collectLoot,
+          skipLoot: leaveLoot,
+          interact: () => audio.playAction("click"),
+        }}
+        enemyMaxHp={game.monsterMaxHp}
+        maxHp={game.maxHp}
+        gold={game.gold}
+        potions={game.potions}
+        roomTurns={grid.roomTurns}
+        incoming={`${incoming[0]}–${incoming[1]}`}
+        combatActions={combatActions}
+        healAction={recoveryActive ? recoveryHealAction : undefined}
+        shop={merchantVisit && recoveryActive ? recoveryShop : undefined}
+        relics={recoveryActive ? relicPanels : undefined}
+        reward={reward}
+        notices={storageNotice || restartRequested ? notices : undefined}
+        menu={<button type="button" onClick={() => setRestartRequested(true)} disabled={busy}>Start a new run</button>}
+        feedback={feedback ? { title: feedback.title, detail: feedback.detail } : undefined}
+        log={game.log}
+        sound={{ enabled: audio.enabled, available: audio.available, paused: audio.paused, toggleSound: audio.toggleSound }}
+      />
+    );
+  }
+
   return (
     <main className={"practice-shell delveworn-practice-mode min-h-screen bg-[#090909] px-4 py-6 text-white lg:px-8 lg:py-8" + (game.hasStarted ? " practice-in-run" : "") + (bossRewardActive ? " practice-boss-focus" : "")}>
       <div className="practice-column mx-auto w-full max-w-md lg:max-w-6xl">
@@ -656,7 +829,7 @@ export default function PracticePage() {
           />
         )}
 
-        <section ref={arenaRef} tabIndex={-1} aria-label="Practice dungeon encounter" className={"practice-main-card relative mb-4 overflow-hidden rounded-2xl border " + (isBoss || bossRewardActive ? "border-purple-700 bg-gradient-to-b from-purple-950/50 to-zinc-950" : "border-zinc-800 bg-zinc-900")}>
+        <section tabIndex={-1} aria-label="Practice dungeon encounter" className={"practice-main-card relative mb-4 overflow-hidden rounded-2xl border " + (isBoss || bossRewardActive ? "border-purple-700 bg-gradient-to-b from-purple-950/50 to-zinc-950" : "border-zinc-800 bg-zinc-900")}>
           {game.hasStarted && <RoomProgressLine room={practiceRoom(game)} roomsCleared={game.roomsCleared} isBoss={isBoss} phase={!game.active ? "Run ended" : bossRewardActive ? "Boss defeated · relic reward" : merchantVisit ? merchantVisit === "camp" ? "Camp · prepare for the boss" : "Kevin's supply stop" : roomCleared ? "Loot collected" : "Combat"} />}
           {!game.hasStarted ? (
             <DungeonEntry

@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { useEffect, useReducer } from "react";
-import { ENEMY_ART, type RoomView } from "../dungeon/scene";
+import { getEnemyArt, type RoomView } from "../dungeon/scene";
 import type { MonsterType } from "../practice/engine";
 
 export const MONSTER_REVEAL_DURATION_MS = 2_000;
 
 export type MonsterRevealProps = {
   enemy: MonsterType;
+  room?: number;
   name: string;
   role: string;
   hp: number;
@@ -23,19 +24,18 @@ export function shouldAutoRevealMonster(phase: RoomView["phase"], roomTurns: num
   return phase === "combat" && roomTurns === 0 && hp > 0;
 }
 
-export function isMonsterRevealVisible({ phase, roomTurns, hp, cueId, dismissedAt, manualAt }: Pick<MonsterRevealProps, "phase" | "roomTurns" | "hp" | "cueId"> & { dismissedAt: number | null; manualAt: number | null }) {
-  const active = phase === "combat" && hp > 0;
-  return active && (manualAt === cueId || (roomTurns === 0 && dismissedAt !== cueId));
+export function isMonsterRevealVisible(phase: RoomView["phase"], hp: number, state: MonsterRevealState) {
+  return state.automatic || (state.manual && phase === "combat" && hp > 0);
 }
 
-export type MonsterRevealState = { dismissedAt: number | null; manualAt: number | null; artReady: boolean };
-export type MonsterRevealEvent = { type: "view"; cueId: number } | { type: "dismiss"; cueId: number } | { type: "art-ready" };
+export type MonsterRevealState = { automatic: boolean; manual: boolean; artReady: boolean };
+export type MonsterRevealEvent = { type: "view" | "dismiss" | "art-ready" };
 type MonsterRevealTimers = { setTimeout: (callback: () => void, delay: number) => number; clearTimeout: (timer: number) => void };
 
 export function monsterRevealReducer(state: MonsterRevealState, event: MonsterRevealEvent): MonsterRevealState {
   if (event.type === "art-ready") return state.artReady ? state : { ...state, artReady: true };
-  if (event.type === "view") return { ...state, manualAt: event.cueId };
-  return { ...state, dismissedAt: event.cueId, manualAt: null };
+  if (event.type === "view") return { ...state, manual: true };
+  return { ...state, automatic: false, manual: false };
 }
 
 export function shouldScheduleMonsterRevealDismiss(visible: boolean, manual: boolean, artReady: boolean) {
@@ -47,25 +47,26 @@ export function scheduleMonsterRevealDismiss(onDismiss: () => void, timers: Mons
   return () => timers.clearTimeout(timer);
 }
 
-export function MonsterReveal({ enemy, name, role, hp, maxHp, phase, roomTurns, cueId, pending }: MonsterRevealProps) {
+export function MonsterReveal({ enemy, room = 1, name, role, hp, maxHp, phase, roomTurns }: MonsterRevealProps) {
   const [state, dispatch] = useReducer(monsterRevealReducer, {
-    dismissedAt: shouldAutoRevealMonster(phase, roomTurns, hp) ? null : cueId,
-    manualAt: null,
+    automatic: shouldAutoRevealMonster(phase, roomTurns, hp),
+    manual: false,
     artReady: false,
   });
-  const art = ENEMY_ART[enemy];
+  const art = getEnemyArt(enemy,room);
   const active = phase === "combat" && hp > 0;
-  const visible = !pending && isMonsterRevealVisible({ phase, roomTurns, hp, cueId, ...state });
+  const visible = isMonsterRevealVisible(phase, hp, state);
 
   useEffect(() => {
-    if (!shouldScheduleMonsterRevealDismiss(visible, state.manualAt === cueId, state.artReady)) return;
-    return scheduleMonsterRevealDismiss(() => dispatch({ type: "dismiss", cueId }), window);
-  }, [cueId, state.artReady, state.manualAt, visible]);
+    // Combat revisions, HP and pending transactions never reset this clock.
+    if (!shouldScheduleMonsterRevealDismiss(state.automatic, state.manual, state.artReady)) return;
+    return scheduleMonsterRevealDismiss(() => dispatch({ type: "dismiss" }), window);
+  }, [state.automatic, state.artReady, state.manual]);
 
-  if (!active || pending) return null;
+  if (!active && !visible) return null;
 
   if (!visible) return <div className="descent-monster-reveal is-collapsed">
-    <button className="descent-monster-reveal-trigger" type="button" onClick={() => dispatch({ type: "view", cueId })} aria-label={`View ${name} monster close-up, ${hp} of ${maxHp} health`}>
+    <button className="descent-monster-reveal-trigger" type="button" onClick={() => dispatch({ type: "view" })} aria-label={`View ${name} monster close-up, ${hp} of ${maxHp} health`}>
       <span className="descent-monster-reveal-thumb"><Image src={art.src} alt="" fill sizes="48px" unoptimized /></span>
       <span><strong>View monster</strong><small>{name} · {hp} / {maxHp} HP</small></span>
     </button>
@@ -84,7 +85,7 @@ export function MonsterReveal({ enemy, name, role, hp, maxHp, phase, roomTurns, 
         </div>
         <small>{hp} / {maxHp} HP</small>
       </div>
-      <button className="descent-monster-reveal-close" type="button" onClick={() => dispatch({ type: "dismiss", cueId })} aria-label={`Close ${name} close-up`}>Continue fight <span aria-hidden="true">×</span></button>
+      <button className="descent-monster-reveal-close" type="button" onClick={() => dispatch({ type: "dismiss" })} aria-label={`Close ${name} close-up`}>Close artwork <span aria-hidden="true">×</span></button>
     </section>
   </div>;
 }

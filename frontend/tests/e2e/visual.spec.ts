@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { EMPTY_GAME, type PracticeGame } from "../../app/practice/engine";
+import { createPracticeGrid, type PracticeGridState } from "../../app/practice/grid-state";
 import { PRACTICE_RUN_STORAGE_KEY, savePracticeRun } from "../../app/practice/storage";
 
 const base: PracticeGame = {
@@ -15,20 +16,31 @@ const base: PracticeGame = {
   log: [],
 };
 
-async function restoreFixture(page: Page, overrides: Partial<PracticeGame>) {
+async function restoreFixture(page: Page, overrides: Partial<PracticeGame>, grid?: PracticeGridState) {
   let serialized = "";
   expect(savePracticeRun({
     getItem: () => null,
     setItem: (_key, value) => { serialized = value; },
-  }, { ...base, ...overrides })).toBe("saved");
+  }, { ...base, ...overrides }, grid)).toBe("saved");
   await page.evaluate(({ key, serialized }) => localStorage.setItem(key, serialized), {
     key: PRACTICE_RUN_STORAGE_KEY,
     serialized,
   });
   await page.goto("/practice");
-  await page.getByRole("button", { name: "Dismiss restore notice" }).click();
+  const rewardDialog = page.getByRole("dialog", { name: "Boss relic reward" });
+  const dismiss = page.locator('button[aria-label="Dismiss restore notice"]:visible');
+  if (await rewardDialog.isVisible()) {
+    await rewardDialog.getByRole("button", { name: "Dismiss restore notice" }).click();
+  } else if (await dismiss.count() === 0) {
+    await page.getByRole("button", { name: "Run status · view details" }).click();
+    await page.locator('button[aria-label="Dismiss restore notice"]:visible').first().click();
+  } else {
+    await dismiss.first().click();
+  }
+  const status = page.getByRole("dialog", { name: "Run status" });
+  if (await status.isVisible()) await status.getByRole("button", { name: "Close Run status" }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(page.locator(".practice-hud")).toBeInViewport();
+  if ((await page.locator(".endless-room").count()) > 0) await expect(page.locator(".endless-room")).toBeVisible();
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = false) {
@@ -51,7 +63,11 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
   await testInfo.attach(filename, { path, contentType: "image/png" });
   return page.evaluate(() => {
     const bounds = (selector: string) => {
-      const element = document.querySelector(selector);
+      const matches = Array.from(document.querySelectorAll(selector));
+      const element = matches.find(match => {
+        const rect = match.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }) ?? matches[0];
       if (!element) return null;
       const { x, y, width, height, bottom } = element.getBoundingClientRect();
       return { x, y, width, height, bottom };
@@ -65,25 +81,22 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
       homePanel: bounds('section[aria-label="Selected dungeon"]'),
       homeArt: bounds("[data-home-art]"),
       homeCopy: bounds("[data-home-copy]"),
-      header: bounds(".practice-header"),
-      hud: bounds(".practice-hud"),
-      progress: bounds(".practice-room-progress"),
-      monster: bounds(".practice-monster-stage"),
-      monsterName: bounds(".practice-monster-heading"),
-      enemyHp: bounds(".practice-enemy-hp-label"),
+      header: bounds(".endless-room > .descent-header"),
+      hud: bounds(".descent-hud"),
+      progress: bounds(".descent-mobile-progress"),
+      scene: bounds("[data-room-scene]"),
+      floor: bounds("svg.dungeon-scene"),
+      monster: bounds(".dungeon-enemy"),
+      monsterName: bounds(".descent-mobile-room, .descent-enemy-card"),
+      enemyHp: bounds('.descent-enemy-card [role="progressbar"]'),
       dock: bounds(".practice-action-dock"),
       storm: bounds(".practice-storm-action"),
       attack: bounds(".practice-attack-action"),
       potion: bounds(".practice-potion-action"),
-      recoveryArt: bounds(".recovery-art"),
-      recoveryDetails: bounds(".recovery-details"),
-      recoveryPanel: bounds(".recovery-panel"),
-      recoveryNext: bounds(".recovery-next"),
-      recoveryResources: bounds(".recovery-resources"),
-      recoveryHeal: bounds(".recovery-heal"),
-      recoveryRelics: bounds(".recovery-relics"),
-      recoveryLog: bounds(".recovery-log"),
-      recoveryThumbnail: bounds(".recovery-thumbnail"),
+      loot: bounds("[data-room-loot]"),
+      floorControls: bounds(".dungeon-floor-controls"),
+      recoveryPanel: bounds(".descent-recovery-potion"),
+      merchant: bounds(".descent-merchant"),
       shop: bounds(".practice-kevin-shop"),
       reward: bounds(".boss-reward-view"),
       result: bounds(".practice-result-view"),
@@ -94,51 +107,17 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
   });
 }
 
-async function expectRecoveryLayout(page: Page, layout: Awaited<ReturnType<typeof capture>>, artwork: RegExp) {
-  const recovery = page.locator(".dungeon-recovery");
-  const details = recovery.locator(".recovery-details");
-  const art = recovery.locator(".recovery-art");
-  const thumbnail = recovery.locator(".recovery-thumbnail");
-  await expect(details.locator(".recovery-panel")).toBeVisible();
-  await expect(details.locator(".recovery-next")).toBeVisible();
-  await expect(details.locator(".recovery-resources")).toBeVisible();
-  await expect(details.locator(".recovery-heal")).toBeVisible();
-  await expect(details.locator(".recovery-log")).toBeVisible();
-  const controls = [layout.recoveryPanel!, layout.recoveryNext!, layout.recoveryResources!, layout.recoveryHeal!, layout.recoveryLog!];
-  if (layout.shop) controls.push(layout.shop);
-  if (layout.recoveryRelics) {
-    controls.push(layout.recoveryRelics);
-    await expect(details.locator(".relic-collection")).not.toBeVisible();
-  }
-  for (const control of controls) {
-    expect(control.x).toBeGreaterThanOrEqual(layout.recoveryDetails!.x - 1);
-    expect(control.x + control.width).toBeLessThanOrEqual(layout.recoveryDetails!.x + layout.recoveryDetails!.width + 1);
-  }
-  expect(layout.recoveryLog!.y).toBeGreaterThanOrEqual(layout.recoveryPanel!.bottom - 1);
-  if (layout.viewport.width > 800) {
-    await expect(art).toBeVisible();
-    await expect(thumbnail).not.toBeVisible();
-    expect(layout.recoveryArt!.width).toBeGreaterThanOrEqual(300);
-    expect(layout.recoveryArt!.height).toBeGreaterThanOrEqual(300);
-    expect(layout.recoveryArt!.x + layout.recoveryArt!.width).toBeLessThanOrEqual(layout.recoveryDetails!.x + 1);
-    expect(layout.recoveryNext!.bottom).toBeLessThanOrEqual(layout.recoveryResources!.y + 1);
+async function expectRoomLayout(page: Page, layout: Awaited<ReturnType<typeof capture>>) {
+  await expect(page.locator("[data-room-scene]")).toBeVisible();
+  await expect(page.locator("svg.dungeon-scene")).toBeVisible();
+  expect(layout.floor!.width).toBeGreaterThan(0);
+  expect(layout.floor!.height).toBeGreaterThan(0);
+  expect(layout.floorControls!.bottom).toBeLessThanOrEqual(layout.viewport.height + 1);
+  if (layout.viewport.width > 760) {
+    expect(layout.scene!.x + layout.scene!.width).toBeLessThanOrEqual(layout.monsterName!.x + 1);
   } else {
-    await expect(art).not.toBeVisible();
-    if (layout.recoveryThumbnail) {
-      await expect(thumbnail).toBeVisible();
-      expect(layout.recoveryThumbnail.width).toBeLessThanOrEqual(65);
-    } else {
-      await expect(recovery.locator(".recovery-merchant img")).toBeVisible();
-    }
-    expect(layout.recoveryNext!.y).toBeGreaterThanOrEqual(layout.recoveryHeal!.bottom - 1);
-    expect(layout.recoveryNext!.bottom).toBeLessThanOrEqual(layout.recoveryLog!.y + 1);
+    expect(layout.floor!.width).toBeLessThanOrEqual(layout.viewport.width + 1);
   }
-  const visibleArt = layout.viewport.width > 800
-    ? art.locator("img")
-    : recovery.locator(layout.recoveryThumbnail ? ".recovery-thumbnail img" : ".recovery-merchant img");
-  await expect(visibleArt).toBeVisible();
-  await expect(visibleArt).toHaveAttribute("src", artwork);
-  expect(await visibleArt.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
 }
 
 test("capture six representative local experience states", async ({ page }, testInfo) => {
@@ -162,37 +141,37 @@ test("capture six representative local experience states", async ({ page }, test
   await restoreFixture(page, { log: ["Grave Belle has noticed your excellent collection of brains."] });
   const combat = await capture(page, testInfo, "combat");
   measurements.combat = combat;
-  expect(combat.monster?.height).toBeGreaterThanOrEqual(testInfo.project.name === "desktop-chromium" ? 200 : 150);
-  expect(combat.enemyHp!.bottom).toBeLessThanOrEqual(combat.dock!.y);
+  await expectRoomLayout(page, combat);
+  expect(combat.monster!.height).toBeGreaterThan(0);
   expect(combat.storm!.x).toBeLessThan(combat.attack!.x);
   expect(combat.potion!.y).toBeGreaterThanOrEqual(Math.max(combat.storm!.bottom, combat.attack!.bottom));
   expect(Math.abs(combat.potion!.x - combat.storm!.x)).toBeLessThan(1);
   expect(Math.abs(combat.potion!.width - (combat.attack!.x + combat.attack!.width - combat.storm!.x))).toBeLessThan(1);
-  if (testInfo.project.name === "desktop-chromium") {
-    expect(combat.dock!.x).toBeGreaterThanOrEqual(combat.monster!.x + combat.monster!.width);
-  }
   if (testInfo.project.name !== "desktop-chromium") {
-    expect(combat.monsterName!.y).toBeGreaterThanOrEqual(combat.hud!.bottom);
     expect(combat.monsterName!.bottom).toBeLessThanOrEqual(combat.dock!.y);
     expect(combat.dock!.bottom).toBeLessThanOrEqual(combat.viewport.height + 1);
-    const clearArtTop = Math.max(combat.monster!.y, combat.enemyHp!.bottom);
-    const clearArtBottom = Math.min(combat.monster!.bottom, combat.dock!.y);
-    expect(clearArtBottom - clearArtTop).toBeGreaterThanOrEqual(150);
   }
 
-  await restoreFixture(page, { roomsCleared: 3, monsterHp: 0, lastLootType: 3, lastLootAmount: 1, weaponLevel: 1, lastPlayerDamage: 14, log: ["Room 3 cleared. A weapon upgrade survived the paperwork."] });
-  await expect(page.getByRole("heading", { name: "Loot secured: Weapon +1", exact: true })).toBeVisible();
+  await restoreFixture(
+    page,
+    { roomsCleared: 3, monsterHp: 0, lastLootType: 3, lastLootAmount: 1, weaponLevel: 0, lastPlayerDamage: 14, log: ["Room 3 cleared. A weapon upgrade is waiting on the floor."] },
+    { ...createPracticeGrid(73), engaged: false, pendingLoot: { gold: 12, potions: 0, weapon: 1, armor: 0 }, roomTurns: 2 },
+  );
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
+  await expect(page.getByRole("img", { name: /Loot on the floor: 12 gold · Weapon \+1/ })).toBeVisible();
   measurements.loot = await capture(page, testInfo, "loot");
-  await expectRecoveryLayout(page, measurements.loot, /\/assets\/loot\/weapon-v1\.webp$/);
+  await expectRoomLayout(page, measurements.loot);
+  expect(measurements.loot.loot).not.toBeNull();
 
   await restoreFixture(page, { roomsCleared: 9, monsterHp: 0, weaponLevel: 2, armorLevel: 2, gold: 155, log: ["Kevin offers preparation. Receipts remain a mystery."] });
-  const weapon = page.getByRole("button", { name: /WEAPON/ });
+  await page.getByRole("button", { name: "Visit Kevin" }).click();
+  const shop = page.getByRole("dialog", { name: "Kevin's shop" });
+  await expect(shop).toBeVisible();
+  const weapon = shop.getByRole("button", { name: /WEAPON/ });
   await expect(weapon).toBeVisible();
   await expect(weapon).toBeInViewport();
-  await expect(page.getByRole("progressbar", { name: "Player health" })).toBeInViewport();
   measurements["kevin-camp"] = await capture(page, testInfo, "kevin-camp");
-  await expectRecoveryLayout(page, measurements["kevin-camp"], /\/characters\/merchant-quartermaster-kevin\.webp/);
-  const priceLines = await page.locator(".practice-kevin-shop").getByText(/^\d+ GOLD$/).evaluateAll(prices => prices.map(price => ({
+  const priceLines = await shop.locator(".practice-kevin-shop").getByText(/^\d+ GOLD$/).evaluateAll(prices => prices.map(price => ({
     height: price.getBoundingClientRect().height,
     lineHeight: Number.parseFloat(getComputedStyle(price).lineHeight),
   })));

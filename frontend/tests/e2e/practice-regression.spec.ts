@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { EMPTY_GAME, type PracticeGame } from "../../app/practice/engine";
+import type { PracticeGridState } from "../../app/practice/grid-state";
 import { isStoredPracticeGame, PRACTICE_RUN_STORAGE_KEY } from "../../app/practice/storage";
 
 async function seed(page: Page, overrides: Partial<PracticeGame>) {
@@ -12,11 +13,27 @@ async function seed(page: Page, overrides: Partial<PracticeGame>) {
     }
   }, { key: PRACTICE_RUN_STORAGE_KEY, game });
   await page.goto("/practice");
-  await expect(page.getByText(/Local run restored/)).toBeVisible();
+  await expect(page.locator(".endless-room, .practice-result-view").first()).toBeVisible();
+  const restored = page.locator(".practice-storage-banner:visible").filter({ hasText: /Local run restored/ });
+  if (await restored.count() > 0) await expect(restored.first()).toBeVisible();
+  else await expect(page.getByRole("button", { name: "Run status · view details" })).toBeVisible();
 }
 
 async function savedGame(page: Page): Promise<PracticeGame> {
   return page.evaluate(key => JSON.parse(localStorage.getItem(key)!).game, PRACTICE_RUN_STORAGE_KEY);
+}
+
+async function savedGrid(page: Page): Promise<PracticeGridState> {
+  return page.evaluate(key => JSON.parse(localStorage.getItem(key)!).grid, PRACTICE_RUN_STORAGE_KEY);
+}
+
+async function waitForPhase(page: Page, phase: string) {
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", phase);
+}
+
+async function walkThrough(page: Page, buttonName: RegExp, phase: string) {
+  await page.getByRole("button", { name: buttonName }).click();
+  await waitForPhase(page, phase);
 }
 
 async function zeroLocalRolls(page: Page) {
@@ -57,6 +74,21 @@ test("ended local run offers a copyable fallback when clipboard permission is de
   expect((await savedGame(page)).roomsCleared).toBe(13);
 });
 
+test("a new run must approach before combat hotkeys can change the game", async ({ page }) => {
+  await zeroLocalRolls(page);
+  await page.goto("/practice");
+  await page.getByRole("button", { name: /START LOCAL RUN/ }).click();
+  await waitForPhase(page, "explore");
+  await expect(page.getByLabel("Combat actions")).toHaveCount(0);
+  const before = await savedGame(page);
+  expect((await savedGrid(page)).engaged).toBe(false);
+  await page.keyboard.press("a");
+  expect(await savedGame(page)).toEqual(before);
+  await walkThrough(page, /^Approach /, "combat");
+  await expect(page.getByRole("button", { name: /⚔️ ATTACK/ })).toBeEnabled();
+  expect((await savedGrid(page)).engaged).toBe(true);
+});
+
 test("same-tick pointer and keyboard dispatch resolve one combat action", async ({ page }) => {
   await zeroLocalRolls(page);
   await seed(page, {});
@@ -86,7 +118,11 @@ test("same-tick pointer and keyboard dispatch resolve one combat action", async 
   expect(result.next.monsterHp).toBe(0);
   expect(result.next.roomsCleared).toBe(1);
   expect(result.next.hp).toBe(56);
-  await expect(page.locator(".recovery-panel").getByText("ROOM 1 CLEARED", { exact: true })).toBeVisible();
+  await waitForPhase(page, "loot");
+  const pending = await savedGrid(page);
+  expect(pending.pendingLoot?.gold).toBeGreaterThan(0);
+  await walkThrough(page, /Pick up loot/, "recovery");
+  expect((await savedGrid(page)).pendingLoot).toBeNull();
 });
 
 test("own potion heals safely between rooms, commits immediately and survives reload", async ({ page }) => {
@@ -101,12 +137,12 @@ test("own potion heals safely between rooms, commits immediately and survives re
   expect(healed.monsterHp).toBe(0);
   expect(healed.roomsCleared).toBe(1);
   expect(healed.gold).toBe(100);
-  await expect(page.locator(".recovery-resources")).toContainText("85/100");
+  await expect(page.locator(".descent-recovery-potion")).toContainText("85 / 100");
   await expect(heal).toContainText("2/5");
-  await expect(page.getByRole("button", { name: "ENTER ROOM 2", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Enter room 2/ })).toBeEnabled();
   await page.reload();
   expect(await savedGame(page)).toEqual(healed);
-  await expect(page.getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "85");
+  await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "85");
   const full = await clickAndRead(heal);
   expect(full.hp).toBe(100);
   expect(full.potions).toBe(1);
@@ -114,30 +150,31 @@ test("own potion heals safely between rooms, commits immediately and survives re
   await expect(heal).toBeDisabled();
 });
 
-test("same-tick shop dispatch charges once and the next event can enter immediately", async ({ page }) => {
+test("same-tick shop dispatch charges once and the door advances only on arrival", async ({ page }) => {
   await seed(page, { roomsCleared: 9, monsterHp: 0, gold: 200, weaponLevel: 2, armorLevel: 2 });
-  const result = await page.getByRole("button", { name: /⚔️ WEAPON/ }).evaluate(async (button: HTMLButtonElement, key) => {
+  await page.getByRole("button", { name: "Visit Kevin" }).click();
+  const shop = page.getByRole("dialog", { name: "Kevin's shop" });
+  await expect(shop).toBeVisible();
+  const result = await shop.getByRole("button", { name: /⚔️ WEAPON/ }).evaluate(async (button: HTMLButtonElement, key) => {
     const read = () => JSON.parse(localStorage.getItem(key)!).game as PracticeGame;
     button.click();
     const first = read();
     button.click();
     const duplicates = read();
     await Promise.resolve();
-    const enter = Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
-      .find(control => control.textContent?.includes("ENTER BOSS ROOM 10"))!;
-    const nextDisabled = enter.disabled;
-    enter.click();
-    return { first, duplicates, nextDisabled, next: read() };
+    return { first, duplicates };
   }, PRACTICE_RUN_STORAGE_KEY);
   expect(result.first.gold).toBe(140);
   expect(result.first.weaponLevel).toBe(3);
   expect(result.duplicates).toEqual(result.first);
-  expect(result.nextDisabled).toBe(false);
-  expect(result.next.monsterHp).toBeGreaterThan(0);
-  expect(result.next.monsterType).toBe(3);
-  expect(result.next.gold).toBe(140);
-  await expect(page.locator(".practice-hud")).toContainText("Lv 3 · +6 damage");
-  await expect(page.getByRole("heading", { name: "The Dungeon Lord", exact: true })).toBeVisible();
+  await shop.getByRole("button", { name: "Close Kevin's shop" }).click();
+  await walkThrough(page, /Enter room 10/, "explore");
+  const next = await savedGame(page);
+  expect(next.monsterHp).toBeGreaterThan(0);
+  expect(next.monsterType).toBe(3);
+  expect(next.gold).toBe(140);
+  await expect(page.locator(".descent-hud > div").filter({ hasText: "WEAPON" })).toContainText("3");
+  await expect(page.getByRole("heading", { name: "Room 10 · The Dungeon Lord", exact: true })).toBeVisible();
 });
 
 test("Storm, Potion, encounter and relic decisions commit locally without a loading phase", async ({ page }) => {
@@ -154,7 +191,11 @@ test("Storm, Potion, encounter and relic decisions commit locally without a load
   await clickAndRead(page.getByRole("button", { name: /⚔️ ATTACK/ }));
   const clear = await clickAndRead(page.getByRole("button", { name: /⚔️ ATTACK/ }));
   expect(clear.roomsCleared).toBe(1);
-  const encounter = await clickAndRead(page.getByRole("button", { name: /ENTER ROOM 2/ }));
+  await waitForPhase(page, "loot");
+  await page.getByRole("button", { name: "Leave loot" }).click();
+  await waitForPhase(page, "recovery");
+  await walkThrough(page, /Enter room 2/, "explore");
+  const encounter = await savedGame(page);
   expect(encounter.monsterHp).toBeGreaterThan(0);
   expect(encounter.combatPotionsUsed).toBe(0);
   await expect(page.getByText(/LOCAL ROLL|ROLLING ATTACK|ROLLING ENCOUNTER|Resolving action/)).toHaveCount(0);
@@ -168,18 +209,14 @@ test("Storm, Potion, encounter and relic decisions commit locally without a load
     button.click();
     const duplicates = read();
     await Promise.resolve();
-    const enter = Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
-      .find(control => control.textContent?.includes("ENTER ROOM 11"))!;
-    const nextDisabled = enter.disabled;
-    enter.click();
-    return { first, duplicates, nextDisabled, next: read() };
+    return { first, duplicates };
   }, PRACTICE_RUN_STORAGE_KEY);
   expect(relic.first.ownedRelics).toEqual([1]);
   expect(relic.first.relicCounts[1]).toBe(1);
   expect(relic.first.relicOfferAvailable).toBe(false);
   expect(relic.duplicates).toEqual(relic.first);
-  expect(relic.nextDisabled).toBe(false);
-  expect(relic.next.monsterHp).toBeGreaterThan(0);
+  await walkThrough(rewardPage, /Enter room 11/, "explore");
+  expect((await savedGame(rewardPage)).monsterHp).toBeGreaterThan(0);
   await expect(rewardPage.getByText(/LOCAL ROLL|ROLLING ENCOUNTER|Resolving action/)).toHaveCount(0);
   await rewardPage.close();
 });

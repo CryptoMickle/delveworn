@@ -186,7 +186,7 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
   const reloaded=new Set<number>();
   for (let n=0;n<180 && !["won","lost"].includes(phase(run));n++) {
     const currentPhase=phase(run), action=informedPolicy(run), expected=transition(run,action);
-    const names={engage:/Approach/,enter:/Enter room/,collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
+    const names={engage:/Approach/,enter:/Enter room/,"skip-loot":"Leave loot", collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
     const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
     if (isMobile && shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
     const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})

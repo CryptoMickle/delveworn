@@ -42,6 +42,19 @@ import {
 } from "./relics";
 import { runtimeNowMs } from "./runtime-time";
 import { legacyFrontendSnapshotAbi } from "./legacy-snapshot";
+import type { MonsterType } from "./practice/engine";
+import type { RoomView, SceneCue } from "./dungeon/scene";
+import { EndlessRoom } from "./dungeon/endless-room";
+import {
+  acknowledgeOnchainLoot,
+  applyConfirmedOnchainPresentation,
+  canUseOnchainPresentationAction,
+  createOnchainPresentationState,
+  engageOnchainEncounter,
+  onchainPresentationKey,
+  onchainPresentationPhase,
+  onchainPresentationScope,
+} from "./onchain-presentation";
 import {
   BossRelicReward,
   CombatActionDock,
@@ -3006,6 +3019,19 @@ function DelvewornGame() {
   ] = useState(false);
 
   const walletViewRef = useRef(createWalletViewGuard());
+  const [selectedWalletView, setSelectedWalletView] = useState<WalletView | null>(null);
+
+  function selectWalletView(owner: string, mode: WalletView["mode"]) {
+    const view = walletViewRef.current.select(owner, mode);
+    setSelectedWalletView(view);
+    return view;
+  }
+
+  function clearWalletView() {
+    walletViewRef.current.clear();
+    setSelectedWalletView(null);
+  }
+
   const somniaModeIntentRef = useRef<boolean | null>(null);
   const walletTransitionLockRef = useRef(false);
   const [walletTransitionPending, setWalletTransitionPending] = useState(false);
@@ -3071,6 +3097,36 @@ function DelvewornGame() {
     setLootFlash,
   ] =
     useState(false);
+
+  const [
+    onchainPresentation,
+    setOnchainPresentation,
+  ] = useState(createOnchainPresentationState);
+
+  const [
+    sceneCue,
+    setSceneCue,
+  ] = useState<SceneCue>(null);
+
+  const [
+    sceneCueScope,
+    setSceneCueScope,
+  ] = useState<string | null>(null);
+
+  const [
+    sceneCueId,
+    setSceneCueId,
+  ] = useState(0);
+
+  const sceneCueTimerRef =
+    useRef<number | null>(null);
+
+  const presentationScope =
+    onchainPresentationScope(
+      chainId,
+      connectedAddress,
+      selectedWalletView
+    );
 
   const [
     mobileLogOpen,
@@ -3269,6 +3325,14 @@ function DelvewornGame() {
   }, [
     connectedAddress,
   ]);
+
+  useEffect(() => {
+    return () => {
+      if (sceneCueTimerRef.current !== null) {
+        window.clearTimeout(sceneCueTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!somniaSessionHandle) {
@@ -4142,6 +4206,73 @@ function DelvewornGame() {
     return null;
   }
 
+  function presentResolvedScene(
+    beforeState: PlayerState | null,
+    resolvedState: PlayerState
+  ) {
+    if (!beforeState) {
+      return;
+    }
+
+    if (!walletViewRef.current.isCurrent(selectedWalletView)) {
+      return;
+    }
+
+    const action = actionTimingRef.current?.name;
+    setOnchainPresentation((current) =>
+      applyConfirmedOnchainPresentation(
+        current,
+        presentationScope,
+        action ?? "",
+        beforeState,
+        resolvedState
+      )
+    );
+
+    if (action === "startGame") {
+      if (sceneCueTimerRef.current !== null) {
+        window.clearTimeout(sceneCueTimerRef.current);
+        sceneCueTimerRef.current = null;
+      }
+      setSceneCue(null);
+      setSceneCueScope(null);
+    }
+
+    if (
+      action === "attack" ||
+      action === "stormAttack" ||
+      action === "usePotion"
+    ) {
+      if (sceneCueTimerRef.current !== null) {
+        window.clearTimeout(sceneCueTimerRef.current);
+      }
+
+      const revived =
+        !beforeState.relicReviveUsed &&
+        resolvedState.relicReviveUsed;
+
+      setSceneCue(
+        revived
+          ? "revive"
+          : action === "stormAttack"
+            ? "storm"
+            : action === "usePotion"
+              ? "potion"
+              : resolvedState.lastCritical
+                ? "critical"
+                : "attack"
+      );
+      setSceneCueScope(presentationScope);
+      setSceneCueId((value) => value + 1);
+      sceneCueTimerRef.current = window.setTimeout(() => {
+        setSceneCue(null);
+        setSceneCueScope(null);
+        sceneCueTimerRef.current = null;
+      }, 360);
+    }
+
+  }
+
   function finishFastVrfResolution(
     playerAddress:
       Address,
@@ -4155,12 +4286,19 @@ function DelvewornGame() {
     stage:
       string,
 
-    view: WalletView | null
+    view: WalletView | null,
+
+    beforeState: PlayerState | null
   ): PlayerState | null {
     if (!isPlayerViewCurrent(view, playerAddress)) return null;
 
     setActionProgressPhase(
       "syncing"
+    );
+
+    presentResolvedScene(
+      beforeState,
+      resolvedState
     );
 
     setPlayer(
@@ -4509,7 +4647,8 @@ function DelvewornGame() {
               displayStartedAt,
               resolvedState,
               "VRF resolved; canonical action lock engaged",
-              view
+              view,
+              beforeState
             );
           }
         } catch (
@@ -4606,7 +4745,8 @@ function DelvewornGame() {
               displayStartedAt,
               realtime,
               "VRF resolved via pending-state recovery; canonical action lock engaged",
-              view
+              view,
+              beforeState
             );
           }
         } catch (
@@ -4670,7 +4810,8 @@ function DelvewornGame() {
                 displayStartedAt,
                 canonical,
                 "VRF resolved via canonical recovery; canonical action lock engaged",
-                view
+                view,
+                beforeState
               );
             }
           } catch (
@@ -4918,7 +5059,7 @@ function DelvewornGame() {
   async function restoreSomniaInstantPlay(
     ownerAddress: Address
   ) {
-    const view = walletViewRef.current.select(ownerAddress, "somnia-session");
+    const view = selectWalletView(ownerAddress, "somnia-session");
     connectedAddressRef.current = ownerAddress;
     setSomniaSessionModeEnabled(
       true
@@ -5098,7 +5239,7 @@ function DelvewornGame() {
             ownerAddress
           );
         } else {
-          walletViewRef.current.select(ownerAddress, "standard");
+          selectWalletView(ownerAddress, "standard");
           connectedAddressRef.current = ownerAddress;
           setSomniaSessionMode(
             ownerAddress,
@@ -5387,7 +5528,7 @@ function DelvewornGame() {
     if (walletControlsBusy || walletTransitionLockRef.current) return;
     walletTransitionLockRef.current = true;
     setWalletTransitionPending(true);
-    walletViewRef.current.clear();
+    clearWalletView();
     connectedAddressRef.current = null;
     somniaModeIntentRef.current = false;
     try {
@@ -5516,7 +5657,7 @@ function DelvewornGame() {
         }
 
         if (!walletViewRef.current.isCurrent(view)) return;
-        walletViewRef.current.select(ownerAddress, "standard");
+        selectWalletView(ownerAddress, "standard");
         somniaModeIntentRef.current = false;
         connectedAddressRef.current = ownerAddress;
         clearSomniaSessionRecord(
@@ -7247,6 +7388,40 @@ function DelvewornGame() {
       return;
     }
 
+    const presentationPhase =
+      onchainPresentationPhase(
+        onchainPresentation,
+        presentationScope,
+        player
+      );
+    const combatPresentationAction =
+      player.monsterHp > 0 &&
+      (
+        functionName === "attack" ||
+        functionName === "stormAttack" ||
+        functionName === "usePotion"
+      );
+
+    if (
+      combatPresentationAction &&
+      !canUseOnchainPresentationAction(
+        onchainPresentation,
+        presentationScope,
+        player,
+        busy,
+        "combat"
+      )
+    ) {
+      if (presentationPhase === "explore") {
+        setActionFeedback("Approach the monster before choosing a combat action.");
+      } else {
+        setWalletMessage(
+          `Previous action is still finalizing on ${ACTIVE_ECOSYSTEM_NAME}. Please wait until the action buttons unlock.`
+        );
+      }
+      return;
+    }
+
     if (
       !actionReady ||
       player.pendingRequestId >
@@ -7525,6 +7700,11 @@ function DelvewornGame() {
             connectedAddress,
             "canonical"
           );
+
+        presentResolvedScene(
+          before,
+          resolved
+        );
 
         setPlayer(
           resolved
@@ -7960,6 +8140,13 @@ function DelvewornGame() {
               "canonical"
             );
 
+          if (playerStateChanged(player, fallback)) {
+            presentResolvedScene(
+              player,
+              fallback
+            );
+          }
+
           setPlayer(
             fallback
           );
@@ -8026,7 +8213,7 @@ function DelvewornGame() {
       !isConnected ||
       !wagmiAddress
     ) {
-      walletViewRef.current.clear();
+      clearWalletView();
       connectedAddressRef.current = null;
       setConnectedAddress(
         null
@@ -8065,7 +8252,7 @@ function DelvewornGame() {
     if (
       !supportedConnector
     ) {
-      walletViewRef.current.clear();
+      clearWalletView();
       connectedAddressRef.current = null;
       setConnectedAddress(
         null
@@ -8124,7 +8311,7 @@ function DelvewornGame() {
       return;
     }
 
-    walletViewRef.current.select(address, "standard");
+    selectWalletView(address, "standard");
     connectedAddressRef.current = address;
     setConnectedAddress(
       address
@@ -8177,6 +8364,10 @@ function DelvewornGame() {
 
   useLayoutEffect(() => {
     if (
+      (
+        onchainPresentation.scope === presentationScope &&
+        onchainPresentation.loot !== null
+      ) ||
       !player?.supportsRelicCollection ||
       !player.relicOfferAvailable
     ) {
@@ -8189,6 +8380,8 @@ function DelvewornGame() {
     player?.relicOfferAvailable,
     player?.relicOfferId,
     player?.supportsRelicCollection,
+    onchainPresentation,
+    presentationScope,
   ]);
 
   /*
@@ -8587,6 +8780,98 @@ function DelvewornGame() {
 
   const recoveryActive = roomCleared && !player.relicOfferAvailable;
   const endedActive = player.hasStarted && !player.active;
+
+  const activeEncounterPresentation =
+    onchainPresentation.scope === presentationScope &&
+    onchainPresentation.encounter?.room === currentRoom
+      ? onchainPresentation.encounter
+      : null;
+
+  const sceneRoom =
+    player.monsterHp === 0
+      ? Math.max(1, player.roomsCleared)
+      : currentRoom;
+
+  const sceneMonster =
+    getMonsterPersona(
+      player.monsterType,
+      sceneRoom
+    );
+
+  const scenePhase: RoomView["phase"] =
+    onchainPresentationPhase(
+      onchainPresentation,
+      presentationScope,
+      player
+    );
+
+  const roomLoot =
+    onchainPresentation.scope === presentationScope
+      ? onchainPresentation.loot
+      : null;
+
+  const roomLootActive =
+    scenePhase === "loot";
+
+  const sceneRoomTurns =
+    activeEncounterPresentation?.roomTurns ??
+    (
+      player.lastPlayerDamage > 0 ||
+      player.lastMonsterDamage > 0 ||
+      player.lastCritical
+        ? 1
+        : 0
+    );
+
+  const bossRelicPending =
+    player.relicOfferAvailable;
+  const presentationPlayer = player;
+
+  function acknowledgeRoomLoot(skipped: boolean) {
+    if (!canUseOnchainPresentationAction(
+      onchainPresentation,
+      presentationScope,
+      presentationPlayer,
+      busy,
+      "acknowledge-loot"
+    )) {
+      return;
+    }
+
+    audio.playAction("click");
+    setOnchainPresentation((current) =>
+      acknowledgeOnchainLoot(
+        current,
+        presentationScope,
+        presentationPlayer.roomsCleared
+      )
+    );
+    setActionFeedback(
+      `${skipped ? "Pickup skipped" : "Loot acknowledged"}. Gold and rolled loot were already credited by the confirmed onchain result.${bossRelicPending ? " Choose what to do with the boss relic next." : ""}`
+    );
+  }
+
+  function engageSceneMonster() {
+    if (!canUseOnchainPresentationAction(
+      onchainPresentation,
+      presentationScope,
+      presentationPlayer,
+      busy,
+      "approach"
+    )) {
+      return;
+    }
+
+    audio.playAction("click");
+    setOnchainPresentation((current) =>
+      engageOnchainEncounter(
+        current,
+        presentationScope,
+        currentRoom
+      )
+    );
+    setActionFeedback(`${sceneMonster.name} is in range. Choose your move.`);
+  }
 
   const inCombat =
     player.hasStarted &&
@@ -9071,30 +9356,9 @@ function DelvewornGame() {
 
   const recoveryShop = player.campOpen ? (
     <div data-keyboard-actions className="onchain-shop-actions lg:grid lg:grid-cols-2 lg:gap-3">
-
-      <div className="recovery-shop-heading col-span-full flex justify-between items-center mb-3">
-
-        <div>
-
-          <p className="text-[10px] text-amber-500 tracking-wider">
-            KEVIN&apos;S BOSS CAMP SHOP
-          </p>
-
-          <p className="font-bold">
-            Prepare for Room {currentRoom}
-          </p>
-
-          <p className="mt-1 text-xs text-zinc-400">
-            Arrival recovery: up to +{CAMP_ARRIVAL_HEAL} HP automatically. Boss combat allows {BOSS_COMBAT_POTION_LIMIT} potion uses.
-          </p>
-
-        </div>
-
-        <div className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-xl">
-          <GoldAmount amount={player.gold} />
-        </div>
-
-      </div>
+      <p className="col-span-full mb-3 text-xs text-zinc-400">
+        Arrival recovery: up to +{CAMP_ARRIVAL_HEAL} HP automatically. Boss combat allows {BOSS_COMBAT_POTION_LIMIT} potion uses.
+      </p>
 
       <button
         onClick={() =>
@@ -9282,27 +9546,6 @@ function DelvewornGame() {
     </div>
   ) : player.supplyOpen ? (
     <div data-keyboard-actions className="onchain-shop-actions lg:grid lg:grid-cols-2 lg:gap-3">
-
-      <div className="recovery-shop-heading col-span-full flex justify-between items-center mb-3">
-
-        <div>
-
-          <p className="text-[10px] text-cyan-500 tracking-wider">
-            KEVIN&apos;S SUPPLY SHOP
-          </p>
-
-          <p className="font-bold">
-            Restock before Room {currentRoom}
-          </p>
-
-        </div>
-
-        <div className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-xl">
-          <GoldAmount amount={player.gold} />
-        </div>
-
-      </div>
-
       <button
         onClick={() =>
           runSupplyTransaction(
@@ -9548,6 +9791,166 @@ function DelvewornGame() {
 
     </div>
   ) : null;
+
+  const activeRoomNotices =
+    randomnessStatus || walletMessage
+      ? (
+          <>
+            {randomnessStatus}
+            {walletMessage && (
+              <p role="status" className="mt-3 text-sm text-red-300">
+                {walletMessage}
+              </p>
+            )}
+          </>
+        )
+      : undefined;
+
+  const activeRoomMenu = (
+    <div className="mt-4 space-y-3">
+      <OnchainWalletControls
+        mode={hasSomniaSession ? "somnia-session" : isRiseWallet ? "rise-session" : "standard"}
+        supportsSomniaSession={isMetaMask && supportsThirdwebSessionKeys()}
+        busy={walletControlsBusy}
+        onEnableSomniaSession={() => void connectWallet("somnia-session")}
+        onDisconnect={() => void resetWalletConnection()}
+        onRevoke={() => void revokeSession()}
+      />
+      <p className="text-xs text-zinc-400">
+        {ACTIVE_NETWORK_LABEL} · {connectedAddress.slice(0, 6)}…{connectedAddress.slice(-4)}
+      </p>
+      <a href={DUNGEON_EXPLORER_URL} target="_blank" rel="noreferrer">
+        View contract ↗
+      </a>
+    </div>
+  );
+
+  const activeRoomReward =
+    player.supportsRelicCollection && player.relicOfferId !== 0
+      ? (
+          <BossRelicReward
+            idPrefix="onchain-room"
+            room={player.roomsCleared}
+            hp={player.hp}
+            maxHp={player.maxHp}
+            gold={player.gold}
+            ownedRelicCount={player.ownedRelics.length}
+            totalRelicDrops={totalRelicDrops}
+            awardedRelic={awardedRelic}
+            awardedRelicCount={awardedRelicCount}
+            currentRelic={player.equippedRelic === 0 ? null : equippedRelic}
+            equipPreview={relicEquipPreview}
+            busy={busy}
+            onKeep={() => runRelicTransaction(awardedRelic.id, false)}
+            onEquip={() => runRelicTransaction(awardedRelic.id, true)}
+            containerRef={bossRewardRef}
+            className="onchain-relic-offer"
+          />
+        )
+      : (
+          <div data-keyboard-action-scope>
+            <p className="text-[10px] font-black tracking-[0.3em] text-violet-400">
+              {relicOfferRarityLabel.toUpperCase()} RELIC OFFER
+            </p>
+            <h2 className="mt-2 text-2xl font-black">Choose Your Relic</h2>
+            <p className="mt-2 text-sm text-zinc-400">Legacy onchain relic offer.</p>
+            <div data-keyboard-actions data-keyboard-vertical="edges" className="mt-4 grid gap-3">
+              {offeredRelics.map((relic) => (
+                <button
+                  key={relic.id}
+                  type="button"
+                  onClick={() => runRelicTransaction(relic.id)}
+                  disabled={busy}
+                  className={`w-full rounded-xl border p-4 text-left transition disabled:opacity-40 ${relic.borderClass} ${relic.backgroundClass}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <RelicArtwork imageSrc={relic.imageSrc} name={relic.name} className="h-16 w-16" />
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-[10px] font-black tracking-[0.22em] ${relic.accentClass}`}>{relic.rarity.toUpperCase()}</p>
+                      <p className="mt-1 text-lg font-black">{relic.name}</p>
+                      <p className="mt-2 text-sm text-zinc-200">{relic.effect}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{relic.tradeoff}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+  const activeRoomFeedback = roomLootActive
+    ? {
+        title: "Reward confirmed onchain",
+        detail: `${getLootMessage(player)} Gold and rolled loot are already credited. Walk to the drop or skip the pickup.${player.relicOfferAvailable ? " Your boss relic choice follows this presentation." : ""}`,
+      }
+    : {
+        title: randomnessPending
+          ? rollingTitle
+          : scenePhase === "reward"
+            ? "Choose your boss relic"
+            : scenePhase === "recovery"
+              ? player.campOpen
+                ? "Kevin's camp is open"
+                : player.supplyOpen
+                  ? "Kevin's supply stop is open"
+                  : `Room ${player.roomsCleared} secured`
+              : sceneMonster.name,
+        detail: combatStatus,
+      };
+
+  if (player.hasStarted && player.active) {
+    return (
+      <EndlessRoom
+        key={onchainPresentationKey(onchainPresentation, presentationScope)}
+        mode="onchain"
+        view={{
+          room: sceneRoom,
+          enemy: player.monsterType as MonsterType,
+          enemyName: sceneMonster.name,
+          enemyHp: player.monsterHp,
+          hp: player.hp,
+          relic: player.equippedRelic,
+          weapon: player.weaponLevel,
+          armor: player.armorLevel,
+          phase: scenePhase,
+          loot: roomLootActive && roomLoot ? roomLoot : undefined,
+          pending: busy,
+          cue: sceneCueScope === presentationScope ? sceneCue : null,
+          cueId: sceneCueId,
+          damage: player.lastPlayerDamage,
+          incoming: player.lastMonsterDamage,
+        }}
+        actions={{
+          approach: engageSceneMonster,
+          enter: () => void runGameTransaction("enterNextRoom"),
+          collect: () => acknowledgeRoomLoot(false),
+          skipLoot: () => acknowledgeRoomLoot(true),
+          interact: () => audio.playAction("click"),
+        }}
+        enemyMaxHp={player.monsterMaxHp}
+        maxHp={player.maxHp}
+        gold={player.gold}
+        potions={player.potions}
+        roomTurns={sceneRoomTurns}
+        incoming={`${player.monsterDamageMin}–${player.monsterDamageMax}`}
+        combatActions={combatActions}
+        healAction={recoveryHealAction}
+        shop={recoveryShop}
+        relics={recoveryRelics}
+        reward={activeRoomReward}
+        notices={activeRoomNotices}
+        menu={activeRoomMenu}
+        feedback={activeRoomFeedback}
+        log={combatLog}
+        sound={{
+          enabled: audio.enabled,
+          available: audio.available,
+          paused: audio.paused,
+          toggleSound: audio.toggleSound,
+        }}
+      />
+    );
+  }
 
   /*
     ==========================================================

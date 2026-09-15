@@ -38,7 +38,7 @@ export type Descent = {
   potionsUsed: number;
 };
 
-export type DescentAction = "engage" | "attack" | "storm" | "potion" | "enter" | "collect" | "claim" | "claim-equip" | ShopAction;
+export type DescentAction = "engage" | "attack" | "storm" | "potion" | "enter" | "collect" | "skip-loot" | "claim" | "claim-equip" | ShopAction;
 export type Intent = Readonly<{
   attackPercent: number;
   replyPercent: number;
@@ -126,11 +126,11 @@ export function transition(run: Descent, action: DescentAction, expectedRevision
   const current = phase(run), before = run.game;
   if (current === "won" || current === "lost") return run;
   if (action === "engage") return current === "explore" ? { ...run, engaged: true, revision: run.revision + 1 } : run;
-  if (action === "collect") {
+  if (action === "collect" || action === "skip-loot") {
     if (current !== "loot" || run.pendingLoot === null) return run;
     return {
       ...run,
-      game: collectLoot(before, run.pendingLoot),
+      game: action === "collect" ? collectLoot(before, run.pendingLoot) : before,
       pendingLoot: null,
       revision: run.revision + 1,
     };

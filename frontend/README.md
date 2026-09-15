@@ -102,3 +102,12 @@ The repository includes `scripts/vrf-latency-monitor.mjs` for measuring request/
 ## Network
 
 The upgraded public frontend targets Somnia Shannon Testnet using chain ID `50312`, the official testnet RPC and Somnia Native VRF. The previous frontend stays on RISE Testnet. Somnia's Thirdweb ERC-4337 smart-account/session-key path is feature-flagged and must be explicitly configured and tested before public activation; MetaMask standard transactions remain available independently. Product naming remains chain-independent; contract addresses and network configuration must be selected per deployment before any mainnet release.
+
+## Shared room presentation
+
+`/practice` now uses the approved walking grid with the existing endless engine;
+active `/onchain` runs use the same room with confirmed contract snapshots.
+`/play` remains the ten-room introduction. Floor loot is optional, higher tiers
+reuse their original artwork, and Kevin’s shop keeps player stats visible.
+See [`ENDLESS_GRID.md`](../ENDLESS_GRID.md) for reward authority, saves, testing
+and the unresolved live Somnia verification boundary.

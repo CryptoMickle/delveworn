@@ -1,0 +1,24 @@
+.dungeon-shop-vitals { position:sticky; top:0; z-index:3; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; padding:10px; margin:8px 0 12px; border:1px solid #806246; border-radius:8px; background:#17101bf7; box-shadow:0 4px 12px #0006; color:#f3dfc2; }
+.dungeon-shop-vitals > span { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 7px; min-width:0; }
+.dungeon-shop-vitals small { font-size:11px; color:#c8b4a0; }
+.dungeon-shop-vitals strong { font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.dungeon-shop-vitals .dungeon-shop-hp { grid-column:1/-1; display:flex; align-items:center; }
+.dungeon-shop-hp strong { color:#a7f3d0; }
+.dungeon-shop-hp > span { flex:1; height:7px; margin-left:8px; overflow:hidden; border-radius:4px; background:#3d3140; }
+.dungeon-shop-hp i { display:block; height:100%; background:#80be87; }
+.dungeon-shop-keeper { display:grid; grid-template-columns:94px minmax(0,1fr); align-items:center; gap:12px; margin:8px 0 12px; }
+.dungeon-shop-keeper > svg { display:block; width:94px; height:140px; overflow:visible; }
+.dungeon-shop-keeper h2 { margin:0 0 8px; font:25px/1.1 Georgia,serif; }
+.dungeon-shop-keeper p:not(.descent-kicker) { margin:0; color:#cdbbac; font-size:12px; line-height:1.4; }
+.dungeon-shop-title { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; min-height:52px; gap:10px; background:#100c14; }
+.descent-merchant .dungeon-shop-title h2 { margin:0; font-size:21px; }
+.descent-merchant .dungeon-shop-title button { min-height:44px; padding:7px 12px; border-radius:7px; }
+.descent-mobile-sheet-card .dungeon-shop-vitals { top:52px; }
+@media(max-width:380px) {
+  .dungeon-shop-vitals { gap:6px; padding:8px; }
+  .dungeon-shop-vitals small { font-size:10px; }
+  .dungeon-shop-vitals strong { font-size:13px; }
+  .dungeon-shop-keeper { grid-template-columns:80px minmax(0,1fr); }
+  .dungeon-shop-keeper > svg { width:80px; height:120px; }
+  .dungeon-shop-keeper h2 { font-size:23px; }
+}

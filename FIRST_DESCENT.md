@@ -19,8 +19,9 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    travel and moves continuously to the monster guarding the north door.
    E/Enter interacts with the current enemy, loot or exit.
 3. Approaching starts a short close-up of the original monster illustration.
-   It fades away after two seconds of loaded artwork; **Continue fight** or any
-   combat action dismisses it immediately. **View monster** reopens a larger
+   It fades away after two seconds of loaded artwork. Attacking, waiting for
+   an action, or landing a killing blow keeps the same timer. **Close artwork**
+   dismisses it explicitly. **View monster** reopens a larger
    view during combat. HP and action controls remain usable throughout, and
    monsters retain their modest tier-1 scale on the room floor.
    Use **Storm (left) / Attack (right)** with **Potion below**. On short mobile
@@ -34,7 +35,9 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    it automatically, without another button press. **Pick up loot**, E and the
    floor doorway remain walking shortcuts. Inventory changes once, on reaching the loot.
    Reload does not collect or reroll the reward or its layout for that viewport.
-5. Heal or buy supplies after pickup. **Enter room** walks to the north doorway;
+   **Leave loot** discards the floor resources and opens the way forward.
+   The existing boss relic decision remains separate.
+5. Heal or buy supplies after pickup or leaving loot. **Enter room** walks to the north doorway;
    the room changes only after arrival. A floor tap or E uses the same walk.
    Kevin appears in person after rooms 5 and 9: tap his figure, walk beside him,
    or use **Visit Kevin** to approach and open trade. His original illustration
@@ -43,7 +46,7 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    room. Both positions follow the visible floor bounds on phones. The room-9
    camp retains its original 15 HP arrival
    recovery and existing shop prices.
-6. Defeat the room-10 boss and pick up its loot. The earned relic can then be
+6. Defeat the room-10 boss and collect or leave its floor loot. The earned relic can then be
    kept or equipped using the original relic rules. Review the recap or replay.
 
 On mobile, the room panel fills the available browser viewport. Its background
@@ -67,8 +70,9 @@ A killing action calls the engine exactly once. Its existing loot roll and total
 resource changes are stored as `pendingLoot`; gold, potions and upgrades wait for
 collection. Walking to the loot applies those exact deltas once, without spending
 a turn or advancing RNG. Door entry, shopping, healing and boss relic decisions
-are blocked until collection. Camp/kill HP effects retain their original timing.
-The boss relic offer is rolled by the engine at victory, and claimed after pickup.
+wait until the player collects or explicitly leaves the floor resources. Camp/kill HP effects retain their original timing.
+The boss relic offer is rolled by the engine at victory, and claimed after the
+floor-loot choice.
 
 A new run receives a local random seed. Seed and PRNG state are saved. Animation,
 walking, audio and loot collection do not draw new combat randomness. Floor
@@ -82,9 +86,10 @@ are editable by their owner; validation rejects inconsistent/malformed data, not
 all cheating. This is local gameplay, not a competitive or onchain proof.
 
 The scene consumes `RoomView` / `RoomActions`, not wallets, RPCs or chain names.
-Classic Practice, prior Weekly work and the existing onchain renderer remain.
-Somnia is the intended onchain configuration. No live adapter to the new room
-renderer is shipped; the previously observed VRF adapter mismatch is unresolved.
+Endless Practice and the existing onchain client now reuse the room renderer;
+see `ENDLESS_GRID.md`. The Weekly mode keeps its existing verified flow.
+Somnia remains the intended onchain configuration. Its previously observed VRF
+adapter mismatch is unresolved; no live onchain verification is claimed here.
 
 ## Save and recovery
 
@@ -175,8 +180,8 @@ browser process crash/reload cannot be caught by the in-game error screen.
 - Walking to loot; seeing the inventory update once; walking to the exit afterwards.
 - Meeting Kevin at the left/right outer edge in rooms 5/9, facing into the room,
   and walking to his figure to open trade.
-- Seeing the original monster close-up, attacking without waiting, and reopening
-  the artwork without changing HP or room layout.
+- Seeing the original monster close-up stay visible for the same two seconds
+  while attacking, then reopening it without changing HP or room layout.
 - A steady room during repeated attacks; smooth Approach; left/right facing;
   varied loot locations and automatic pickup using only floor taps or arrows.
 - Reload before and after pickup; recovery at supplies/camp and the boss relic.

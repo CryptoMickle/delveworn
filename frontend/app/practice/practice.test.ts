@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EMPTY_GAME, attack, buy, claimRelic, enterNextRoom, startRun, stormAttack, usePotion, type PracticeGame } from "./engine";
 import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText } from "./feedback";
+import { collectPracticeLoot, countPracticeTurn, createPracticeGrid, engagePracticeGrid, enterPracticeRoom, holdPracticeLoot, legacyPracticeGrid, practiceGridPhase, skipPracticeLoot } from "./grid-state";
 import { inspectPracticeRun, isStoredPracticeGame, loadPracticeRun, PRACTICE_RUN_STORAGE_KEY, savePracticeRun } from "./storage";
 
 function memoryStorage(raw: string | null = null) {
@@ -20,10 +21,89 @@ function combat(overrides: Partial<PracticeGame> = {}): PracticeGame {
 test("saved combat restores without any rewrite and an empty browser stays empty", () => {
   const game = combat({ hp: 72, potions: 2 });
   const saved = memoryStorage(serialized(game));
-  assert.deepEqual(inspectPracticeRun(saved), { status: "restored", game });
+  assert.deepEqual(inspectPracticeRun(saved), { status: "restored", game, grid: legacyPracticeGrid(game), legacy: true });
   assert.deepEqual(loadPracticeRun(saved), game);
   assert.equal(saved.writes, 0);
   assert.deepEqual(inspectPracticeRun(memoryStorage()), { status: "empty" });
+});
+
+test("old saves resume combat and keep already credited loot without rewriting", () => {
+  const fighting = combat({ roomsCleared: 18 });
+  const fightStorage = memoryStorage(serialized(fighting));
+  const fight = inspectPracticeRun(fightStorage);
+  assert.equal(fight.status, "restored");
+  if (fight.status === "restored") {
+    assert.equal(fight.legacy, true);
+    assert.equal(fight.grid.engaged, true);
+    assert.equal(fight.grid.pendingLoot, null);
+    assert.equal(practiceGridPhase(fight.game, fight.grid), "combat");
+  }
+
+  const credited = combat({ roomsCleared: 19, monsterHp: 0, gold: 321, weaponLevel: 3, lastLootType: 3, lastLootAmount: 1 });
+  const creditedStorage = memoryStorage(serialized(credited));
+  const recovery = inspectPracticeRun(creditedStorage);
+  assert.equal(recovery.status, "restored");
+  if (recovery.status === "restored") {
+    assert.equal(recovery.grid.pendingLoot, null);
+    assert.equal(practiceGridPhase(recovery.game, recovery.grid), "recovery");
+    assert.equal(recovery.game.gold, 321);
+    assert.equal(recovery.game.weaponLevel, 3);
+  }
+  assert.equal(fightStorage.writes, 0);
+  assert.equal(creditedStorage.writes, 0);
+});
+
+test("new rooms start with an approach and the grid phase follows loot, reward and recovery", () => {
+  const game = combat();
+  const grid = createPracticeGrid(0x1234abcd);
+  assert.equal(practiceGridPhase(game, grid), "explore");
+  const engaged = engagePracticeGrid(grid);
+  assert.equal(practiceGridPhase(game, engaged), "combat");
+  assert.equal(countPracticeTurn(engaged).roomTurns, 1);
+
+  const held = holdPracticeLoot(game, {
+    ...game,
+    monsterHp: 0,
+    roomsCleared: 1,
+    gold: 17,
+    potions: 4,
+    lastLootType: 1,
+    lastLootAmount: 1,
+  }, engaged);
+  assert.deepEqual(held.grid.pendingLoot, { gold: 17, potions: 1, weapon: 0, armor: 0 });
+  assert.equal(held.game.gold, 0);
+  assert.equal(held.game.potions, 3);
+  assert.equal(practiceGridPhase(held.game, held.grid), "loot");
+
+  const collected = collectPracticeLoot(held.game, held.grid);
+  assert.equal(collected.game.gold, 17);
+  assert.equal(collected.game.potions, 4);
+  assert.equal(practiceGridPhase(collected.game, collected.grid), "recovery");
+
+  const bossLoot = holdPracticeLoot(
+    combat({ roomsCleared: 9, monsterType: 3, monsterHp: 1, monsterMaxHp: 122 }),
+    combat({ roomsCleared: 10, monsterType: 3, monsterHp: 0, monsterMaxHp: 122, gold: 30, lastLootType: 2, lastLootAmount: 12, relicOfferAvailable: true, relicOfferRarity: 1, relicOfferId: 1 }),
+    engaged,
+  );
+  assert.equal(practiceGridPhase(bossLoot.game, bossLoot.grid), "loot");
+  assert.equal(practiceGridPhase(bossLoot.game, skipPracticeLoot(bossLoot.grid)), "reward");
+});
+
+test("Practice game and held loot share one validated atomic save", () => {
+  const killed = combat({ roomsCleared: 1, monsterHp: 0, gold: 0, lastLootType: 3, lastLootAmount: 1 });
+  const grid = {
+    ...createPracticeGrid(77),
+    pendingLoot: { gold: 9, potions: 0, weapon: 1, armor: 0 },
+  };
+  const storage = memoryStorage();
+  assert.equal(savePracticeRun(storage, killed, grid), "saved");
+  assert.equal(storage.writes, 1);
+  assert.deepEqual(inspectPracticeRun(storage), { status: "restored", game: killed, grid, legacy: false });
+
+  const invalid = memoryStorage("previous save");
+  assert.equal(savePracticeRun(invalid, { ...killed, potions: 5 }, { ...grid, pendingLoot: { gold: 9, potions: 1, weapon: 0, armor: 0 } }), "invalid");
+  assert.equal(invalid.raw, "previous save");
+  assert.equal(invalid.writes, 0);
 });
 
 test("blocked localStorage getter, reads and writes fail safely", () => {
@@ -105,6 +185,47 @@ test("real engine transitions produce valid saves, including boss rewards after 
     assert.equal(isStoredPracticeGame(game), true);
   }
   assert.equal(game.roomsCleared, 42);
+});
+
+test("the grid adapter preserves real endless engine progression through every artwork tier", (context) => {
+  context.mock.method(globalThis.crypto, "getRandomValues", (array: Uint32Array) => { array.fill(0); return array; });
+  let game = startRun();
+  let grid = createPracticeGrid(0xdecafbad);
+  const tierEntrances = new Set<number>();
+
+  while (game.roomsCleared < 42) {
+    const currentRoom = game.roomsCleared + 1;
+    if ([1, 11, 21, 31, 41].includes(currentRoom)) {
+      assert.equal(practiceGridPhase(game, grid), "explore", `room ${currentRoom} should begin with an approach`);
+      tierEntrances.add(currentRoom);
+    }
+    grid = engagePracticeGrid(grid);
+    assert.equal(practiceGridPhase(game, grid), "combat");
+
+    while (game.monsterHp > 0) {
+      const before = { ...game, hp: game.maxHp };
+      const resolved = attack(before);
+      grid = countPracticeTurn(grid);
+      const held = holdPracticeLoot(before, resolved, grid);
+      game = held.game;
+      grid = held.grid;
+      assert.equal(isStoredPracticeGame(game), true, `invalid grid-backed game in room ${currentRoom}`);
+    }
+
+    assert.equal(practiceGridPhase(game, grid), "loot");
+    const collected = collectPracticeLoot(game, grid);
+    game = collected.game;
+    grid = collected.grid;
+    assert.equal(practiceGridPhase(game, grid), game.relicOfferAvailable ? "reward" : "recovery");
+    if (game.relicOfferAvailable) game = claimRelic(game, false);
+    if (game.roomsCleared === 42) break;
+    game = enterNextRoom(game);
+    grid = enterPracticeRoom(grid);
+  }
+
+  assert.deepEqual([...tierEntrances], [1, 11, 21, 31, 41]);
+  assert.equal(game.roomsCleared, 42);
+  assert.equal(practiceGridPhase(game, grid), "recovery");
 });
 
 test("potion feedback separates retaliation and actual net healing at the HP cap", (context) => {

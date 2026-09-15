@@ -47,6 +47,31 @@ test("a descent starts exactly like the curated Practice engine with no relic or
   }
 });
 
+test("leaving floor loot forfeits its resources once and persists without changing combat randomness", () => {
+  const found = new Set<number>();
+  for (let seed = 1; seed < 500 && found.size < 4; seed++) {
+    let before = transition(createDescent(seed, `skip-${seed}`), "engage");
+    before = { ...before, game: { ...before.game, monsterHp: 1 } };
+    const killed = transition(before, "attack");
+    if (found.has(killed.game.lastLootType)) continue;
+    found.add(killed.game.lastLootType);
+    assert.equal(phase(killed), "loot");
+    const skipped = transition(killed, "skip-loot");
+    assert.equal(phase(skipped), "recovery");
+    assert.deepEqual(skipped.game, killed.game, "uncollected resources never enter the inventory");
+    assert.equal(skipped.pendingLoot, null);
+    assert.equal(skipped.rngState, killed.rngState);
+    assert.equal(skipped.turns, killed.turns);
+    assert.equal(skipped.revision, killed.revision + 1);
+    assert.equal(transition(skipped, "skip-loot"), skipped);
+    assert.equal(transition(skipped, "collect"), skipped, "a canceled pickup cannot restore forfeited loot");
+    assert.equal(transition(killed, "skip-loot", killed.revision - 1), killed);
+    assert.ok(isDescent(JSON.parse(JSON.stringify(skipped))));
+    assert.equal(phase(transition(skipped, "enter")), "explore");
+  }
+  assert.equal(found.size, 4);
+});
+
 test("enemy descriptions never alter Practice damage or replies", () => {
   for (const type of [0, 1, 2, 3] as const) {
     for (let turn = 0; turn < 8; turn++) {
@@ -200,6 +225,13 @@ test("boss loot is collected before the original keep or equip relic choice", ()
   assert.equal(killed.game.equippedRelic, 0);
   assert.equal(transition(killed, "claim"), killed);
 
+  const left = transition(killed, "skip-loot");
+  assert.equal(phase(left), "reward", "leaving supplies still allows the existing boss relic decision");
+  assert.deepEqual(left.game, killed.game);
+  assert.equal(left.rngState, killed.rngState);
+  assert.equal(phase(transition(left, "claim")), "won");
+  assert.ok(isDescent(transition(left, "claim")));
+
   const reward = transition(killed, "collect");
   assert.equal(phase(reward), "reward");
   assert.ok(isDescent(reward));
@@ -222,7 +254,7 @@ test("boss loot is collected before the original keep or equip relic choice", ()
 
 test("movement, invalid, and stale commands never spend a turn or random draw", () => {
   const run = createDescent(123, "guard");
-  for (const action of ["attack", "storm", "enter", "collect", "claim", "claim-equip", "camp-weapon", "potion"] as const) {
+  for (const action of ["attack", "storm", "enter", "collect", "skip-loot", "claim", "claim-equip", "camp-weapon", "potion"] as const) {
     assert.equal(transition(run, action), run);
   }
   const engaged = transition(run, "engage");
