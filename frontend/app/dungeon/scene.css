@@ -12,7 +12,7 @@
 .dungeon-avatar-art { overflow:visible; }
 .dungeon-relic { animation:dungeon-float 3s ease-in-out infinite; }
 .dungeon-relic.is-active { animation:dungeon-relic-pulse .65s ease-out; }
-.dungeon-enemy { transform-origin:590px 320px; animation:dungeon-breathe 4.3s ease-in-out infinite; }
+.dungeon-enemy { animation:dungeon-breathe 4.3s ease-in-out infinite; }
 .dungeon-enemy.is-hit { animation:dungeon-enemy-hit .55s ease-out; }
 .dungeon-door-open text { fill:#edd2a4; font:600 12px var(--font-geist-sans),sans-serif; letter-spacing:2px; }
 .dungeon-damage { fill:#fce6c5; stroke:#1b101f; stroke-width:3px; paint-order:stroke; font:700 32px Georgia,serif; animation:dungeon-number .95s ease-out forwards; }

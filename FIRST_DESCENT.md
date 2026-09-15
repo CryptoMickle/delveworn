@@ -13,6 +13,8 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 1. Choose Warden, Duelist or Stormcaller. No wallet/account/payment.
 2. Click/tap the floor, or focus it and use arrows/WASD. E/Enter approaches the
    enemy or walks to the door. The large approach/door controls are equivalent.
+   The monster guards the north doorway. Tapping that door approaches its guard
+   while it is alive; after victory the same doorway leads to the next room.
 3. Read the next intention. Attack is narrow with crits; Storm varies from zero
    to a higher maximum and bypasses a guard; Potion heals 25 before a half reply.
    Use buttons or desktop keys 1/2/3. Two combat potions per ordinary fight,

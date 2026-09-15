@@ -1,6 +1,22 @@
 # First Descent verification — 2026-09-15
 
-## Executed checks
+## Door-guard layout follow-up — 2026-09-15
+
+- Moved all four tier 1 actors to the north-door path; reduced their sprite
+  heights to 120/110/146/178 scene units. Grave Belle was previously 185 tall.
+- Kept original raster files and silhouette clips. Repositioned shadows, loot,
+  interaction targets and combat effects together with the guard.
+- Frontend suite: **91 passed, 0 failed**. Three new tests exercise the guarded
+  and open doorway, centered-monster floor targets and movement bounds.
+- TypeScript passed. ESLint: **0 errors, 14 pre-existing warnings**.
+- Somnia standard production build passed again after this change. The other
+  two matrix configurations and contract suite were last run at the checkpoint
+  below; this presentation-only follow-up did not modify chain configuration.
+- Regenerated and inspected all four `descent-scene-*.png` illustrations. They
+  show the smaller actors in front of the exit and remain static SVG exports,
+  not browser screenshots. Browser/device verification is still unresolved.
+
+## Previous implementation checkpoint — a5f7e64
 
 | Check | Actual result |
 | --- | --- |
@@ -89,6 +105,7 @@ Implementation:
 Tests, tools and documentation:
 
 - `frontend/tests/descent.test.ts`, `game-audio.test.ts`
+- `frontend/tests/dungeon-scene.test.ts` (door-layout follow-up)
 - `frontend/tests/helpers/descent-policy.ts`, `tests/e2e/descent.spec.ts`
 - `frontend/scripts/{simulate-descent.ts,render-descent-scene.tsx}`
 - `README.md`, `FIRST_DESCENT.md`

@@ -20,6 +20,10 @@ The subsequent approval authorizes the small matching asset set and C–F.
 The selected base avatar is now androgynous: less broad shoulders, neutral
 proportions, practical clothing and a hidden face. Same plum cloak/art style.
 
+**Room composition correction:** the monster now guards the north doorway.
+Tier 1 actors are smaller, especially Grave Belle. The original monster images
+and the androgynous adventurer remain unchanged.
+
 ## Latest implementation checkpoint — C–E implemented locally, F open
 
 The new playable slice is **`/play`**, linked from the mode-selection home as
@@ -75,6 +79,12 @@ No publication, remote CI run, merge or contract transaction has occurred.
 - Original Gary, Grave Belle, Thud and Dungeon Lord images remain untouched.
   Runtime SVG silhouette clips reuse those same files as room actors. Original
   full portraits, relics, merchant, loot and logo remain in the HUD.
+- Monsters share an anchor directly on the north-door path. Shadows, tap targets,
+  attack effects and dropped loot use that anchor. A guarded-door tap approaches
+  the monster; walking into the door lane stops in front of it until victory.
+  Tier 1 sprite heights are 120/110/146/178 scene units (zombie/goblin/orc/boss).
+  These are modest baselines, not a new tier system: this ten-room slice only
+  uses tier 1. Future tiers need their own art crops and room-fit checks.
 - Small ImageGen set: one stone room (414 KiB) and one androgynous base avatar
   (27 KiB), WebP encoded. Source prompts and selected outputs are recorded in
   `phase-1-evidence/production-assets.md`. No flat replacement monster designs.
@@ -90,15 +100,19 @@ No publication, remote CI run, merge or contract transaction has occurred.
 
 ### Milestone F — verification status and remaining gate
 
-- Frontend tests: **88 passed, 0 failed** (including new rules/persistence,
+- Frontend tests: **91 passed, 0 failed** (including new rules/persistence,
   classic golden traces, audio lifecycle and existing wallet/snapshot guards).
+  Three added scene tests cover guarded/open door taps, centered-monster targets
+  and walking bounds after the room composition correction.
 - Lint: **0 errors, 14 pre-existing warnings**. Explicit TypeScript check passed.
 - Foundry formatting and size build passed; **143 contract tests passed** in
   13 suites. Optional signature-cache write warning from the sandbox only.
 - Production builds passed for all three existing CI configurations (RISE
   legacy, Somnia standard, Somnia session keys), with `/play` generated and
   `/concept` remaining production-404. Results are recorded in
-  `phase-1-evidence/verification.md`; no remote CI is claimed.
+  `phase-1-evidence/verification.md`; no remote CI is claimed. Somnia standard
+  was rerun successfully after the door-layout correction; the other two and
+  contract checks are from the preceding implementation checkpoint.
 - Added five Playwright scenarios (15 device/project cases): wallet-free start,
   keyboard/rapid input/reload, full ten-room UI run, responsive/reduced motion,
   malformed/blocked storage. Suite discovery: **150 tests in 10 files**.
