@@ -9450,6 +9450,105 @@ function DelvewornGame() {
     />
   );
 
+  // Match the rendered battle branch, including a pending room entry before its monster arrives.
+  const battleVisible = player.hasStarted && !endedActive && !recoveryActive &&
+    !player.campOpen && !player.supplyOpen && !roomCleared;
+
+  const randomnessStatus = randomnessPending ? (
+    <div data-keyboard-action-scope="overlay" data-keyboard-actions className="onchain-action-pending rounded-xl border border-violet-700/60 bg-[#1b1426] p-4">
+
+      <div className="w-full">
+
+        <div aria-hidden="true" className={`float-left mr-3 text-3xl ${rollingIconClass}`}>
+          {rollingIcon}
+        </div>
+
+        <p className="text-[10px] tracking-[0.2em] text-violet-400">
+          {rollingLabel}
+        </p>
+
+        <h2 className="text-base font-black mt-1">
+          {rollingTitle}
+        </h2>
+
+        <p className="clear-both pt-2 text-xs text-zinc-400">
+          {rollingText}
+        </p>
+
+        {!vrfDelayed &&
+          !canonicalSyncing &&
+          actionProgressIndex >= 0 && (
+            <div
+              className="mt-3 flex gap-1.5"
+              aria-label={`Action progress ${actionProgressIndex + 1} of ${actionProgressOrder.length}`}
+            >
+              {actionProgressOrder.map(
+                (
+                  phase,
+                  index
+                ) => (
+                  <span
+                    key={phase}
+                    className={`h-1.5 flex-1 rounded-full transition-colors duration-150 ${
+                      index <
+                      actionProgressIndex
+                        ? "bg-violet-500"
+                        : index ===
+                            actionProgressIndex
+                          ? "bg-violet-300 animate-pulse"
+                          : "bg-zinc-700"
+                    }`}
+                  />
+                )
+              )}
+            </div>
+          )}
+
+        {(
+          vrfDelayed ||
+          canonicalSyncing ||
+          actionProgressIndex < 0
+        ) && (
+          <div className="flex justify-center gap-2 mt-3">
+            <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+            <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+            <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+          </div>
+        )}
+
+        {supportsRandomnessRetry() &&
+          vrfRetryAvailable &&
+          !canonicalSyncing && (
+            <>
+              <button
+                type="button"
+                data-keyboard-default="true"
+                onClick={
+                  retryVrf
+                }
+
+                disabled={
+                  vrfRetrying
+                }
+
+                className="w-full mt-3 bg-violet-500 hover:bg-violet-400 disabled:opacity-50 text-black font-black py-3 rounded-xl transition"
+              >
+                {vrfRetrying
+                  ? "RETRYING VRF..."
+                  : "↻ RETRY VRF"}
+              </button>
+
+              <p className="text-[10px] text-zinc-500 mt-2">
+                The previous request has timed out onchain. Retrying invalidates that request and safely creates a fresh one.
+              </p>
+            </>
+          )}
+
+      </div>
+
+    </div>
+  ) : null;
+
   /*
     ==========================================================
     RENDER
@@ -9958,108 +10057,11 @@ function DelvewornGame() {
               dialogue={isBoss ? getBossDialogue(currentRoom) : undefined}
               log={combatLog}
               logPreview={combatStatus}
-              actions={combatActions}
+              actions={<>{randomnessStatus}{combatActions}</>}
             />
           )}
 
-          {/* =================================================
-              VRF OVERLAY
-          ================================================= */}
-
-          {randomnessPending && (
-            <div data-keyboard-action-scope="overlay" data-keyboard-actions className="absolute inset-0 z-30 bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
-
-              <div className="text-center max-w-xs">
-
-                <div className={`text-7xl ${rollingIconClass}`}>
-                  {rollingIcon}
-                </div>
-
-                <p className="text-[10px] tracking-[0.35em] text-violet-400 mt-5">
-                  {rollingLabel}
-                </p>
-
-                <h2 className="text-2xl font-black mt-2">
-                  {rollingTitle}
-                </h2>
-
-                <p className="text-sm text-zinc-400 mt-3">
-                  {rollingText}
-                </p>
-
-                {!vrfDelayed &&
-                  !canonicalSyncing &&
-                  actionProgressIndex >= 0 && (
-                    <div
-                      className="mt-5 flex gap-1.5"
-                      aria-label={`Action progress ${actionProgressIndex + 1} of ${actionProgressOrder.length}`}
-                    >
-                      {actionProgressOrder.map(
-                        (
-                          phase,
-                          index
-                        ) => (
-                          <span
-                            key={phase}
-                            className={`h-1.5 flex-1 rounded-full transition-colors duration-150 ${
-                              index <
-                              actionProgressIndex
-                                ? "bg-violet-500"
-                                : index ===
-                                    actionProgressIndex
-                                  ? "bg-violet-300 animate-pulse"
-                                  : "bg-zinc-700"
-                            }`}
-                          />
-                        )
-                      )}
-                    </div>
-                  )}
-
-                {(
-                  vrfDelayed ||
-                  canonicalSyncing ||
-                  actionProgressIndex < 0
-                ) && (
-                  <div className="flex justify-center gap-2 mt-5">
-                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                    <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                  </div>
-                )}
-
-                {supportsRandomnessRetry() &&
-                  vrfRetryAvailable &&
-                  !canonicalSyncing && (
-                    <>
-                      <button
-                        type="button"
-                        data-keyboard-default="true"
-                        onClick={
-                          retryVrf
-                        }
-
-                        disabled={
-                          vrfRetrying
-                        }
-
-                        className="w-full mt-6 bg-violet-500 hover:bg-violet-400 disabled:opacity-50 text-black font-black py-3 rounded-xl transition"
-                      >
-                        {vrfRetrying
-                          ? "RETRYING VRF..."
-                          : "↻ RETRY VRF"}
-                      </button>
-
-                      <p className="text-[10px] text-zinc-500 mt-2">
-                        The previous request has timed out onchain. Retrying invalidates that request and safely creates a fresh one.
-                      </p>
-                    </>
-                  )}
-
-              </div>
-
-            </div>
-          )}
+          {!battleVisible && randomnessStatus}
 
         </section>
 

@@ -257,6 +257,7 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
 .delveworn-battle-flavor { grid-column: 2; grid-row: 2; margin: 0; padding: 0 4px; color: #d4c9d8; font-size: 14px; font-style: italic; line-height: 1.45; text-align: left; }
 .delveworn-battle-flavor > span { display: block; margin-top: 6px; color: #d8b4fe; }
 .delveworn-battle-bottom { grid-column: 2; grid-row: 3; min-width: 0; }
+.onchain-action-pending { margin: 8px 0; text-align: left; }
 .delveworn-battle-log { display: block; width: 100%; min-height: 68px; margin-bottom: 8px; padding: 10px 12px; border: 1px solid #4d3b5f; border-radius: 10px; background: #1b1621; color: #d4d4d8; text-align: left; cursor: pointer; }
 .delveworn-battle-log > span:first-child { display: flex; justify-content: space-between; gap: 8px; color: #d8b4fe; font-size: 11px; font-weight: 850; letter-spacing: .04em; }
 .delveworn-battle-log > span:first-child b { color: #e9d5ff; font-size: 10px; white-space: nowrap; }
