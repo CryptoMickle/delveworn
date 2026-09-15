@@ -41,6 +41,15 @@ Status: **diagnostic review build; not production-ready**. Need the actual
 phone error report or a description distinguishing an error page, frozen room
 and full browser reload before claiming a root-cause fix.
 
+Diagnostic preview: source `3520e1e96b86a9fd6487be3dd9a0dc40c473d809`, deployment
+`dpl_7Vg1JUa7e5HbHt1NRNHk4SS1Pc9K`, **READY**.
+<https://delveworn-hwt42twxp-crypto-mickle.vercel.app/play>
+
+Seven-day deployment-specific phone link delivered in the conversation; access
+token never committed. Delivery check: `/play` returned HTTP 200 with the expected
+First Descent title. This does not verify gameplay on the affected phone.
+No production release, remote Git push, external error collection or transaction.
+
 ## Previous hotfix — avatar turns but walking never starts
 
 The phone review of `e10f0ac` exposed a browser-specific error missed by the
