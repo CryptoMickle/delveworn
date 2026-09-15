@@ -1,0 +1,23 @@
+.concept-review { min-height:100vh; padding:0 28px 40px; background:radial-gradient(ellipse at 40% 5%,#24172f,transparent 60%),#0b0b0e; color:#eee9e3; font-family:Arial,Helvetica,sans-serif; }
+.concept-review-header,.concept-review-direction,.concept-review-proposal,.concept-layout-study { max-width:1360px; margin-inline:auto; }
+.concept-review-header { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:94px; border-bottom:1px solid #3f314b; }
+.concept-review-header img { width:220px; height:auto; }
+.concept-review-header>span { color:#bca9c8; font-size:10px; letter-spacing:1.6px; }
+.concept-review-direction { padding-block:30px; }
+.concept-review-kicker { color:#e3a856; font-size:10px; letter-spacing:2px; margin:0 0 12px; }
+.concept-review-direction h1 { font:clamp(26px,3vw,40px)/1.15 Georgia,serif; margin:0 0 15px; }
+.concept-review-direction>p:last-of-type,.concept-review-proposal>p { color:#c0b1c9; font-size:14px; line-height:1.7; max-width:840px; margin:0 0 23px; }
+.concept-originals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.concept-originals figure { margin:0; border:1px solid #493551; background:#17111e; border-radius:8px; overflow:hidden; }
+.concept-originals img { display:block; width:100%; height:auto; aspect-ratio:766/431; object-fit:cover; }
+.concept-originals figcaption { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; font-size:13px; }
+.concept-originals figcaption span { font-size:8px; letter-spacing:1px; color:#c8a57a; }
+.concept-review-proposal h2 { font:26px Georgia,serif; margin:0 0 12px; }
+.concept-revision-image { display:block; width:100%; height:auto; border:1px solid #56402f; border-radius:6px; }
+.concept-layout-study { margin-top:28px; border:1px solid #493551; border-radius:6px; overflow:hidden; }
+.concept-layout-study>summary { cursor:pointer; min-height:58px; padding:18px; font-size:14px; color:#e4c995; background:#211924; }
+.concept-layout-study>summary span { display:inline-block; color:#bca9c8; font-size:11px; margin-left:18px; }
+.concept-layout-study>summary:focus-visible { outline:2px solid #f1cf83; outline-offset:-4px; }
+.concept-study-notice { margin:0; padding:16px 20px; font-size:13px; line-height:1.7; background:#2b2031; color:#d6c4e2; }
+.concept-review .concept-layout-study .concept-root { padding-inline:20px; }
+@media(max-width:650px) { .concept-review { padding:0 12px 24px; } .concept-review-header { min-height:76px; gap:12px; } .concept-review-header img { width:158px; } .concept-review-header>span { font-size:8px; line-height:1.5; max-width:100px; text-align:right; } .concept-review-direction { padding-block:24px; } .concept-originals { grid-template-columns:1fr; gap:12px; } .concept-originals figcaption { padding:10px 12px; } .concept-review-direction>p:last-of-type,.concept-review-proposal>p { font-size:13px; } .concept-layout-study>summary { line-height:1.6; } .concept-layout-study>summary span { display:block; margin:4px 0 0; } .concept-review .concept-layout-study .concept-root { padding-inline:8px; } }

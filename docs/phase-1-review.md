@@ -7,6 +7,12 @@ This is a visual approval checkpoint, not the Phase 1 blind-test build.
 While the local development server is running on this Mac, open
 [the room concept](http://127.0.0.1:3100/concept).
 
+Revision 02 now opens with the **unchanged original monster artwork** and a
+revised visual mockup made directly from those references. The user rejected
+the earlier style and instructed us to retain the originals' style. Expand
+**Try the movement and combat study** for the earlier interactive test below.
+Its temporary vector figures are not the chosen art direction.
+
 1. Inspect the single room, avatar and the purple relic beside its shoulder.
 2. Click/tap the floor to walk. Focus the floor and use WASD/arrows to move.
    Movement does not spend health or advance a room.
@@ -29,17 +35,18 @@ uses the existing Practice engine with seed `0xdecaf`, reset each time. This is
 repeatable preview material, not an earned relic, a verified public result or
 an onchain run. Sound uses the existing optional controller/preference.
 
-## Approve the visual target
+## Revised visual target — original style retained
 
-![Recommended painted art direction](phase-1-evidence/art-direction-target.png)
+![Revision based on the original monster artwork](../frontend/public/concept/original-style-revision.png)
 
-Recommend this **painted dark-fantasy direction**: readable overhead figures,
-layered relic, amber stone lighting, violet Storm, consistent room/HUD language.
-The local interaction prototype currently has simpler vector figures. The image
-above is an art target created with ImageGen, not a screenshot of that route.
+The originals define the visual style: detailed dimensional rendering,
+expressive faces, tactile materials and dramatic lighting. Avatar, room and
+effects must fit that style. Gary retains his original design and dagger.
+The image above is a revised mockup created with ImageGen, not a screenshot.
 
-The source for the prompt is `phase-1-evidence/art-direction-prompt.md`. No
-complete asset set has been produced. Alternatives are in the specification.
+The prompt and references are in
+`phase-1-evidence/original-style-revision-prompt.md`. No complete asset set has
+been produced. The old painted target and vector art direction are rejected.
 
 ## What is checked, and what is still open
 
@@ -59,9 +66,9 @@ Both failures reproduced on targeted retry: desktop boss-death audio cleanup
 and iPhone SE artwork crowded by the action dock. See `phase-1-status.md`.
 The Foundry baseline has 143 passing tests. No onchain transaction was sent.
 
-**Approval request:** approve the painted visual direction and one-room layout,
-or identify what should change before full assets and the ten-room dungeon.
-The user's explicit milestone B gate is why implementation stops here.
+The user has decided to preserve the original style. Approval of the revised
+one-room concept/layout is still pending at the explicit milestone B gate
+before full assets and ten-room integration. Do not reopen style alternatives.
 
 ## Resume locally if the server has stopped
 
@@ -76,7 +83,10 @@ Static scene exports can be regenerated with
   actual existing Playwright fixtures before the revised work.
 - `phase-1-evidence/concept-scene.png`, `concept-scene-storm.png`: static source
   exports of the simplified interaction scene, not the browser layout.
-- `phase-1-evidence/art-direction-target.png`: proposed painted art quality.
+- `../frontend/public/concept/original-style-revision.png`: current proposal,
+  using the original monster illustrations as references.
+- `phase-1-evidence/art-direction-target.png`: rejected earlier proposal,
+  retained only as history.
 
 These are before/concept comparisons. There is no implemented ten-room "after"
 build yet, and this checkpoint is neither production-ready nor blind-test-ready.

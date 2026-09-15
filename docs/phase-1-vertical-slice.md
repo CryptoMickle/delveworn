@@ -118,38 +118,41 @@ Onchain shows only actually owned/equipped relics from the snapshot. It never
 grants a fake starter relic. Show no relic when none is equipped; an introductory
 training run remains a separate local mode. Boss rewards follow existing rules.
 
-## Recommended visual direction
+## Visual direction — original monster artwork is the source of truth
 
-**Illustrated dark fantasy, with readable cutout figures and shallow wall depth.**
+User correction on 2026-09-15: **keep the style of the original monster artwork**.
+The earlier painted target and flat vector figures are not the chosen style.
+Use the detailed, dimensional fantasy rendering already present in Gary,
+Grave Belle, Thud and Dungeon Lord: sculpted forms, exaggerated expressive
+faces, weathered skin/leather/metal and cinematic dungeon lighting. Preserve
+each character's identity, equipment and silhouette, as well as the original
+portrait files. Match the new avatar, environment and effects to these sources.
+Gary has a hair tuft, huge eyes, rope belt, ragged loincloth and dagger; he does
+not gain the helmet, armor or mace from the rejected prototype.
 Keep Delveworn's amber brass, soot-black masonry, plum shadows, violet Storm and
-green healing. Preserve exaggerated enemy personalities and existing relic art.
+green healing. Existing logo, relic and monster artwork remain authoritative.
 One stable overhead camera; feet and cast shadows anchor figures to the floor.
 Use restrained gold borders and serif room headings, legible sans-serif numbers.
 The dungeon should occupy most of the screen; UI supports it rather than replacing it.
 
-Two complementary review artifacts:
+Current review material:
 
-- `phase-1-evidence/art-direction-target.png`: a single ImageGen mockup showing
-  the recommended painted stone, figures, relic and HUD. This is the **art
-  target**, not a browser screenshot or a production asset pack. Its decorative
-  node count/layout is approximate; the ten-room specification is authoritative.
-- Local `/concept`: a one-room interaction study using simpler code-drawn
-  masonry, avatar and Goblin plus the existing logo/Stormglass icon. It reuses
-  actual Practice combat but has **not** received browser visual/interaction QA,
-  because the Browser tool's policy check was unavailable. The vector figures
-  demonstrate layering and motion, not the final texture/detail quality.
+- `frontend/public/concept/original-style-revision.png`: revised ImageGen
+  mockup made with the actual original monster illustrations as references.
+  This is a visual proposal, not a browser screenshot or production asset set.
+- Local `/concept` opens with unchanged original Gary, Grave Belle and Thud
+  artwork and the revised mockup. The earlier movement/combat study is collapsed
+  and explicitly labeled as temporary graphics, so it cannot be mistaken for
+  the selected style. Its Practice transitions remain intact.
+- `phase-1-evidence/original-style-revision-prompt.md` records the reference
+  files, exact prompt, provenance and mockup limitations.
+- `phase-1-evidence/art-direction-target.png` is retained only as rejected
+  history. Do not use it or the vector scene as a style reference.
 
-After approval, produce a small coherent painted sprite/environment kit to the
-art target and place it in the tested renderer. Do not generate unrelated art
-for each room. Exact prompt/tool provenance is in
-`phase-1-evidence/art-direction-prompt.md`.
-
-Real alternatives, if the recommendation is rejected:
-
-1. **Strict pixel art:** very readable and animation-efficient, but requires
-   rebuilding portraits/relic presentation to avoid incompatible styles.
-2. **Painted board-game miniatures:** closest to the existing portraits and good
-   for mobile, but less expressive walking/attack animation and a more static feel.
+After layout/concept approval, create the small room/avatar/sprite adaptations
+in the original style. Do not replace the existing artwork, redesign monsters,
+or introduce a separate visual style per room. The original-style requirement
+is decided by the user; it does not need another preference question.
 
 ### Avatar/relic layers
 

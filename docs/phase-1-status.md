@@ -9,6 +9,11 @@ visual prototype **before producing or integrating a complete new asset set**.
 Milestones C–F must wait for that approval. A prototype is not a finished Phase 1.
 No approval has been received yet.
 
+**User correction (2026-09-15):** "Nei, behold stilen i monsternes
+originalgrafikk". The original monster artwork is now the fixed visual source
+of truth. The painted target and flat vector character style were rejected.
+This decides the style requirement; it does not approve full assets or C–F.
+
 ## Workspace and baseline
 
 - Repository: `CryptoMickle/delveworn`; frontend: `frontend/`.
@@ -128,9 +133,9 @@ Specification: `docs/phase-1-vertical-slice.md`. Review/test instructions:
 - Ten-combat-room plan matching existing boss/supply/camp cadence, with entrance
   and recovery spaces. First 10–15 minutes, three builds, enemy/boss behavior,
   controls, mobile/desktop layout, presentation, architecture and boundaries.
-- Recommended **painted dark fantasy** art direction. One ImageGen target image
-  saved at `docs/phase-1-evidence/art-direction-target.png`; exact prompt/tool
-  provenance adjacent. This is a mockup, not a game screenshot or an asset pack.
+- Earlier **painted dark fantasy** proposal, now **rejected**. One ImageGen image
+  saved at `docs/phase-1-evidence/art-direction-target.png`; retained as history.
+  Do not use it as the selected style reference.
 - Local development-only `/concept`: one room, visible avatar, Gary, floating
   Stormglass, HUD, intent, Attack/Storm/Potion, damage/healing feedback, walking,
   approach/door states, optional existing sound and explicit restart.
@@ -164,6 +169,28 @@ Specification: `docs/phase-1-vertical-slice.md`. Review/test instructions:
 
 ### Current local state
 
+#### Revision 02 — preserve original monster style
+
+- `/concept` now opens with the unchanged original Gary, Grave Belle and Thud
+  artwork and a revised one-room mockup made with those files as direct ImageGen
+  references. The image is `frontend/public/concept/original-style-revision.png`.
+- The original monster files were not edited. New avatar/environment/effects
+  must match their detailed dimensional rendering, expressive faces, material
+  textures and cinematic lighting. Preserve Gary's original dagger, hair, eyes,
+  clothes and silhouette; no substituted helmet/armor/mace design.
+- The earlier interactive vector study is retained in a collapsed section and
+  explicitly labeled as temporary graphics. It is not the selected art style.
+- Updated the specification and review guide. Exact image prompt/provenance and
+  limitations are in `phase-1-evidence/original-style-revision-prompt.md`.
+  A failed cutout without transparency was not integrated.
+- Fresh revision checks: TypeScript passed; changed-page ESLint passed;
+  production build passed and compiled `/concept` metadata still reports 404.
+  `git diff --exit-code -- public/monsters` confirmed original assets unchanged.
+  No combat/contract logic changed, so full gameplay suites were not repeated.
+- Browser inspection was attempted once after the user opened the page; the
+  same policy-check failure remains. Responsive/interactive visual QA is still
+  unverified. The generated mockup is not evidence of implemented game graphics.
+
 The local dev server was left running at `http://127.0.0.1:3100/concept` for
 the user's review on this Mac. Restart instructions are in the review guide.
 All work is local. No push, merge, production deploy or onchain transaction.
@@ -174,12 +201,13 @@ and dungeon integration. Browser QA still needs resolution even if approved.
 
 1. Read this file, the specification and review guide; inspect Git status and
    preserve both prior Weekly commits and all newer remote work.
-2. Obtain/record the user's **visual approval** of the painted target and room
-   layout, or revise the concept in response. Do not treat silence as approval.
+2. Preserve the now-decided original monster style. Obtain/record approval of
+   the revised one-room concept/layout at the B gate; do not reopen rejected
+   style alternatives or treat silence as approval.
 3. When Browser policy checking is available again, verify the actual `/concept`
    layout and controls with the Browser skill. Do not bypass the restriction.
 4. After approval: C dungeon/state integration; D versioned local training
-   mechanics; E coherent small painted asset set; F full verification, fix the
+   mechanics; E small asset set matching the original monster graphics; F full verification, fix the
    two baseline regressions, and prepare a 5–10-person blind test.
 5. Preserve actual onchain rules; Somnia stays behind its existing boundary.
    No transaction/deployment. Update this file after every milestone.
