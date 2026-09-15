@@ -152,6 +152,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
   }
 
   function keyboard(event: KeyboardEvent<SVGSVGElement>) {
+    if (!["explore","loot","recovery"].includes(view.phase)) return;
     const moves: Record<string,Point> = { ArrowLeft:{x:-42,y:0},a:{x:-42,y:0},ArrowRight:{x:42,y:0},d:{x:42,y:0},ArrowUp:{x:0,y:-42},w:{x:0,y:-42},ArrowDown:{x:0,y:42},s:{x:0,y:42} };
     const delta = moves[event.key];
     if (delta) { event.preventDefault(); moveTo({x:point.current.x+delta.x,y:point.current.y+delta.y}); }

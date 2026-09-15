@@ -24,7 +24,14 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — restored core and mobile room controls
+## Current checkpoint — Practice controls inside the mobile room
+
+Latest phone-review correction: use the actual shared `CombatActionDock` instead
+of the custom three-button imitation. Monster HP is a dedicated current/max +
+bar status in the room. Attack is right; Potion is below or middle on short
+screens. Player HP, TOOK/DEALT and potion limits/reasons are readable at the point
+of action. Local Practice source was audited; live production Browser access was
+blocked by its mandatory policy check. See verification for exact evidence.
 
 The user's phone-review corrections supersede the earlier training proposal:
 no starting relic choice, original combat rules, physical floor-loot pickup,
@@ -80,7 +87,7 @@ review. Classic Practice, Weekly and existing Somnia onchain mode remain.
 
 ### Milestone F — verification and preview
 
-- Frontend tests: **98 passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
+- Frontend tests: **102 passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
   14 pre-existing warnings**. Alpha-channel and loot routing checks pass.
 - All three existing CI build configurations passed at the restored-core
   checkpoint; Somnia standard passed again after the fullscreen mobile layout. Development-only

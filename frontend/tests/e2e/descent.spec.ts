@@ -49,7 +49,7 @@ test("keyboard and floor input move the avatar; repeated combat input commits on
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","combat");
   await expect(page.getByRole("group",{name:"Combat actions"})).toHaveAttribute("aria-busy","false");
   const before=await saved(page);
-  await page.getByRole("button",{name:/Attack/}).evaluate((button:HTMLButtonElement)=>{button.click();button.click();button.click();});
+  await page.getByRole("button",{name:/Attack/i}).evaluate((button:HTMLButtonElement)=>{button.click();button.click();button.click();});
   await expect.poll(async()=>(await saved(page)).turns).toBe(before.turns+1);
   await expect(page.getByRole("group",{name:"Combat actions"})).toHaveAttribute("aria-busy","false");
   expect(await saved(page)).toEqual(transition(before,"attack"));
@@ -65,7 +65,7 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
   const reloaded=new Set<number>();
   for (let n=0;n<180 && !["won","lost"].includes(phase(run));n++) {
     const currentPhase=phase(run), action=informedPolicy(run), expected=transition(run,action);
-    const names={engage:/Approach/,enter:/Walk to room/,collect:/Pick up loot/,attack:/Attack/,storm:/Storm/,potion:/Potion/,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
+    const names={engage:/Approach/,enter:/Walk to room/,collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
     const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
     if (isMobile && shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
     const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})
@@ -135,10 +135,31 @@ test("responsive room keeps compact combat controls inside the scene",async({pag
   const actions=page.getByRole("group",{name:"Combat actions"});
   await actions.scrollIntoViewIfNeeded();
   await expect(actions).toBeInViewport();
-  await expect(actions.getByRole("progressbar",{name:"Your health beside combat actions"})).toBeVisible();
-  await expect(actions.getByText("Potions 3 / 5",{exact:true})).toBeVisible();
+  await expect(actions.getByRole("progressbar",{name:"Player health"})).toBeVisible();
+  await expect(actions.getByRole("button",{name:/POTION.*3\/5/})).toBeVisible();
+  const enemyHealth=page.getByRole("progressbar",{name:"Enemy health",exact:true});
+  await expect(enemyHealth).toBeVisible();
+  await expect(enemyHealth).toHaveAttribute("aria-valuenow",String((await saved(page)).game.monsterHp));
+  await expect(actions.locator(".practice-combat-vitals")).toContainText("ENEMY HP");
+  await expect(actions.locator(".practice-combat-vitals")).toContainText(`${(await saved(page)).game.monsterHp}/${(await saved(page)).game.monsterMaxHp}`);
+  if (isMobile) {
+    await expect(scene.locator(".descent-enemy-status")).toBeInViewport();
+    const size=await scene.locator(".descent-enemy-status-heading b").evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    expect(size).toBeGreaterThanOrEqual(15);
+  }
+  const stormBox=(await actions.getByRole("button",{name:/Storm/i}).boundingBox())!;
+  const attackBox=(await actions.getByRole("button",{name:/Attack/i}).boundingBox())!;
+  const potionBox=(await actions.getByRole("button",{name:/Potion/i}).boundingBox())!;
+  expect(attackBox.x).toBeGreaterThan(stormBox.x);
+  if (isMobile && (await page.evaluate(()=>innerHeight)) <= 700) {
+    expect(potionBox.x).toBeGreaterThan(stormBox.x);
+    expect(potionBox.x).toBeLessThan(attackBox.x);
+    expect(Math.abs(attackBox.y-potionBox.y)).toBeLessThanOrEqual(1);
+  } else {
+    expect(potionBox.y).toBeGreaterThanOrEqual(stormBox.y+stormBox.height);
+  }
   const dock=await actions.evaluate(element=>{const rect=element.getBoundingClientRect(),room=element.closest("[data-room-scene]")!.getBoundingClientRect();return {height:rect.height,top:rect.top,bottom:rect.bottom,roomTop:room.top,roomBottom:room.bottom,inside:Boolean(element.closest(".dungeon-scene-overlay"))};});
-  expect(dock.height).toBeLessThanOrEqual(160); expect(dock.inside).toBe(true);
+  expect(dock.inside).toBe(true);
   if (isMobile) { expect(dock.top).toBeGreaterThanOrEqual(dock.roomTop); expect(dock.bottom).toBeLessThanOrEqual(dock.roomBottom+1); }
   for (const button of await actions.getByRole("button").all()) {
     await button.scrollIntoViewIfNeeded(); const b=await button.boundingBox();
@@ -151,16 +172,25 @@ test("responsive room keeps compact combat controls inside the scene",async({pag
   });
   expect(backgrounds.descent).toBe(backgrounds.practice);
   const scrollBefore=await page.evaluate(()=>scrollY);
-  await actions.getByRole("button",{name:/Attack/}).click();
+  await actions.getByRole("button",{name:/Attack/i}).click();
   await expect(actions).toHaveAttribute("aria-busy","false");
   expect(await page.evaluate(()=>scrollY)).toBe(scrollBefore);
+  const afterAttack=await saved(page);
+  await expect(enemyHealth).toHaveAttribute("aria-valuenow",String(afterAttack.game.monsterHp));
+  await expect(actions.getByRole("status",{name:"Last combat exchange"})).toContainText(`TOOK ${afterAttack.game.lastMonsterDamage} HP`);
+  await expect(actions.getByRole("status",{name:"Last combat exchange"})).toContainText(`${afterAttack.game.lastPlayerDamage} HP`);
+  await page.getByRole("button",{name:"Open dungeon log"}).click();
+  await expect(page.getByRole("dialog",{name:"Dungeon log"})).toBeVisible();
+  await page.keyboard.press("1");
+  expect(await saved(page)).toEqual(afterAttack);
+  await page.getByRole("button",{name:"Close dungeon log"}).click();
   if (testInfo.project.name === "iphone-11-pro-webkit") {
     const beforeResize=await saved(page);
     for (const height of [812,635,568]) {
       await page.setViewportSize({width:375,height});
       await expect.poll(async()=>Math.round((await scene.boundingBox())!.height)).toBe(height);
       const layout=await page.evaluate(()=>{
-        const button=document.querySelector('.descent-action-buttons button:last-child')!.getBoundingClientRect();
+        const button=document.querySelector('.descent-practice-controls .practice-attack-action')!.getBoundingClientRect();
         return {bottom:button.bottom,scroll:document.documentElement.scrollHeight,height:innerHeight};
       });
       expect(layout.bottom).toBeLessThanOrEqual(height);

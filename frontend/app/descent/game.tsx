@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { attackRange, combatRelicSummary, currentCriticalChance, incomingRange, stormRange, type ShopAction } from "../practice/engine";
+import { combatRelicSummary, incomingRange, type ShopAction } from "../practice/engine";
 import { describePracticeAction, practiceLoot, type PracticeFeedback } from "../practice/feedback";
 import { cryptoRandomInt } from "../practice/random";
 import { getRelicDefinition } from "../relics";
@@ -12,7 +12,9 @@ import { GameLogo } from "../game-logo";
 import { DungeonScene, ENEMY_ART, type SceneCue } from "../dungeon/scene";
 import { ROOMS, createDescent, enemyIntent, phase, roomNumber, transition, type Descent, type DescentAction, type PendingLoot } from "./model";
 import { DESCENT_SAVE_KEY, loadDescent, saveDescent } from "./storage";
+import { DescentCombatPanel, DescentEnemyStatus } from "./combat-panel";
 import "./game.css";
+import "./combat-panel.css";
 import "../dungeon/scene.css";
 
 function Meter({ label, value, max, enemy = false }: { label: string; value: number; max: number; enemy?: boolean }) {
@@ -42,7 +44,7 @@ export default function DescentGame() {
   const [confirmRestart,setConfirmRestart] = useState(false);
   const [shopOpen,setShopOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sceneArea = useRef<HTMLDivElement>(null), merchantArea = useRef<HTMLElement>(null), shopDialog = useRef<HTMLDialogElement>(null);
+  const sceneArea = useRef<HTMLDivElement>(null), merchantArea = useRef<HTMLElement>(null), shopDialog = useRef<HTMLDialogElement>(null), logDialog = useRef<HTMLDialogElement>(null);
   const p = run ? phase(run) : null;
   const audio = useGameAudio({ bossActive: p === "combat" && run?.game.monsterType === 3, exploring:p === "explore" || p === "loot" || p === "recovery", encounter: p === "combat" && run ? ENEMY_ART[run.game.monsterType].name : undefined, encounterKey: run ? roomNumber(run) : undefined });
 
@@ -113,7 +115,7 @@ export default function DescentGame() {
     if (combat) {
       setCue(next.game.relicReviveUsed && !before.game.relicReviveUsed ? "revive" : next.game.lastCritical ? "critical" : action);
       setFeedback(next.pendingLoot
-        ? {title:"Loot dropped.",detail:"Walk to the loot on the floor to pick it up.",tone:"good"}
+        ? {title:`${action === "storm" ? "Storm" : next.game.lastCritical ? "Critical attack" : "Attack"} · ${next.game.lastPlayerDamage} damage`,detail:`Room ${next.game.roomsCleared} cleared. Walk to the loot to collect it.${next.game.hp !== before.game.hp ? ` HP ${before.game.hp} → ${next.game.hp}.` : ""}`,tone:"good"}
         : describePracticeAction(before.game,next.game,action));
       if (!next.game.active) audio.playOutcome("death");
       else if (next.game.lastPlayerDamage > 0) audio.playOutcome(next.game.lastCritical ? "critical" : "hit");
@@ -130,8 +132,14 @@ export default function DescentGame() {
   }
 
   function keyboard(event: KeyboardEvent<HTMLElement>) {
-    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.target instanceof HTMLInputElement) return;
-    const action = {"1":"attack","2":"storm","3":"potion"}[event.key] as DescentAction | undefined;
+    if (event.defaultPrevented || event.repeat || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const target=event.target;
+    if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable], [role='textbox']"))) return;
+    if (document.querySelector("dialog[open], [role='dialog'][aria-modal='true']:not([hidden]), .descent-mobile-menu[open]")) return;
+    const key=event.key.toLowerCase();
+    const aliases:Record<string,DescentAction>={"1":"attack","2":"storm","3":"potion",p:"potion"};
+    if (p === "combat") { aliases.a="attack"; aliases.s="storm"; }
+    const action=aliases[key];
     if (action) { event.preventDefault(); void act(action); }
   }
 
@@ -149,11 +157,10 @@ export default function DescentGame() {
   const g=run.game, room=roomNumber(run), roomInfo=ROOMS[room-1], art=ENEMY_ART[g.monsterType], intent=enemyIntent(g.monsterType,run.roomTurns);
   const relic=g.equippedRelic > 0 ? getRelicDefinition(g.equippedRelic) : null;
   const rewardRelic=p === "reward" && g.relicOfferId > 0 ? getRelicDefinition(g.relicOfferId) : null;
-  const attackDamage=attackRange(g), stormDamage=stormRange(g), reply=incomingRange(g);
+  const reply=incomingRange(g);
   const combat=p === "combat", recovery=p === "recovery", terminal=p === "won" || p === "lost";
   const hasMerchant=recovery && (room === 5 || room === 9);
   const potionDisabled=busy || (!combat && !recovery) || g.potions === 0 || g.hp >= g.maxHp || (combat && g.combatPotionsUsed >= (g.monsterType === 3 ? 3 : 2));
-  const potionReply=reply.map(n => Math.ceil(n/2)) as [number,number];
   const shop: { action: ShopAction; title: string; cost: number; detail: string; disabled: boolean }[] = room === 5 ? [
     {action:"supply-bandage",title:"Bandage",cost:20,detail:"Recover 25 HP · once",disabled:g.supplyBandageUsed || g.hp === g.maxHp},
     {action:"supply-potion",title:"Potion",cost:25,detail:`Take it with you · ${2-g.supplyPotionsBought} left`,disabled:g.supplyPotionsBought >= 2 || g.potions >= 5},
@@ -165,21 +172,10 @@ export default function DescentGame() {
   ];
   const roomStatus=p === "lost" ? "FALLEN" : p === "loot" ? "LOOT DROPPED" : g.monsterHp === 0 ? "CLEARED" : combat ? "COMBAT" : "ENTERING";
   const sceneLoot=p === "loot" && run.pendingLoot ? {type:g.lastLootType,amount:g.lastLootAmount,gold:run.pendingLoot.gold,relicId:g.relicOfferId} : undefined;
-  const combatDock=combat ? <div className="descent-actions" role="group" aria-label="Combat actions" aria-busy={busy}>
-    <div className="descent-action-vitals">
-      <div className="descent-action-health"><span>HP <strong>{g.hp} / {g.maxHp}</strong></span><Meter label="Your health beside combat actions" value={g.hp} max={g.maxHp} /></div>
-      <span className="descent-action-enemy">{art.name} <strong>{g.monsterHp} HP</strong> · replies {range(reply)}</span>
-      <span className="descent-action-potions">Potions <strong>{g.potions} / 5</strong></span>
-    </div>
-    <div className="descent-action-buttons">
-      <button disabled={busy} onClick={() => void act("attack")} aria-label={`Attack, ${range(attackDamage)} damage`}><span className="descent-action-symbol">⚔</span><strong>Attack <kbd>1</kbd></strong><span>{range(attackDamage)} dmg</span><small>{currentCriticalChance(g)}% critical</small></button>
-      <button className="storm" disabled={busy} onClick={() => void act("storm")} aria-label={`Storm, ${range(stormDamage)} damage`}><span className="descent-action-symbol">ϟ</span><strong>Storm <kbd>2</kbd></strong><span>{range(stormDamage)} dmg</span><small>Unpredictable</small></button>
-      <button className="potion" disabled={potionDisabled} onClick={() => void act("potion")} aria-label={`Potion, heal 25 HP, ${g.potions} remaining`}><Image className="descent-action-icon" src="/dungeon/loot/potion.webp" alt="" width={31} height={31} /><strong>Potion <kbd>3</kbd></strong><span>+25 HP</span><small>{range(potionReply)} reply · {g.potions} left</small></button>
-    </div>
-  </div> : null;
+  const combatDock=combat ? <DescentCombatPanel run={run} busy={busy} onAction={action => void act(action)} /> : null;
   const feedbackTitle=feedback?.title ?? (p === "loot" ? "Loot is waiting." : roomInfo.note);
   const feedbackDetail=feedback?.detail ?? (p === "explore" ? "Tap the floor or use the arrow keys to walk. Approach the enemy to begin." : p === "loot" ? "Walk to the drop before using the door." : "Your health, inventory and room progress have been restored.");
-  const renderReport=(mobile=false) => <div className={`descent-report ${mobile ? "descent-mobile-report" : ""}`} role="status" aria-live="polite" aria-atomic="true" data-tone={feedback?.tone} data-phase={p}><strong>{feedbackTitle}</strong><p>{feedbackDetail}</p></div>;
+  const renderReport=(mobile=false) => <div className={`descent-report ${mobile ? "descent-mobile-report" : ""}`} role="status" aria-live="polite" aria-atomic="true" data-tone={feedback?.tone} data-phase={p}><strong>{feedbackTitle}</strong><p>{feedbackDetail}</p>{p !== "loot" && <button className="descent-report-log" onClick={() => logDialog.current?.showModal()} aria-label="Open dungeon log">Log ›</button>}</div>;
   const renderMerchant=(mobile=false) => hasMerchant ? <section className={`descent-merchant ${mobile ? "descent-mobile-sheet-card" : ""}`} ref={mobile ? undefined : merchantArea} tabIndex={-1} aria-label="Kevin's shop">
     {mobile && <button className="descent-mobile-sheet-close" onClick={() => setShopOpen(false)} aria-label="Close Kevin's shop">Close</button>}
     <Image className="descent-kevin" src="/characters/merchant-quartermaster-kevin.webp" alt="Quartermaster Kevin" width={400} height={240} /><p className="descent-kicker">{room === 9 ? "LAST CAMP BEFORE MANAGEMENT" : "SUPPLY ALCOVE"}</p><h2>Kevin has receipts.</h2><p>{room === 9 ? "Rest, stock up, or invest in the boss fight." : "Recovery now, or gold for later?"}</p><div>{shop.map(item => <button key={item.action} disabled={busy || item.disabled || g.gold < item.cost} onClick={() => void act(item.action)}><strong>{item.title}<span>{item.cost} gold</span></strong><small>{item.detail}</small></button>)}</div>
@@ -199,6 +195,7 @@ export default function DescentGame() {
     </div>
     <div className="descent-mobile-progress" role="progressbar" aria-label={`Dungeon progress, room ${room} of 10`} aria-valuemin={1} aria-valuemax={10} aria-valuenow={room}><span style={{width:`${room*10}%`}} /></div>
     <div className="descent-mobile-inventory" role="group" aria-label="Inventory"><span><small>Gold</small><strong>{g.gold}</strong></span><span><small>Weapon</small><strong>+{g.weaponLevel}</strong></span><span><small>Armor</small><strong>+{g.armorLevel}</strong></span><span><small>Potions</small><strong>{g.potions} / 5</strong></span></div>
+    {!terminal && p !== "reward" && <DescentEnemyStatus name={art.name} hp={g.monsterHp} maxHp={g.monsterMaxHp} incoming={range(reply)} isBoss={g.monsterType === 3} />}
     {saveNotice && <div className="descent-mobile-notice" role="status"><span>{saveNotice}</span>{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</div>}
     {hasMerchant && <dialog ref={shopDialog} className="descent-mobile-shop" onClose={() => setShopOpen(false)} onCancel={() => setShopOpen(false)}>{renderMerchant(true)}</dialog>}
     {p === "reward" && <div className="descent-mobile-phase-sheet">{renderReward(true)}</div>}
@@ -233,6 +230,7 @@ export default function DescentGame() {
       {renderTerminal()}
     </aside></div>
     {p !== "loot" && <details className="descent-journal"><summary>Dungeon journal · {run.turns} turns</summary>{g.log.map((line,i) => <p key={i}>{line}</p>)}</details>}
+    <dialog ref={logDialog} className="descent-log-dialog" aria-label="Dungeon log"><header><h2>Dungeon log</h2><button autoFocus onClick={() => logDialog.current?.close()} aria-label="Close dungeon log">Close</button></header><p><strong>{feedbackTitle}</strong><br />{feedbackDetail}</p>{p !== "loot" && g.log.map((line,i) => <p key={i}>{line}</p>)}</dialog>
     <footer className="descent-footer"><span>Local run · Original combat rules · Progress saved in this browser</span><button onClick={() => setConfirmRestart(true)} disabled={busy}>Start again</button><Link href="/">All modes</Link></footer>
   </main>;
 }

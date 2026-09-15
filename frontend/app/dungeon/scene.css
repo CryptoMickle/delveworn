@@ -52,7 +52,7 @@
   .dungeon-scene-wrap { overflow:hidden; }
   .dungeon-floor-controls { bottom:27px; }
   .dungeon-controls-help { font-size:9px; bottom:6px; }
-  .dungeon-scene-wrap.has-room-hud { display:grid; grid-template-rows:auto minmax(220px,1fr) auto; border:0; background:#100d10 url('/dungeon/stone-room.webp') center/cover; }
+  .dungeon-scene-wrap.has-room-hud { display:grid; grid-template-rows:auto minmax(180px,1fr) auto; border:0; background:#100d10 url('/dungeon/stone-room.webp') center/cover; }
   .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; z-index:5; }
   .dungeon-scene-wrap.has-room-hud > .dungeon-scene { height:100%; min-height:0; grid-row:2; }
   .has-room-hud > .dungeon-scene-bottom { display:flex; flex-direction:column; position:relative; z-index:4; gap:0; padding-bottom:env(safe-area-inset-bottom); background:linear-gradient(#26182bf5,#09090b); }

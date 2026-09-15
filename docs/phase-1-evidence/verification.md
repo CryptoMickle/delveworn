@@ -1,6 +1,46 @@
 # First Descent verification — 2026-09-15
 
-## Latest correction — fullscreen mobile room panel
+## Current correction — use Practice combat controls in the room
+
+User reported missing monster HP and incorrect action placement. The live
+`https://delveworn.app/practice` review was attempted with the approved in-app
+Browser, but the mandatory admin-policy check failed. No alternate access path
+was used. Findings below come from local Delveworn Practice source, not a live
+visual inspection of production.
+
+Reference implementation: `app/game-ui.tsx` (`DungeonBattle`, `CombatActionDock`),
+`app/globals.css` combat rules and `app/practice/page.tsx` supplied values.
+
+Adopted into `/play`:
+
+- Dedicated mobile enemy name, current/max HP, red health bar and retaliation.
+  Zero HP remains visible after victory. Boss health retains its distinct color.
+- Reuse of the real `CombatActionDock`, without editing that shared component.
+  Storm is left and Attack right. Potion is below, or centered at mobile
+  viewport heights <=700px. Scoped styles do not modify other game modes.
+- Player and enemy HP beside actions; low-health coloring; TOOK/DEALT and critical
+  feedback; real zero-damage exchanges remain zero rather than unset.
+- Potion stock, per-encounter 2/3-use limits, actual disabled reasons and healing/
+  retaliation consequences. Room/camp and loot authority remain unchanged.
+- Readable last-action feedback and a modal log; combat shortcuts ignore open
+  modals/menus. A/S/P aliases apply in combat, preserving scene walking elsewhere.
+
+Actual checks: **102 unit/integration tests passed, 0 failed**; TypeScript passed;
+ESLint **0 errors, 14 existing warnings**; Somnia standard production build passed.
+Browser discovery: **159 cases**. Updated device specs assert visible HP, Attack
+right/Potion middle-or-below, damage updates, no attacks behind the log, and
+viewport fit. These browser tests remain **unexecuted** because of the policy
+check failure. No current mobile screenshot or physical-phone verification is
+claimed. This is a review build, not production-ready.
+
+Changes: `app/descent/combat-panel.{tsx,css}`, `app/descent/game.{tsx,css}`,
+`app/dungeon/scene.{tsx,css}`, `tests/descent-combat-panel.test.tsx`,
+`tests/e2e/descent.spec.ts` and the play/verification documents. Original Practice
+components, combat model/storage, raster assets and contracts are unchanged.
+
+Preview: pending upload of the local commit; access tokens are never committed.
+
+## Previous correction — fullscreen mobile room panel
 
 - Active `/play` fills the available mobile viewport, with a room background
   behind its top/middle/bottom grid. HUD, health, actions, feedback, help/journal,

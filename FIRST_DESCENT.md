@@ -17,7 +17,9 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    relic selection, wallet, account or payment.
 2. Tap the floor or use arrows/WASD to walk. Approach the monster guarding the
    north door. E/Enter interacts with the current enemy, loot or exit.
-3. Use **Attack / Storm / Potion**, or keys **1 / 2 / 3**. Attack has the original
+3. Use **Storm (left) / Attack (right)** with **Potion below**. On short mobile
+   viewports, the row is **Storm / Potion / Attack**. Keys **1 / 2 / 3** remain
+   Attack / Storm / Potion; **A / S / P** work during combat. Attack has the original
    steady damage and critical chance. Storm has its original range and can roll
    zero. Potion heals 25 HP and receives the original half-strength retaliation
    during combat. Two combat potions per normal encounter, three per boss.
@@ -114,7 +116,15 @@ zoom remains enabled. The iPhone 11 Pro test profile has a 375×812 screen and a
 
 Room sizing never changes combat/RNG/save state. The portrait camera caps actors
 at the previous mobile visual scale and limits walking to its visible floor.
-Menu opens help, journal and restart. Visit Kevin opens a scrollable modal after
+The mobile room has a dedicated enemy strip with current/max HP, a red health
+bar and retaliation. The bottom dock reuses the real Practice `CombatActionDock`:
+player/enemy HP, TOOK/DEALT, criticals, damage ranges, potion stock/usage and explicit
+unavailable reasons. Potion is below the two attacks, or centered between Storm
+and Attack at viewport heights of 700px or less. The default Practice/onchain UI
+and all engine rules remain unchanged.
+
+The last-action report stays readable and opens the full log. Modal/menu input
+does not trigger attacks behind the panel. Menu opens help, journal and restart. Visit Kevin opens a scrollable modal after
 the avatar arrives. Relic rewards and final results use scrollable room panels.
 Storage problems remain visible in the HUD. No new wallet or chain integration.
 
@@ -123,7 +133,8 @@ Storage problems remain visible in the HUD. No new wallet or chain integration.
 Use the latest owner-authorized preview link. Observe:
 
 - Starting immediately without a relic choice.
-- Finding remaining HP and using Attack/Storm/Potion without hunting or scrolling.
+- Finding both enemy and player HP; Attack on the right and Potion below/in the
+  middle; readable damage and potion reasons without hunting or scrolling.
 - Reading retaliation and understanding Storm misses and Potion healing.
 - Walking to loot; seeing the inventory update once; using the exit afterwards.
 - Reload before and after pickup; recovery at supplies/camp and the boss relic.
