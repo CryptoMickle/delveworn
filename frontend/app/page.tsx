@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import DungeonHome from "./dungeon-home";
+import { isSomniaDeployment } from "./deployment";
 
-const onchainNetwork = process.env.NEXT_PUBLIC_DEPLOYMENT === "somniaShannon" ? "Somnia Shannon Testnet" : "RISE Testnet";
+const onchainNetwork = isSomniaDeployment(process.env.NEXT_PUBLIC_DEPLOYMENT) ? "Somnia Shannon Testnet" : "RISE Testnet";
 const description = `Enter a dungeon of questionable management. Fight monsters, collect relics and learn when to risk it. Choose local Practice or a wallet-connected run on ${onchainNetwork}.`;
 
 export const metadata: Metadata = {

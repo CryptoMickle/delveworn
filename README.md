@@ -58,13 +58,13 @@ Local saves are validated before restoration. Unavailable storage leaves the run
 
 ### Weekly Verified Challenge
 
-Weekly Challenge runs the same local game rules with a controlled seed derived from an ISO week ID. The 10-room run requires no wallet. Shared URLs contain a compact action trace and integrity digest; the recipient sees a score only after the trace is validated and replayed against the same seed. See [Weekly Verified Challenge V1](WEEKLY_VERIFIED_CHALLENGE.md) for the schedule, score, proof format, analytics events and limits.
+Weekly Challenge runs the same local game rules with a controlled seed derived from an ISO week ID. The 10-room run requires no wallet. Shared URLs contain a compact action trace and integrity digest; the recipient sees a score only after the trace is validated and replayed against the same seed. Combat and between-room screens reuse the same Delveworn components as Practice and Onchain Mode. A completed result offers Somnia Onchain Mode only when the frontend is configured for Somnia. See [Weekly Verified Challenge V1](WEEKLY_VERIFIED_CHALLENGE.md) for the schedule, score, proof format, analytics events and limits.
 
 ### Onchain Mode
 
 Onchain Mode connects a wallet to a configured deployment. Player state and game actions are handled by the deployed `Delveworn` contract, and randomness-backed actions resolve through the configured provider and callback adapter.
 
-Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. RISE and Somnia use separate canonical frontends and deployment configurations; the Somnia Verified Run does not replace the grant-linked RISE experience.
+Onchain Mode depends on the selected network, RPC availability, wallet confirmations and the deployed contract address. The active Delveworn frontend and the default local configuration select Somnia Shannon Testnet. The previous RISE experience remains available only through its explicit legacy deployment configuration.
 
 ## Project overview
 
@@ -109,8 +109,8 @@ The frontend uses `frontendSnapshotV3()`, `claimRelic(bool)` and `equipOwnedReli
 
 | Environment | Status | Scope |
 | --- | --- | --- |
-| RISE Testnet | Public beta | Current wallet-connected deployment and frontend integration. |
-| Somnia Shannon Testnet | Public Verified Run | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. The canonical frontend is [`delveworn-somnia.vercel.app`](https://delveworn-somnia.vercel.app/onchain). Standard MetaMask play and feature-flagged Thirdweb ERC-4337 Popup-free Play are live. Popup-free Play removes repeated wallet approvals but still waits for bundling, block inclusion and verified randomness. |
+| RISE Testnet | Preserved previous version | Available only through the explicit `riseTestnet` deployment configuration and the previous frontend. |
+| Somnia Shannon Testnet | Active public testnet beta | Delveworn [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292) uses a native VRF adapter and Somnia's coordinator-funded Reactivity/drand flow. The active frontend is [`delveworn.app`](https://delveworn.app/onchain); the separate [`delveworn-somnia.vercel.app`](https://delveworn-somnia.vercel.app/onchain) frontend remains available. Standard MetaMask play and feature-flagged Thirdweb ERC-4337 Popup-free Play are supported. Popup-free Play removes repeated wallet approvals but still waits for bundling, block inclusion and verified randomness. |
 | Local Anvil | Development only | Deterministic contract, relic, balance and request/callback testing through `DevRandomnessAdapter`. |
 | Chainlink VRF v2.5 adapter | Implemented and test-covered | Adapter support exists, but no public deployment is presented as production-ready. |
 | Other EVM networks | Architecture target | The core is designed for adapter-based deployments; these networks are not yet advertised as supported public deployments. |

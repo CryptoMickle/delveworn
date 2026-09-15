@@ -1,5 +1,7 @@
+import { isSomniaDeployment } from "./deployment";
+
 export function onchainMetadataCopy(deployment: string | undefined, somniaSessionKeysEnabled: boolean) {
-  if (deployment === "somniaShannon") {
+  if (isSomniaDeployment(deployment)) {
     return {
       title: "Delveworn · Somnia Verified Run",
       description: somniaSessionKeysEnabled

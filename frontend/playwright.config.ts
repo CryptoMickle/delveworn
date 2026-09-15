@@ -19,8 +19,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      NEXT_PUBLIC_DEPLOYMENT: "riseTestnet",
-      NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS: "0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA",
+      NEXT_PUBLIC_DEPLOYMENT: "somniaShannon",
+      NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS: "0x07c5D071132ae95C3708031790b3feC740F4c292",
       NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED: "false",
     },
   },

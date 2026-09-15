@@ -789,7 +789,7 @@ export function CombatActionDock({
         <span data-critical={lastExchange?.critical || undefined}>{lastExchange?.critical ? "🔥 CRITICAL!" : "DEALT"} <b>{lastExchange ? `${lastExchange.dealt} HP` : "—"}</b></span>
       </div>
       <div className="practice-combat-actions grid grid-cols-2 gap-2" data-keyboard-actions>
-        <button type="button" onClick={onStorm} disabled={busy} aria-keyshortcuts={keyboardEnabled ? "s 2" : undefined} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
+        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM${keyboardEnabled ? " S" : ""} · DAMAGE ${stormDamage} · unpredictable, no critical`} aria-keyshortcuts={keyboardEnabled ? "s 2" : undefined} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
           <p className="font-black">⚡ STORM {keyboardEnabled && <kbd>S</kbd>}</p>
           <p className="mt-1 text-sm font-black">DAMAGE {stormDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] text-violet-200">Unpredictable · no critical</p>
@@ -799,7 +799,7 @@ export function CombatActionDock({
             </p>
           )}
         </button>
-        <button type="button" onClick={onAttack} disabled={busy} aria-keyshortcuts={keyboardEnabled ? "a 1" : undefined} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
+        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK${keyboardEnabled ? " A" : ""} · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical`} aria-keyshortcuts={keyboardEnabled ? "a 1" : undefined} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
           <p className="font-black">⚔️ ATTACK {keyboardEnabled && <kbd>A</kbd>}</p>
           <p className="mt-1 text-sm font-black">DAMAGE {attackDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] opacity-70">Reliable · {criticalChance}% critical</p>

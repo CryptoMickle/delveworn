@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { onchainMetadataCopy, somniaTimingCopy } from "../app/deployment-copy";
+import { DEFAULT_PUBLIC_DEPLOYMENT, isSomniaDeployment } from "../app/deployment";
+
+test("Somnia is the public default while RISE remains an explicit legacy selection", () => {
+  assert.equal(DEFAULT_PUBLIC_DEPLOYMENT, "somniaShannon");
+  assert.equal(isSomniaDeployment(undefined), true);
+  assert.equal(isSomniaDeployment("somniaShannon"), true);
+  assert.equal(isSomniaDeployment("riseTestnet"), false);
+});
 
 test("Somnia standard play describes MetaMask approval without sponsored or popup-free promises", () => {
   const copy = onchainMetadataCopy("somniaShannon", false);
@@ -11,6 +19,7 @@ test("Somnia standard play describes MetaMask approval without sponsored or popu
   assert.match(details.heading, /TRANSACTIONS \+ VRF/);
   assert.match(details.description, /MetaMask confirms each action/);
   assert.doesNotMatch(details.description, /Thirdweb|bundler|sponsor|popup-free/i);
+  assert.deepEqual(onchainMetadataCopy(undefined, false), copy);
 });
 
 test("Somnia session copy retains sponsored metadata and the active session's bundler details", () => {
@@ -25,6 +34,5 @@ test("the separate RISE build keeps its existing title and wallet-signed descrip
     description: "A fully onchain dungeon crawler with wallet-signed actions, verifiable randomness and contract-backed progress.",
   };
   assert.deepEqual(onchainMetadataCopy("riseTestnet", false), expected);
-  assert.deepEqual(onchainMetadataCopy(undefined, false), expected);
   assert.deepEqual(onchainMetadataCopy("riseTestnet", true), expected);
 });

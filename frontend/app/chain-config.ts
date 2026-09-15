@@ -5,6 +5,7 @@ import {
   type Chain,
 } from "viem";
 import { riseTestnet } from "viem/chains";
+import { DEFAULT_PUBLIC_DEPLOYMENT } from "./deployment";
 
 export type InstantPlayProvider =
   | "rise-wallet"
@@ -271,7 +272,7 @@ export const deployments = {
 export type DeploymentKey = keyof typeof deployments;
 
 const configuredDeployment =
-  (process.env.NEXT_PUBLIC_DEPLOYMENT as DeploymentKey | undefined) ?? "riseTestnet";
+  (process.env.NEXT_PUBLIC_DEPLOYMENT as DeploymentKey | undefined) ?? DEFAULT_PUBLIC_DEPLOYMENT;
 
 if (!(configuredDeployment in deployments)) {
   throw new Error(`Unsupported NEXT_PUBLIC_DEPLOYMENT: ${configuredDeployment}`);

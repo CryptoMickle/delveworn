@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { PRACTICE_RUN_STORAGE_KEY } from "../../app/practice/storage";
 
-test("Onchain identifies the configured RISE Testnet before wallet connection", async ({ page }) => {
+test("Onchain identifies the configured Somnia Shannon Testnet before wallet connection", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("WALLET · RISE TESTNET", { exact: true })).not.toBeVisible();
+  await expect(page.getByText("WALLET · SOMNIA SHANNON TESTNET", { exact: true })).not.toBeVisible();
   await page.getByRole("button", { name: "Onchain", exact: true }).click();
-  await expect(page.getByText("WALLET · RISE TESTNET", { exact: true })).toBeVisible();
+  await expect(page.getByText("WALLET · SOMNIA SHANNON TESTNET", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
   await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
   await expect(page.getByRole("button", { name: /CONNECT WALLET TO ENTER/ })).toBeVisible({ timeout: 40_000 });
-  await expect(page.locator(".practice-header")).toContainText("LIVE ON RISE TESTNET");
-  await expect(page.locator(".practice-header")).toContainText("CHAIN ID 11155931");
+  await expect(page.locator(".practice-header")).toContainText("LIVE ON SOMNIA SHANNON TESTNET");
+  await expect(page.locator(".practice-header")).toContainText("CHAIN ID 50312");
 });
 
 test("the illustrated logo returns home without replacing a saved local run", async ({ page }) => {

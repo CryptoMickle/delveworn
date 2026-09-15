@@ -138,34 +138,12 @@
 .challenge-onchain-next { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid #3f343d; color: #a8a29e; font-size: 11px; }
 .challenge-onchain-next a { color: #c4b5fd; font-weight: 800; }
 
-.challenge-arena { padding: 18px 20px 20px; }
-.challenge-arena > .practice-room-progress { margin: -18px -20px 14px; }
-.challenge-recovery { min-height: 430px; padding: clamp(24px, 5vw, 48px); text-align: center; }
-.challenge-recovery-kicker { color: #34d399; font-size: 10px; font-weight: 900; letter-spacing: .2em; }
-.challenge-recovery h2 { margin: 10px 0 6px; font-size: clamp(22px, 4vw, 34px); }
-.challenge-recovery > p:not(.challenge-recovery-kicker) { color: #a8a29e; font-size: 12px; }
-.challenge-shop { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 22px; }
-.challenge-shop button { display: flex; justify-content: space-between; align-items: center; gap: 14px; min-height: 64px; padding: 11px 13px; border: 1px solid #59465b; border-radius: 10px; background: #181219; text-align: left; }
-.challenge-shop button span,
-.challenge-shop button small { display: block; }
-.challenge-shop button small { margin-top: 4px; color: #a8a29e; font-size: 10px; }
-.challenge-shop button b { flex: 0 0 auto; color: #fbbf24; font-size: 10px; }
-.challenge-shop button:disabled { opacity: .38; cursor: not-allowed; }
-.challenge-recovery-actions { display: grid; grid-template-columns: .8fr 1.2fr; gap: 9px; margin-top: 20px; }
-.challenge-recovery-actions button { min-height: 52px; padding: 10px; border: 1px solid #4d7c68; border-radius: 10px; background: #11251e; font-weight: 850; }
-.challenge-recovery-actions button:last-child { border-color: #f59e0b; background: #f59e0b; color: #15100b; }
-.challenge-recovery-actions button:disabled { opacity: .4; cursor: not-allowed; }
 .challenge-run-meta { display: flex; justify-content: space-between; gap: 12px; margin: -2px 4px 20px; color: #807584; font-size: 10px; }
 
 @media (max-width: 800px) {
-  .challenge-arena { padding: 0; }
-  .challenge-arena > .practice-room-progress { margin: 0 0 6px; }
   .challenge-result { margin-bottom: 14px; padding: 20px 13px; border-radius: 14px; }
   .challenge-result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .challenge-result-actions { grid-template-columns: 1fr; }
   .challenge-onchain-next { align-items: flex-start; flex-direction: column; gap: 5px; text-align: left; }
-  .challenge-recovery { min-height: 0; padding: 22px 12px max(12px, env(safe-area-inset-bottom)); }
-  .challenge-shop { grid-template-columns: 1fr; }
-  .challenge-recovery-actions { position: sticky; bottom: 0; z-index: 30; grid-template-columns: 1fr; padding-top: 10px; background: linear-gradient(transparent, #111 18%); }
   .challenge-run-meta { margin-bottom: 10px; }
 }

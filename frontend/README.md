@@ -64,6 +64,8 @@ Open `http://localhost:3000`.
 
 Open `/challenge` for the current ISO week or `/challenge/2026-W38` for a stable challenge ID. The mode uses the shared Practice engine with a deterministic seed, records only legal action codes and reconstructs each shared result before displaying its score. It requires no wallet or network call.
 
+The challenge reuses the same combat and between-room components as Practice and Onchain Mode. After a completed run, an optional onchain link is shown only on the Somnia deployment.
+
 The full V1 contract for challenge IDs, scoring, proof validation, sharing, privacy and exclusions is documented in [`../WEEKLY_VERIFIED_CHALLENGE.md`](../WEEKLY_VERIFIED_CHALLENGE.md).
 
 ## Production build
@@ -81,6 +83,8 @@ The `delveworn-app` Vercel project connects this repository's `upgrade/market-du
 The original `delveworn` project and its `main` production branch continue serving the previous version at `https://delveworn.vercel.app`. The Somnia project remains separate. Do not merge the upgraded branch into `main` when preserving those versions.
 
 Set `NEXT_PUBLIC_DEPLOYMENT=somniaShannon`, `NEXT_PUBLIC_SITE_URL=https://delveworn.app` and `NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS` in the new project. Use the public HTTPS/WSS/explorer values from `.env.example`. Enable `NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true` with the public `NEXT_PUBLIC_THIRDWEB_CLIENT_ID` whose domain allowlist includes `delveworn.app` and whose sponsorship policy allows Shannon. RISE deployments continue using `NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS` in their own projects.
+
+If `NEXT_PUBLIC_DEPLOYMENT` is omitted, the frontend now defaults to `somniaShannon`. Use `riseTestnet` only for the preserved legacy deployment.
 
 The legacy `NEXT_PUBLIC_DUNGEON_ADDRESS` variable is retained for deployment compatibility.
 

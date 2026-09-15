@@ -22,7 +22,8 @@ import {
   type MonsterType,
   type PracticeGame,
 } from "../practice/engine";
-import { practiceLoot, practiceRoom } from "../practice/feedback";
+import { practiceRoom } from "../practice/feedback";
+import { DungeonRecovery } from "../between-rooms";
 import {
   applyChallengeAction,
   challengeShareUrl,
@@ -40,6 +41,9 @@ import { registerChallengeCompletion, registerChallengeStart, trackChallenge } f
 import { clearChallengeRun, loadChallengeRun, saveChallengeRun } from "./storage";
 
 const MAX_POTIONS = 5;
+const SHOP_POTION_STOCK = 2;
+const MERCHANT_NAME = "Quartermaster Kevin";
+const MERCHANT_IMAGE = "/characters/merchant-quartermaster-kevin.webp?v=merchant-20260825-v3";
 
 const CHALLENGE_MONSTERS: Record<MonsterType, { name: string; image: string; flavor: string }> = {
   0: { name: "Grave Belle", image: "/monsters/zombie-1-grave-belle.webp?v=art-20260825-v2", flavor: "Technically deceased. Socially still very active." },
@@ -71,12 +75,14 @@ function ResultPanel({
   onPlay,
   onShare,
   shareNotice,
+  onchainNetwork,
 }: {
   verified: VerifiedChallengeResult;
   incoming: boolean;
   onPlay: () => void;
   onShare: () => void;
   shareNotice: string;
+  onchainNetwork: string | null;
 }) {
   const { result } = verified;
   return (
@@ -111,10 +117,10 @@ function ResultPanel({
         )}
       </div>
       {shareNotice && <p className="challenge-share-notice" role="status">{shareNotice}</p>}
-      {!incoming && (
+      {!incoming && onchainNetwork && (
         <div className="challenge-onchain-next">
           <p>Want a contract-backed run after the game has earned it?</p>
-          <Link href="/onchain">Optional onchain mode →</Link>
+          <Link href="/onchain">Optional Somnia onchain mode →</Link>
         </div>
       )}
     </section>
@@ -125,24 +131,36 @@ function ChallengeShopButton({
   label,
   detail,
   cost,
-  disabled,
   onClick,
+  disabledReason,
 }: {
   label: string;
   detail: string;
   cost: number;
-  disabled: boolean;
   onClick: () => void;
+  disabledReason: string | null;
 }) {
+  const disabled = disabledReason !== null;
+
   return (
-    <button type="button" disabled={disabled} onClick={onClick}>
-      <span><strong>{label}</strong><small>{detail}</small></span>
-      <b>{cost} GOLD</b>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-left transition hover:border-orange-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-950 disabled:text-zinc-600 disabled:opacity-70"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-black">{label}</span>
+        <span className={disabled ? "text-xs font-bold text-zinc-600" : "text-xs font-bold text-orange-400"}>{cost} GOLD</span>
+      </div>
+      <p className={disabled ? "mt-1 text-[10px] font-bold text-red-400" : "mt-1 text-[10px] text-zinc-500"}>
+        {disabledReason ?? detail}
+      </p>
     </button>
   );
 }
 
-function RecoveryPanel({
+function ChallengeRecovery({
   game,
   busy,
   dispatch,
@@ -155,38 +173,142 @@ function RecoveryPanel({
   const camp = campPrices(game);
   const supply = supplyAvailable(game);
   const atCamp = campAvailable(game);
-  return (
-    <div className="challenge-recovery" data-keyboard-action-scope>
-      <p className="challenge-recovery-kicker">ROOM {game.roomsCleared} CLEARED</p>
-      <h2>{practiceLoot(game)}</h2>
-      <p>Recover, spend gold if Kevin is present, then enter Room {game.roomsCleared + 1}.</p>
-      {(supply || atCamp) && (
-        <div className="challenge-shop" data-keyboard-actions>
-          {supply && (
-            <>
-              <ChallengeShopButton label="🩹 BANDAGE" detail="Restore 25 HP · once" cost={supplies.bandage} disabled={busy || game.supplyBandageUsed || game.hp >= game.maxHp || game.gold < supplies.bandage} onClick={() => dispatch("supply-bandage")} />
-              <ChallengeShopButton label="🧪 POTION" detail="Add one · two in stock" cost={supplies.potion} disabled={busy || game.supplyPotionsBought >= 2 || game.potions >= 5 || game.gold < supplies.potion} onClick={() => dispatch("supply-potion")} />
-            </>
-          )}
-          {atCamp && (
-            <>
-              <ChallengeShopButton label="🔥 REST" detail="Restore 30 HP · once" cost={camp.rest} disabled={busy || game.campRestUsed || game.hp >= game.maxHp || game.gold < camp.rest} onClick={() => dispatch("camp-rest")} />
-              <ChallengeShopButton label="🧪 POTION" detail="Add one · two in stock" cost={camp.potion} disabled={busy || game.campPotionsBought >= 2 || game.potions >= 5 || game.gold < camp.potion} onClick={() => dispatch("camp-potion")} />
-              <ChallengeShopButton label="⚔️ WEAPON" detail="+2 base damage" cost={camp.weapon} disabled={busy || game.gold < camp.weapon} onClick={() => dispatch("camp-weapon")} />
-              <ChallengeShopButton label="🛡️ ARMOR" detail="Reduce incoming damage" cost={camp.armor} disabled={busy || game.gold < camp.armor} onClick={() => dispatch("camp-armor")} />
-            </>
-          )}
-        </div>
+  const nextRoom = game.roomsCleared + 1;
+  const merchantKind = supply ? "supply" : atCamp ? "camp" : null;
+  const clearedMonster = CHALLENGE_MONSTERS[game.monsterType];
+  const roomHealDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.potions === 0
+      ? "No potions available."
+      : game.hp >= game.maxHp
+        ? "HP is already full."
+        : null;
+  const supplyBandageDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.supplyBandageUsed
+      ? "Already used at this stop."
+      : game.hp >= game.maxHp
+        ? "HP is already full."
+        : game.gold < supplies.bandage
+          ? "Not enough gold."
+          : null;
+  const supplyPotionDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.supplyPotionsBought >= SHOP_POTION_STOCK
+      ? "Sold out at this stop."
+      : game.potions >= MAX_POTIONS
+        ? "Potion inventory is full."
+        : game.gold < supplies.potion
+          ? "Not enough gold."
+          : null;
+  const campRestDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.campRestUsed
+      ? "Already used at this camp."
+      : game.hp >= game.maxHp
+        ? "HP is already full."
+        : game.gold < camp.rest
+          ? "Not enough gold."
+          : null;
+  const campPotionDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.campPotionsBought >= SHOP_POTION_STOCK
+      ? "Sold out at this camp."
+      : game.potions >= MAX_POTIONS
+        ? "Potion inventory is full."
+        : game.gold < camp.potion
+          ? "Not enough gold."
+          : null;
+  const campWeaponDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.gold < camp.weapon
+      ? "Not enough gold."
+      : null;
+  const campArmorDisabledReason = busy
+    ? "Finish the current choice first."
+    : game.gold < camp.armor
+      ? "Not enough gold."
+      : null;
+  const shop = (
+    <>
+      {supply && (
+        <section data-keyboard-actions className="practice-kevin-shop mt-4 rounded-2xl border border-cyan-900 bg-gradient-to-b from-cyan-950/30 to-zinc-950 p-4">
+          <p className="text-[10px] tracking-[0.25em] text-cyan-400">SUPPLY STOP · ROOM {game.roomsCleared}</p>
+          <h2 className="mt-1 text-xl font-black">RESTOCK</h2>
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            <ChallengeShopButton
+              label={`🩹 BANDAGE · ${game.supplyBandageUsed ? "USED" : "1/1 LEFT"}`}
+              detail="Restore 25 HP · one per stop"
+              cost={supplies.bandage}
+              onClick={() => dispatch("supply-bandage")}
+              disabledReason={supplyBandageDisabledReason}
+            />
+            <ChallengeShopButton
+              label={`🧪 POTION · ${SHOP_POTION_STOCK - game.supplyPotionsBought}/${SHOP_POTION_STOCK} LEFT`}
+              detail="Add one potion"
+              cost={supplies.potion}
+              onClick={() => dispatch("supply-potion")}
+              disabledReason={supplyPotionDisabledReason}
+            />
+          </div>
+        </section>
       )}
-      <div className="challenge-recovery-actions" data-keyboard-actions>
-        <button type="button" disabled={busy || game.potions === 0 || game.hp >= game.maxHp} onClick={() => dispatch("potion")}>
-          USE POTION SAFELY · {game.potions}/{MAX_POTIONS}
-        </button>
+      {atCamp && (
+        <section data-keyboard-actions className="practice-kevin-shop mt-4 rounded-2xl border border-amber-800 bg-gradient-to-b from-amber-950/30 to-zinc-950 p-4">
+          <p className="text-[10px] tracking-[0.25em] text-amber-400">CAMP BEFORE ROOM {nextRoom}</p>
+          <h2 className="mt-1 text-xl font-black">PREPARE FOR MANAGEMENT</h2>
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            <ChallengeShopButton
+              label={`🔥 REST · ${game.campRestUsed ? "USED" : "1/1 LEFT"}`}
+              detail="Restore 30 HP · once per camp"
+              cost={camp.rest}
+              onClick={() => dispatch("camp-rest")}
+              disabledReason={campRestDisabledReason}
+            />
+            <ChallengeShopButton
+              label={`🧪 POTION · ${SHOP_POTION_STOCK - game.campPotionsBought}/${SHOP_POTION_STOCK} LEFT`}
+              detail="Add one potion"
+              cost={camp.potion}
+              onClick={() => dispatch("camp-potion")}
+              disabledReason={campPotionDisabledReason}
+            />
+            <ChallengeShopButton label="⚔️ WEAPON" detail="Permanent damage upgrade for this run" cost={camp.weapon} onClick={() => dispatch("camp-weapon")} disabledReason={campWeaponDisabledReason} />
+            <ChallengeShopButton label="🛡️ ARMOR" detail="Permanent damage reduction for this run" cost={camp.armor} onClick={() => dispatch("camp-armor")} disabledReason={campArmorDisabledReason} />
+          </div>
+        </section>
+      )}
+    </>
+  );
+
+  return (
+    <DungeonRecovery
+      room={game.roomsCleared}
+      lootType={game.lastLootType}
+      lootAmount={game.lastLootAmount}
+      flavor={game.log.find((entry) => entry.startsWith("☠️"))?.replace(/^☠️\s*/, "")}
+      hp={game.hp}
+      maxHp={game.maxHp}
+      potions={game.potions}
+      merchant={merchantKind ? { name: MERCHANT_NAME, imageSrc: MERCHANT_IMAGE, kind: merchantKind } : undefined}
+      fallbackArt={{ imageSrc: clearedMonster.image, name: clearedMonster.name }}
+      enterAction={(
         <button type="button" data-keyboard-default="true" disabled={busy} onClick={() => dispatch("next-room")}>
-          ENTER {game.roomsCleared === 9 ? "BOSS " : ""}ROOM {game.roomsCleared + 1} →
+          {nextRoom === 10 ? `ENTER BOSS ROOM ${nextRoom}` : `ENTER ROOM ${nextRoom}`}
         </button>
-      </div>
-    </div>
+      )}
+      healAction={(
+        <button type="button" disabled={roomHealDisabledReason !== null} onClick={() => dispatch("potion")} title="Restore up to 25 HP. No enemy retaliation between rooms.">
+          <span>USE OWN POTION SAFELY · {game.potions}/{MAX_POTIONS}</span>
+          {roomHealDisabledReason && <small>{roomHealDisabledReason}</small>}
+        </button>
+      )}
+      shop={merchantKind ? shop : undefined}
+      relics={null}
+      activeRelic="No Relic"
+      ownedRelicCount={0}
+      log={game.log}
+      feedback="Verified challenge action applied"
+    />
   );
 }
 
@@ -194,10 +316,12 @@ export default function ChallengeClient({
   definition,
   resultProof,
   referral,
+  onchainNetwork,
 }: {
   definition: ChallengeDefinition;
   resultProof: string | null;
   referral: string | null;
+  onchainNetwork: string | null;
 }) {
   const [run, setRun] = useState<ChallengeRun | null>(null);
   const [sharedResult, setSharedResult] = useState<VerifiedChallengeResult | null>(null);
@@ -402,6 +526,7 @@ export default function ChallengeClient({
             onPlay={begin}
             onShare={() => void share(currentVerified)}
             shareNotice={notice}
+            onchainNetwork={onchainNetwork}
           />
         )}
 
@@ -441,7 +566,7 @@ export default function ChallengeClient({
               room={practiceRoom(game)}
               combatPotions={game.monsterHp > 0 ? { used: game.combatPotionsUsed, limit: game.monsterType === 3 ? 3 : 2 } : undefined}
             />
-            <section className={`practice-main-card challenge-arena relative mb-4 overflow-hidden rounded-2xl border ${game.monsterType === 3 ? "border-purple-700 bg-purple-950/30" : "border-zinc-800 bg-zinc-900"}`}>
+            <section className={`practice-main-card relative mb-4 overflow-hidden rounded-2xl border ${game.monsterType === 3 ? "border-purple-700 bg-purple-950/30" : "border-zinc-800 bg-zinc-900"}`}>
               <RoomProgressLine room={practiceRoom(game)} roomsCleared={game.roomsCleared} isBoss={game.monsterType === 3} phase={game.monsterHp > 0 ? "Weekly combat" : "Room cleared"} />
               {game.monsterHp > 0 && monster ? (
                 <DungeonBattle
@@ -480,7 +605,7 @@ export default function ChallengeClient({
                   )}
                 />
               ) : (
-                <RecoveryPanel game={game} busy={false} dispatch={dispatch} />
+                <ChallengeRecovery game={game} busy={false} dispatch={dispatch} />
               )}
             </section>
             <div className="challenge-run-meta">

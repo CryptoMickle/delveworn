@@ -56,7 +56,7 @@ test("neutral home waits for a mode choice before routing into a dungeon", async
   await expect(page).toHaveURL(/\/$/);
   await expect(practice).toHaveAttribute("aria-pressed", "false");
   await expect(onchain).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("WALLET · RISE TESTNET", { exact: true })).toBeVisible();
+  await expect(page.getByText("WALLET · SOMNIA SHANNON TESTNET", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
   await expect(page.getByRole("button", { name: /CONNECT WALLET TO ENTER/ })).toBeVisible({ timeout: 40_000 });
   await noOverflow(page);

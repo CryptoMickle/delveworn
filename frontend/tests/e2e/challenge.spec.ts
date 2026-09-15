@@ -11,6 +11,7 @@ import {
 } from "../../app/challenge/core";
 
 const CHALLENGE_ID = "2026-W38";
+const MERCHANT_NAME = "Quartermaster Kevin";
 
 function definition() {
   const value = getChallengeDefinition(CHALLENGE_ID);
@@ -41,7 +42,7 @@ async function clickAction(page: Page, action: ChallengeAction) {
             : action === "camp-rest" ? page.getByRole("button", { name: /REST/ })
               : action === "camp-weapon" ? page.getByRole("button", { name: /WEAPON/ })
                 : action === "camp-armor" ? page.getByRole("button", { name: /ARMOR/ })
-                  : page.getByRole("button", { name: /POTION Add one/ });
+                  : page.getByRole("button", { name: /POTION · \d\/2 LEFT/ });
   await expect(button).toBeEnabled();
   await button.click();
 }
@@ -57,16 +58,40 @@ test("a player completes the weekly run without a wallet and receives a replay p
   await page.getByRole("button", { name: `⚔️ START ${CHALLENGE_ID}` }).click();
 
   let run = startChallengeRun(definition());
+  let checkedStandardRecovery = false;
+  let checkedSupplyStop = false;
+  let checkedBossCamp = false;
   while (!isChallengeComplete(run)) {
+    if (run.game.monsterHp === 0) {
+      await expect(page.locator(".dungeon-recovery")).toBeVisible();
+      await expect(page.locator(".recovery-panel")).toContainText(`ROOM ${run.game.roomsCleared} CLEARED`);
+      await expect(page.locator(".recovery-resources")).toBeVisible();
+      await expect(page.locator(".recovery-heal")).toBeVisible();
+      await expect(page.locator(".recovery-log")).toBeVisible();
+      checkedStandardRecovery = true;
+      if (run.game.roomsCleared === 5) {
+        await expect(page.getByText("SUPPLY STOP · ROOM 5", { exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: MERCHANT_NAME })).toBeVisible();
+        checkedSupplyStop = true;
+      }
+      if (run.game.roomsCleared === 9) {
+        await expect(page.getByText("CAMP BEFORE ROOM 10", { exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: MERCHANT_NAME })).toBeVisible();
+        checkedBossCamp = true;
+      }
+    }
     const action = nextAction(run);
     await clickAction(page, action);
     run = applyChallengeAction(run, action);
   }
 
   const result = challengeResult(run);
+  expect(checkedStandardRecovery).toBe(true);
+  expect(checkedSupplyStop).toBe(true);
+  expect(checkedBossCamp).toBe(true);
   await expect(page.getByText("✓ VERIFIED BY DETERMINISTIC REPLAY")).toBeVisible();
   await expect(page.getByRole("heading", { name: `${result.score.toLocaleString("en-US")} points` })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Optional onchain mode/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Optional Somnia onchain mode/ })).toBeVisible();
   await noOverflow(page);
 });
 
@@ -145,5 +170,13 @@ test("entry and first combat fit every configured mobile and desktop viewport", 
   await noOverflow(page);
   await page.getByRole("button", { name: `⚔️ START ${CHALLENGE_ID}` }).click();
   await expect(page.getByRole("heading", { name: "Grave Belle" })).toBeVisible();
+  let run = startChallengeRun(definition());
+  while (run.game.monsterHp > 0) {
+    await page.getByRole("button", { name: /ATTACK A/ }).click();
+    run = applyChallengeAction(run, "attack");
+  }
+  await expect(page.locator(".dungeon-recovery")).toBeVisible();
+  await expect(page.locator(".recovery-panel").getByText("ROOM 1 CLEARED", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ENTER ROOM 2" })).toBeVisible();
   await noOverflow(page);
 });

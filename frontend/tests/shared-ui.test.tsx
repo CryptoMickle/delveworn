@@ -64,6 +64,8 @@ test("the dock shows current health beside potion consequences and disables ever
   assert.match(markup, /heal, then take half retaliation/);
   assert.ok(markup.indexOf("practice-storm-action") < markup.indexOf("practice-attack-action"));
   assert.ok(markup.indexOf("practice-attack-action") < markup.indexOf("practice-potion-action"));
+  assert.match(markup, /aria-label="⚡ STORM S · DAMAGE 0–40 · unpredictable, no critical"/);
+  assert.match(markup, /aria-label="⚔️ ATTACK A · DAMAGE 8–14 · reliable, 15% critical"/);
   const pending = renderToStaticMarkup(<CombatActionDock {...actionProps} busy hp={17} maxHp={100} />);
   assert.equal((pending.match(/disabled=""/g) ?? []).length, 3);
   assert.match(pending, /aria-busy="true"/);

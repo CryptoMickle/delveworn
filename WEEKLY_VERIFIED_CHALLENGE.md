@@ -28,6 +28,10 @@ The challenge is a 10-room sprint using Practice Mode combat, loot, supply
 stops and the camp before the boss. The run completes when the player dies or
 clears Room 10. It requires no wallet, RPC, VRF, payment, token or NFT.
 
+Combat and the spaces between rooms use the same shared Delveworn presentation
+components as Practice and Onchain Mode. Challenge state and actions remain
+separate, so visual parity does not weaken deterministic replay verification.
+
 Score V1 is calculated only from the replayed state:
 
 ```text
@@ -136,5 +140,7 @@ one-bit markers used to deduplicate challenge starts and completed proofs.
 - Farcaster, Telegram, Discord, SDK, grant or partner-season integrations;
 - paid entry, tokens, NFTs or sponsored rewards.
 
-The result screen links to the existing onchain mode only as an optional next
-experience after the wallet-free challenge is complete.
+On a Somnia deployment, the result screen links to Somnia Onchain Mode only as
+an optional next experience after the wallet-free challenge is complete. The
+link is hidden from an explicitly configured RISE build. The challenge proof
+never includes chain state, and the handoff performs no automatic transaction.
