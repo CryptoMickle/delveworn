@@ -37,6 +37,10 @@ format and the Somnia/chain boundary are unchanged.
   free walk → retarget → Approach reached combat in all three modes; invalid/null
   pointer matrices did not poison later movement; resize continued the intent;
   blur/visibility cancellation allowed a fresh Approach afterwards.
+- Targeted component guard test: width 0/NaN, height 0/Infinity and width 1
+  preserved the exact avatar position and active frame/timer IDs. A subsequent
+  valid 320×500 resize replaced the job once and reached combat through fallback
+  timers, leaving zero movement handles. Bundle: `client-repro-resize-guard.cjs`.
 - Full actual-component run with RAF never delivered: seed 1 completed all ten
   rooms, with **51 turns, 68 HP, won**, and 30 expected phase transitions. The
   run bought Bandage/Potion after room 5 and Rest/Potion/Weapon after room 9;
@@ -68,6 +72,17 @@ Approach, collect loot, then continue through the shop/camp and boss. Open/close
 the phone browser's chrome during a walk and resume after backgrounding once.
 These corrections remove reproducible code paths; the exact phone trigger has
 not been directly observed in an automated browser.
+
+Current preview: source `ab0fb81efee78793c24ba2634ce44e265812430f`, deployment
+`dpl_BuFYbDSgA9vXkrUXTGv4r7nsTqgi`, **READY**.
+<https://delveworn-1xrmpwyi0-crypto-mickle.vercel.app/play>
+
+Seven-day deployment-specific phone access delivered in the conversation; the
+access token is not committed. Delivery check: HTTP 200 with the expected
+`Delveworn · The First Descent` title. This is a delivery check, not a browser
+playthrough. No production deployment, remote Git push or contract transaction.
+The intermediate `cf9db19` deployment was superseded before delivering a phone
+link; it lacked the final invalid-measurement guard.
 
 ## Previous correction — exit blocked after collecting loot
 
