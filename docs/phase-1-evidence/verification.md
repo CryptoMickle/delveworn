@@ -38,7 +38,14 @@ Changes: `app/descent/combat-panel.{tsx,css}`, `app/descent/game.{tsx,css}`,
 `tests/e2e/descent.spec.ts` and the play/verification documents. Original Practice
 components, combat model/storage, raster assets and contracts are unchanged.
 
-Preview: pending upload of the local commit; access tokens are never committed.
+Current preview: source `ec3c502f120bb8dac51213eb0f2072b900a8ab73`, deployment
+`dpl_6CaykjEikF8rTW2njLEcNb5iDyMa`, **READY**.
+<https://delveworn-rktmwhhpc-crypto-mickle.vercel.app/play>
+
+Seven-day access link delivered in the conversation; token never committed.
+HTTP checks: `/play` 200 with expected title; stone room, Grave Belle and potion
+assets 200. These are delivery checks, not visual gameplay verification. Previous
+preview links below are superseded. Production, remote Git and contracts untouched.
 
 ## Previous correction — fullscreen mobile room panel
 

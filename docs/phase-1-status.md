@@ -93,11 +93,11 @@ review. Classic Practice, Weekly and existing Somnia onchain mode remain.
   checkpoint; Somnia standard passed again after the fullscreen mobile layout. Development-only
   `/concept` remains a production 404. Current evidence is in
   `phase-1-evidence/verification.md`.
-  Current phone preview: source `861687c`, deployment
-  `dpl_2WUeAcHLxBppLFGjAFo5dtqcsuZ8`, READY. `/play` returned HTTP 200 with the
-  mobile viewport metadata; four room/actor/loot assets also returned HTTP 200.
+  Current phone preview: source `ec3c502`, deployment
+  `dpl_6CaykjEikF8rTW2njLEcNb5iDyMa`, READY. `/play` returned HTTP 200 with the
+  expected title; room, monster and potion assets also returned HTTP 200.
   Its seven-day access token is delivered only in the conversation. Earlier
-  `a542b55` and `4ebf5cb` previews are superseded.
+  `861687c`, `a542b55` and `4ebf5cb` previews are superseded.
 - Browser suite discovery: **159 tests in 10 files**, including 24 First
   Descent device cases and a dedicated iPhone 11 Pro profile. Discovery is not execution.
 - Current browser execution remains blocked: the in-app Browser's mandatory
