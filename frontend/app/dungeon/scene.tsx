@@ -78,24 +78,51 @@ export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterTy
   return { point };
 }
 
+/** The portrait camera may crop the room, but never enlarge tier-one actors. */
+export function portraitRoomCamera(width: number, height: number) {
+  const scale = Math.max(Math.max(1,width)/900,Math.max(1,height)/600);
+  const actorScale = Math.min(1,.65/scale);
+  const left = (900-width/scale)/2;
+  const margin=88*actorScale+12/scale;
+  return { actorScale, minX:Math.max(170,left+margin), maxX:Math.min(733,900-left-margin) };
+}
+
 /** Mount with a confirmed run/room key. Recovery never trusts saved coordinates. */
-export function DungeonScene({ view, actions, children }: { view: RoomView; actions: RoomActions; children?: ReactNode }) {
+export function DungeonScene({ view, actions, children, topOverlay, footer }: { view: RoomView; actions: RoomActions; children?: ReactNode; topOverlay?: ReactNode; footer?: ReactNode }) {
   const [position, setPosition] = useState<Point>(view.phase === "explore" ? ENTRY : STAGING);
   const [walking, setWalking] = useState(false);
   const point = useRef(position), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ view, actions });
   useEffect(() => { latest.current = { view, actions }; }, [view, actions]);
   const svg = useRef<SVGSVGElement>(null), pointer = useRef<Point | null>(null);
+  const [camera,setCamera] = useState({actorScale:1,minX:170,maxX:733});
   const relic = getRelicDefinition(view.relic);
   const cleared = view.enemyHp === 0;
   const relicClip = useId();
   const loot = view.phase === "loot" ? view.loot : undefined;
+  const hasRoomHud=Boolean(topOverlay);
   // First Descent uses tier 1 art throughout. Keep a modest base scale so later
   // tiers can grow without making early zombies tower over the adventurer.
   const art = ENEMY_ART[view.enemy], spriteHeight = art.roomHeight;
   const [, , cropWidth, cropHeight] = art.crop.split(" ").map(Number);
   const spriteWidth = spriteHeight * cropWidth / cropHeight;
-  const impact = { x: GUARD.x, y: GUARD.y - spriteHeight * .55 };
+  const impact = { x: GUARD.x, y: GUARD.y - spriteHeight * camera.actorScale * .55 };
+
+  useEffect(() => {
+    const element=svg.current;
+    if (!element || !hasRoomHud) return;
+    const portrait=window.matchMedia("(max-width:760px)");
+    const update=() => {
+      const rect=element.getBoundingClientRect();
+      const next=portrait.matches ? portraitRoomCamera(rect.width,rect.height) : {actorScale:1,minX:170,maxX:733};
+      setCamera(previous => previous.actorScale === next.actorScale && previous.minX === next.minX && previous.maxX === next.maxX ? previous : next);
+      const x=Math.max(next.minX,Math.min(next.maxX,point.current.x));
+      if (x !== point.current.x) { point.current={...point.current,x}; setPosition(point.current); }
+    };
+    const observer=new ResizeObserver(update);
+    observer.observe(element); portrait.addEventListener("change",update);
+    return () => { observer.disconnect(); portrait.removeEventListener("change",update); };
+  },[hasRoomHud]);
 
   useEffect(() => {
     const stop = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; setWalking(false); };
@@ -108,7 +135,7 @@ export function DungeonScene({ view, actions, children }: { view: RoomView; acti
     if (view.pending || !["explore","loot","recovery"].includes(view.phase)) return;
     actions.interact?.();
     if (timer.current) clearTimeout(timer.current);
-    const next = clampRoomPoint(target,cleared);
+    const next = clampRoomPoint({...target,x:Math.max(camera.minX,Math.min(camera.maxX,target.x))},cleared);
     const duration = Math.max(220,Math.min(750,Math.hypot(next.x-point.current.x,next.y-point.current.y)*2));
     point.current = next; setPosition(next); setWalking(true);
     if (svg.current) svg.current.style.setProperty("--walk-time",`${duration}ms`);
@@ -142,25 +169,26 @@ export function DungeonScene({ view, actions, children }: { view: RoomView; acti
     moveTo(target.point,target.destination);
   }
 
-  return <div className={`dungeon-scene-wrap ${view.phase} ${view.room === 10 ? "boss-room" : ""} ${children ? "has-overlay" : ""}`} data-room-scene data-room={view.room}>
+  return <div className={`dungeon-scene-wrap ${view.phase} ${view.room === 10 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room}>
+    {topOverlay && <div className="dungeon-scene-top-overlay">{topOverlay}</div>}
     <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Arrow keys or WASD to walk; E to ${loot ? "pick up loot" : cleared ? "use the door" : "approach the enemy"}.`}
       onKeyDown={keyboard} onPointerDown={e => { pointer.current={x:e.clientX,y:e.clientY}; }} onPointerUp={floor} onPointerCancel={() => {pointer.current=null;}}>
       <image href="/dungeon/stone-room.webp" width="900" height="600" />
       <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
       {cleared && !loot && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.room === 10 ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
-      {!cleared && <g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
+      {!cleared && <g transform={`translate(${GUARD.x} ${GUARD.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
         <ellipse cx={GUARD.x} cy={GUARD.y-3} rx={spriteWidth*.4} ry={spriteHeight*.07} fill="#000" opacity=".62" />
         <svg x={GUARD.x-spriteWidth/2} y={GUARD.y-spriteHeight} width={spriteWidth} height={spriteHeight} overflow="visible"><EnemySprite type={view.enemy} /></svg>
-      </g>}
-      {loot && <g className="dungeon-loot" data-room-loot={loot.type} role="img" aria-label={`Loot on the floor: ${roomLootLabel(loot)}. Walk here to collect.`}>
+      </g></g>}
+      {loot && <g transform={`translate(${GUARD.x} ${GUARD.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`} className="dungeon-loot" data-room-loot={loot.type} role="img" aria-label={`Loot on the floor: ${roomLootLabel(loot)}. Walk here to collect.`}>
         <ellipse cx={GUARD.x} cy={GUARD.y+4} rx="48" ry="14" fill="#c59742" opacity=".2" />
         <image href={LOOT_ART[loot.type]} x={GUARD.x-34} y={GUARD.y-66} width="68" height="68" />
         {loot.type !== 0 && loot.type !== 2 && loot.gold > 0 && <image href={LOOT_ART[2]} x={GUARD.x+17} y={GUARD.y-20} width="28" height="28" />}
         {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
         <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
       </g>}
-      {(view.room === 5 || view.room === 9) && cleared && !loot && <g aria-hidden="true" className="dungeon-camp-prop"><circle cx="252" cy="309" r="34" fill="#f5ab42" opacity=".17" />{view.room === 9 ? <g><ellipse cx="252" cy="321" rx="23" ry="8" fill="#30251e" stroke="#89725b" strokeWidth="5" /><path d="M237 317 Q230 302 246 287 Q243 300 253 275 Q274 300 265 316Z" fill="#b65822" /><path d="M244 318 Q239 303 253 288 Q252 301 262 305 L259 319Z" fill="#edab44" /><path d="M249 319 Q245 309 254 302 L258 318Z" fill="#f8dd8c" /></g> : <image href="/dungeon/loot/potion.webp" x="230" y="282" width="44" height="44" />}<text x="252" y="351" textAnchor="middle" fill="#e9c78a" fontSize="13">{view.room === 9 ? "CAMP" : "SUPPLIES"}</text></g>}
-      <g className="dungeon-actor-position" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`}>
+      {(view.room === 5 || view.room === 9) && cleared && !loot && <g aria-hidden="true" className="dungeon-camp-prop" transform={`translate(${Math.max(camera.minX,Math.min(camera.maxX,252))-252} 0)`}><circle cx="252" cy="309" r="34" fill="#f5ab42" opacity=".17" />{view.room === 9 ? <g><ellipse cx="252" cy="321" rx="23" ry="8" fill="#30251e" stroke="#89725b" strokeWidth="5" /><path d="M237 317 Q230 302 246 287 Q243 300 253 275 Q274 300 265 316Z" fill="#b65822" /><path d="M244 318 Q239 303 253 288 Q252 301 262 305 L259 319Z" fill="#edab44" /><path d="M249 319 Q245 309 254 302 L258 318Z" fill="#f8dd8c" /></g> : <image href="/dungeon/loot/potion.webp" x="230" y="282" width="44" height="44" />}<text x="252" y="351" textAnchor="middle" fill="#e9c78a" fontSize="13">{view.room === 9 ? "CAMP" : "SUPPLIES"}</text></g>}
+      <g className="dungeon-actor-position" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`}><g transform={`scale(${camera.actorScale})`}>
         <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
         <g key={`avatar-${view.cueId}`} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
           <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite /></svg>
@@ -174,12 +202,15 @@ export function DungeonScene({ view, actions, children }: { view: RoomView; acti
         </g>}
         {(view.cue === "potion" || view.cue === "revive") && <g key={`heal-${view.cueId}`} className="dungeon-heal"><ellipse cx="0" cy="-3" rx="53" ry="21" /><text x="0" y="-164" textAnchor="middle">{view.cue === "revive" ? "REVIVED" : "+ HEAL"}</text></g>}
         {view.cue && view.incoming > 0 && <text key={`reply-${view.cueId}`} x="-36" y="-150" className="dungeon-damage incoming">−{view.incoming}</text>}
-      </g>
+      </g></g>
       {(view.cue === "storm" || view.cue === "critical" || view.cue === "attack") && <g key={`fx-${view.cueId}`} className={`dungeon-impact ${view.cue}`}>
         {view.cue === "storm" ? <path d={`M${position.x-45} ${position.y-100} L${impact.x-58} ${impact.y+55} ${impact.x-66} ${impact.y+38} ${impact.x-19} ${impact.y+22} ${impact.x-31} ${impact.y+8} ${impact.x} ${impact.y}`} fill="none" stroke="#dbb3ff" strokeWidth="5" /> : <path d={`M${impact.x-32} ${impact.y+32} Q${impact.x+8} ${impact.y+8} ${impact.x+37} ${impact.y-34}`} stroke="#ffe5ac" strokeWidth="6" fill="none" />}
-        <text x={GUARD.x} y={GUARD.y-spriteHeight-12} textAnchor="middle" className="dungeon-damage">{view.cue === "critical" ? "CRIT " : ""}{view.damage}</text>
+        <text x={GUARD.x} y={GUARD.y-spriteHeight*camera.actorScale-12} textAnchor="middle" className="dungeon-damage">{view.cue === "critical" ? "CRIT " : ""}{view.damage}</text>
       </g>}
     </svg>
+    <div className="dungeon-scene-bottom">
+    {footer && <div className="dungeon-scene-footer">{footer}</div>}
+    {children && <div className="dungeon-scene-overlay">{children}</div>}
     <div className="dungeon-floor-controls">
       {view.phase === "explore" && <button onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending || walking}>Approach {view.enemyName} <span>↗</span></button>}
       {loot && <button onClick={() => moveTo(PICKUP,"loot")} disabled={view.pending || walking}>Pick up loot <span>↑</span></button>}
@@ -187,6 +218,7 @@ export function DungeonScene({ view, actions, children }: { view: RoomView; acti
       {view.phase === "combat" && !children && <span>Your turn · Choose an action below</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>
-    {children ? <div className="dungeon-scene-overlay">{children}</div> : <p className="dungeon-controls-help">Tap the floor to walk · Arrow keys / WASD · E to interact</p>}
+    {!children && <p className="dungeon-controls-help">Tap the floor to walk · Arrow keys / WASD · E to interact</p>}
+    </div>
   </div>;
 }

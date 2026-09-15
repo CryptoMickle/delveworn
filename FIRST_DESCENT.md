@@ -30,9 +30,11 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 6. Defeat the room-10 boss and pick up its loot. The earned relic can then be
    kept or equipped using the original relic rules. Review the recap or replay.
 
-On mobile, numeric HP, the health bar and compact combat controls sit inside
-the bottom of the room. Desktop keeps them below the scene in the same panel.
-Sound starts on interaction; mute is in the header. The UI uses the same background
+On mobile, the room panel fills the available browser viewport. Its background
+continues behind the HUD. Room/progress, inventory, sound and Menu occupy the top
+of the grid; HP, feedback and contextual actions occupy the bottom. The room
+camera fills the space between them without stretching artwork or enlarging
+monsters. Desktop retains its existing wider layout. Sound starts on interaction; mute is in the header. The UI uses the same background
 as classic Practice/onchain and respects reduced motion and phone safe areas.
 
 ## Rules and authority
@@ -101,6 +103,20 @@ and loot pickup, full run/reload/shop/relic choices, compact mobile controls and
 invalid/blocked storage. Browser automation remains blocked because its required
 admin policy check is unavailable. Static illustration exports and HTTP checks
 are not mobile/browser gameplay verification.
+
+## Mobile viewport behavior
+
+The active run uses `100dvh` with `100svh`/`100vh` fallbacks. This fills Safari's
+available page area; it does not hide browser chrome or request OS fullscreen.
+Safe-area padding protects controls near the notch and home indicator. Pinch
+zoom remains enabled. The iPhone 11 Pro test profile has a 375×812 screen and a
+375×635 browser viewport; the browser spec also checks 375×812 and 375×568.
+
+Room sizing never changes combat/RNG/save state. The portrait camera caps actors
+at the previous mobile visual scale and limits walking to its visible floor.
+Menu opens help, journal and restart. Visit Kevin opens a scrollable modal after
+the avatar arrives. Relic rewards and final results use scrollable room panels.
+Storage problems remain visible in the HUD. No new wallet or chain integration.
 
 ## Next phone test
 

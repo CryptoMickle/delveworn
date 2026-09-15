@@ -1,6 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clampRoomPoint, nearRoomLoot, roomFloorTarget, roomLootLabel } from "../app/dungeon/scene";
+import { clampRoomPoint, ENEMY_ART, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel } from "../app/dungeon/scene";
+
+test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
+  for (const width of [320,375,390,430]) for (const height of [220,390,500,650,800]) {
+    const camera=portraitRoomCamera(width,height), scale=Math.max(width/900,height/600);
+    const left=(900-width/scale)/2;
+    assert.ok(camera.minX <= 400 && camera.maxX >= 450, "combat, loot and door stay reachable");
+    for (const art of ENEMY_ART) assert.ok(art.roomHeight*camera.actorScale*scale <= art.roomHeight*.65+.001, "a taller room must not enlarge monsters");
+    for (const x of [camera.minX,camera.maxX]) {
+      const center=(x-left)*scale, halfWidth=88*camera.actorScale*scale;
+      assert.ok(center-halfWidth >= 11.99 && center+halfWidth <= width-11.99, "walking keeps the full avatar on screen");
+    }
+    const target=roomFloorTarget({x:450,y:65},true,0,true);
+    assert.ok(target.point.x >= camera.minX && target.point.x <= camera.maxX);
+    assert.ok(nearRoomLoot(target.point), "resizing never prevents floor pickup");
+  }
+});
 
 test("the same north-door tap approaches its living guard and enters only after clearing", () => {
   const door = { x: 450, y: 65 };

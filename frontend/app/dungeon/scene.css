@@ -17,6 +17,8 @@
 .dungeon-door-open text { fill:#edd2a4; font:600 12px var(--font-geist-sans),sans-serif; letter-spacing:2px; }
 .dungeon-loot text { fill:#f5d38d; stroke:#100c12; stroke-width:3px; paint-order:stroke; font:600 18px var(--font-geist-sans),sans-serif; }
 .dungeon-scene-overlay { position:relative; z-index:3; }
+.dungeon-scene-bottom { display:contents; }
+.dungeon-scene-top-overlay,.dungeon-scene-footer { display:none; }
 .dungeon-damage { fill:#fce6c5; stroke:#1b101f; stroke-width:3px; paint-order:stroke; font:700 32px Georgia,serif; animation:dungeon-number .95s ease-out forwards; }
 .dungeon-damage.incoming { fill:#ffac9f; font-size:23px; animation-delay:.18s; }
 .dungeon-impact path { stroke-dasharray:250; animation:dungeon-strike .6s ease-out forwards; }
@@ -50,6 +52,16 @@
   .dungeon-scene-wrap { overflow:hidden; }
   .dungeon-floor-controls { bottom:27px; }
   .dungeon-controls-help { font-size:9px; bottom:6px; }
+  .dungeon-scene-wrap.has-room-hud { display:grid; grid-template-rows:auto minmax(220px,1fr) auto; border:0; background:#100d10 url('/dungeon/stone-room.webp') center/cover; }
+  .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; z-index:5; }
+  .dungeon-scene-wrap.has-room-hud > .dungeon-scene { height:100%; min-height:0; grid-row:2; }
+  .has-room-hud > .dungeon-scene-bottom { display:flex; flex-direction:column; position:relative; z-index:4; gap:0; padding-bottom:env(safe-area-inset-bottom); background:linear-gradient(#26182bf5,#09090b); }
+  .has-room-hud .dungeon-scene-footer { display:block; }
+  .dungeon-scene-wrap.has-room-hud .dungeon-scene-overlay { position:relative; inset:auto; }
+  .has-room-hud .dungeon-floor-controls { position:relative; inset:auto; padding:6px 10px 10px; }
+  .has-room-hud .dungeon-floor-controls:empty { display:none; }
+  .has-room-hud .dungeon-floor-controls button { flex:1; min-height:48px; }
+  .has-room-hud .dungeon-controls-help { display:none; }
 }
 @media(prefers-reduced-motion:reduce) {
   .dungeon-scene-wrap *, .dungeon-scene-wrap *::before { animation:none !important; transition:none !important; }

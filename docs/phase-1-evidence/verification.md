@@ -1,6 +1,29 @@
 # First Descent verification — 2026-09-15
 
-## Current correction — original core, floor loot and mobile controls
+## Latest correction — fullscreen mobile room panel
+
+- Active `/play` fills the available mobile viewport, with a room background
+  behind its top/middle/bottom grid. HUD, health, actions, feedback, help/journal,
+  shop and outcome panels live inside that room panel. Desktop stays unchanged.
+- Dynamic viewport units account for Safari chrome; safe areas protect the
+  notch/home indicator. No fullscreen API or zoom restriction.
+- Original art is not stretched. A camera helper caps tier-1 actor scale at the
+  previous mobile size and keeps keyboard/tap movement inside visible bounds.
+- **98 frontend tests passed; 0 failed.** ESLint: **0 errors, 14 existing
+  warnings**. Explicit TypeScript passed. Somnia standard production build passed.
+- Geometry checks cover 20 portrait width/height combinations, actor scale,
+  avatar visibility and reachable loot/door targets. Core/model/storage and
+  original raster assets are unchanged by this layout correction.
+- Browser discovery: **159 cases in 10 files**, including the iPhone 11 Pro
+  profile (375×635 viewport / 375×812 screen). Updated tests check fullscreen
+  bounds, controls without page scrolling, Menu, modal shop, recovery and resize
+  at 375×812/635/568 without changing the saved game.
+- Browser execution was attempted again through the approved in-app tool. Its
+  mandatory admin-policy check still failed. No browser bypass was used.
+- A new phone preview follows the local code commit; previous links below
+  identify earlier revisions. This remains a review build, not production-ready.
+
+## Previous correction — original core, floor loot and mobile controls
 
 User phone feedback overrides the earlier starter-build proposal. `/play` now
 starts with the original kit, uses default Practice combat, and applies loot

@@ -69,26 +69,29 @@ review. Classic Practice, Weekly and existing Somnia onchain mode remain.
 - The original plum-to-black background is restored exactly. Attack, Storm
   and Potion use the original orange/violet/green accents. Mobile combat HP,
   potion count and 58px action buttons sit inside the bottom of the room.
-- Same 390px mobile room height across phases avoids resizing during combat
-  and pickup. Desktop controls remain inside the room panel below the scene.
-  A compact safe-healing row appears after pickup. Reduced motion and native
-  scrolling remain supported.
+- The mobile room panel now fills the available viewport (`100dvh`, safe-area
+  padding). Room/progress/inventory/menu sit in the top grid row; HP/actions and
+  short feedback in the bottom row. The room camera takes the remaining space.
+  Original art is not stretched; taller rooms do not enlarge tier-1 actors.
+  Walking is clamped to the visible camera. Menu, shop, rewards and results use
+  in-room panels. Desktop retains its existing layout.
 - Nine static React/SVG illustrations cover four enemies and five loot views.
   These are illustration exports, not browser screenshots or responsive QA.
 
 ### Milestone F — verification and preview
 
-- Frontend tests: **97 passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
+- Frontend tests: **98 passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
   14 pre-existing warnings**. Alpha-channel and loot routing checks pass.
-- All three existing CI build configurations passed locally. Development-only
+- All three existing CI build configurations passed at the restored-core
+  checkpoint; Somnia standard passed again after the fullscreen mobile layout. Development-only
   `/concept` remains a production 404. Current evidence is in
   `phase-1-evidence/verification.md`.
   Current phone preview: source `a542b55`, deployment
   `dpl_H3RoHdmpY6reNWa7tcC6X6i7huC3`, READY. `/play` and seven room/actor/loot
   assets returned HTTP 200 through its seven-day shareable link. The earlier
   `4ebf5cb` preview is superseded; tokens are delivered only in the conversation.
-- Browser suite discovery: **153 tests in 10 files**, including 18 First
-  Descent device cases. Discovery is not execution.
+- Browser suite discovery: **159 tests in 10 files**, including 24 First
+  Descent device cases and a dedicated iPhone 11 Pro profile. Discovery is not execution.
 - Current browser execution remains blocked: the in-app Browser's mandatory
   admin policy check is unavailable. No alternative browser bypass was used.
 - Earlier baseline: 129 passed, 2 failed, 4 skipped. These are historical, not
