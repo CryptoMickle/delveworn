@@ -160,6 +160,34 @@ export function canUseOnchainPresentationAction(
       : phase === "loot";
 }
 
+export type OnchainDoorDecision =
+  | "blocked"
+  | "acknowledge-relic"
+  | "enter-next-room";
+
+/**
+ * Keeps a door pass over confirmed floor loot transactional: ordinary rooms
+ * enter once, while boss loot yields to the already-confirmed relic decision.
+ */
+export function onchainDoorDecision(
+  state: OnchainPresentationState,
+  scope: string | null,
+  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable">,
+  pending: boolean,
+  leaveLoot: boolean
+): OnchainDoorDecision {
+  if (pending) return "blocked";
+  const phase = onchainPresentationPhase(state, scope, snapshot);
+  if (phase === "loot") {
+    if (!leaveLoot) return "blocked";
+    return snapshot.relicOfferAvailable
+      ? "acknowledge-relic"
+      : "enter-next-room";
+  }
+  if (leaveLoot) return "blocked";
+  return phase === "recovery" ? "enter-next-room" : "blocked";
+}
+
 export function onchainPresentationKey(state: OnchainPresentationState, scope: string | null) {
   const runGeneration = state.scope === scope ? state.runGeneration : 0;
   return `${scope ?? "unscoped"}:${runGeneration}`;

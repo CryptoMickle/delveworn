@@ -31,6 +31,31 @@ async function waitForPhase(page: Page, phase: string) {
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", phase);
 }
 
+async function clickRoomPoint(page: Page, point: { x: number; y: number }) {
+  const floor = page.locator("svg.dungeon-scene");
+  await floor.scrollIntoViewIfNeeded();
+  const screen = await floor.evaluate((element, target) => {
+    const matrix = (element as SVGSVGElement).getScreenCTM();
+    if (!matrix) throw new Error("Room floor has no screen transform");
+    const transformed = new DOMPoint(target.x, target.y).matrixTransform(matrix);
+    return { x: transformed.x, y: transformed.y };
+  }, point);
+  await page.mouse.click(screen.x, screen.y);
+}
+
+async function collectFloorLoot(page: Page, phase: string) {
+  const position = await page.locator("[data-loot-position]").getAttribute("data-loot-position");
+  if (!position) throw new Error("Floor loot has no position");
+  const [x, y] = position.split(",").map(Number);
+  await clickRoomPoint(page, { x, y });
+  await waitForPhase(page, phase);
+}
+
+async function passLootAtDoor(page: Page, phase: string) {
+  await clickRoomPoint(page, { x: 450, y: 65 });
+  await waitForPhase(page, phase);
+}
+
 async function walkThrough(page: Page, buttonName: RegExp, phase: string) {
   await page.getByRole("button", { name: buttonName }).click();
   await waitForPhase(page, phase);
@@ -121,13 +146,16 @@ test("same-tick pointer and keyboard dispatch resolve one combat action", async 
   await waitForPhase(page, "loot");
   const pending = await savedGrid(page);
   expect(pending.pendingLoot?.gold).toBeGreaterThan(0);
-  await walkThrough(page, /Pick up loot/, "recovery");
+  await collectFloorLoot(page, "recovery");
   expect((await savedGrid(page)).pendingLoot).toBeNull();
 });
 
 test("own potion heals safely between rooms, commits immediately and survives reload", async ({ page }) => {
   await seed(page, { roomsCleared: 1, monsterHp: 0, hp: 60, potions: 3, combatPotionsUsed: 2, lastMonsterDamage: 9 });
-  const heal = page.getByRole("button", { name: /USE OWN POTION SAFELY/ });
+  await page.locator("button:visible").filter({ hasText: /Menu/ }).first().click();
+  let menu = page.getByRole("dialog", { name: "Dungeon menu" });
+  await expect(menu).toBeVisible();
+  let heal = menu.getByRole("button", { name: /USE OWN POTION SAFELY/ });
   await expect(heal).toBeEnabled();
   const healed = await clickAndRead(heal);
   expect(healed.hp).toBe(85);
@@ -137,12 +165,16 @@ test("own potion heals safely between rooms, commits immediately and survives re
   expect(healed.monsterHp).toBe(0);
   expect(healed.roomsCleared).toBe(1);
   expect(healed.gold).toBe(100);
-  await expect(page.locator(".descent-recovery-potion")).toContainText("85 / 100");
+  await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "85");
   await expect(heal).toContainText("2/5");
+  await menu.getByRole("button", { name: "Close Dungeon menu" }).click();
   await expect(page.getByRole("button", { name: /Enter room 2/ })).toBeEnabled();
   await page.reload();
   expect(await savedGame(page)).toEqual(healed);
   await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "85");
+  await page.locator("button:visible").filter({ hasText: /Menu/ }).first().click();
+  menu = page.getByRole("dialog", { name: "Dungeon menu" });
+  heal = menu.getByRole("button", { name: /USE OWN POTION SAFELY/ });
   const full = await clickAndRead(heal);
   expect(full.hp).toBe(100);
   expect(full.potions).toBe(1);
@@ -192,9 +224,7 @@ test("Storm, Potion, encounter and relic decisions commit locally without a load
   const clear = await clickAndRead(page.getByRole("button", { name: /⚔️ ATTACK/ }));
   expect(clear.roomsCleared).toBe(1);
   await waitForPhase(page, "loot");
-  await page.getByRole("button", { name: "Leave loot" }).click();
-  await waitForPhase(page, "recovery");
-  await walkThrough(page, /Enter room 2/, "explore");
+  await passLootAtDoor(page, "explore");
   const encounter = await savedGame(page);
   expect(encounter.monsterHp).toBeGreaterThan(0);
   expect(encounter.combatPotionsUsed).toBe(0);

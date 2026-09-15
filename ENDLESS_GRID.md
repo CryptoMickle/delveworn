@@ -10,11 +10,19 @@ boss cadence, relic rules and respective randomness authorities.
 - `/practice`: start without a wallet, account or payment. Walk toward the monster
   and use Approach, then Attack, Storm or Potion. The original starting kit is
   100 HP, three potions and no relic choice.
-- After victory, walk to the drop for automatic pickup or choose **Leave loot**.
+- After victory, tap the loot in the grid for automatic pickup on arrival, or
+  **tap the north doorway directly** to walk past the loot and continue.
+  There is no separate pickup/bypass button. E/Enter on the floor uses the door;
+  arrows can still walk onto loot for automatic collection.
   In `/play` and new Practice runs, leaving loot forfeits the held gold, potion,
   weapon or armor reward. Pickup or leaving advances no combat turn or RNG.
-  The existing boss relic keep/equip decision remains separate.
+  The existing boss relic keep/equip decision remains separate. Loot is left only
+  on door arrival; canceling/retargeting the walk preserves it. Failed room entry
+  preserves the previous state and pending loot for retry.
 - **Enter room** walks to the north doorway and advances only on arrival.
+- The separate between-room Potion button is removed from the floor. Safe
+  healing remains in **Menu** (desktop `/play`: **Supplies**). Combat keeps its
+  existing Attack/Storm/Potion controls and placement.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. Difficulty continues to
@@ -45,9 +53,10 @@ reimplemented by the renderer.
 
 The onchain frontend consumes confirmed snapshots and uses the existing wallet,
 transaction, VRF and canonical synchronization paths. The contract already grants
-gold and rolled loot when it resolves a kill. Therefore onchain floor pickup and
-**Leave loot** only acknowledge presentation; both preserve the confirmed balance
-and submit no transaction. The UI states that these rewards are already credited.
+gold and rolled loot when it resolves a kill. Floor pickup acknowledges the display
+without a transaction. Tapping the door skips the display and uses the existing
+room-entry transaction once, retaining the loot display on a failed entry. Both
+preserve the confirmed reward balance. The UI states rewards are already credited.
 Boss relic decisions still use the existing contract-required operation.
 
 Somnia is the intended onchain deployment. The preserved legacy network build
@@ -79,8 +88,10 @@ are not substitutes for mobile browser verification.
 First test on the phone:
 
 1. Start `/practice`, walk freely, approach, attack during the artwork display.
-2. Defeat the enemy, choose **Leave loot**, and watch the avatar walk to the next
-   room. Repeat with physical pickup and reload before/after each choice.
+2. Defeat the enemy and tap the doorway directly while loot is still visible.
+   The avatar walks to the door and enters without collecting. Repeat by tapping
+   the loot itself; it is collected automatically on arrival. Retarget a door
+   walk to the floor and confirm loot is still available. Reload around both choices.
 3. Visit Kevin after room 5. Check his face, HP, gold, potion count, weapon and
    armor; buy a supply and confirm the displayed values update.
 4. Continue past the first boss and its relic decision into room 11. Confirm the

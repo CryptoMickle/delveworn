@@ -13,6 +13,11 @@ function roomPoint(value: string | null): RoomPoint {
   return {x,y};
 }
 const distance = (a: RoomPoint,b: RoomPoint) => Math.hypot(a.x-b.x,a.y-b.y);
+function distanceToSegment(point:RoomPoint,start:RoomPoint,end:RoomPoint) {
+  const dx=end.x-start.x,dy=end.y-start.y;
+  const fraction=Math.max(0,Math.min(1,((point.x-start.x)*dx+(point.y-start.y)*dy)/(dx*dx+dy*dy)));
+  return distance(point,{x:start.x+fraction*dx,y:start.y+fraction*dy});
+}
 const avatarPoint = async(page:Page) => roomPoint(await page.locator("[data-avatar-position]").getAttribute("data-avatar-position"));
 
 async function floorFrame(floor:Locator):Promise<FloorFrame> {
@@ -45,6 +50,16 @@ async function tapRoomPoint(page:Page,floor:Locator,point:RoomPoint,isMobile:boo
     return {x:matrix.a*target.x+matrix.c*target.y+matrix.e,y:matrix.b*target.x+matrix.d*target.y+matrix.f};
   },point);
   if (isMobile) await page.touchscreen.tap(client.x,client.y); else await page.mouse.click(client.x,client.y);
+}
+
+async function dispatchRoomPoint(floor:Locator,point:RoomPoint) {
+  await floor.evaluate((element,target)=>{
+    const matrix=(element as SVGSVGElement).getScreenCTM();
+    if(!matrix) throw new Error("Room floor has no screen transform");
+    const init={bubbles:true,clientX:matrix.a*target.x+matrix.c*target.y+matrix.e,clientY:matrix.b*target.x+matrix.d*target.y+matrix.f,pointerId:1,isPrimary:true};
+    element.dispatchEvent(new PointerEvent("pointerdown",init));
+    element.dispatchEvent(new PointerEvent("pointerup",init));
+  },point);
 }
 
 async function renderedLootPoint(page:Page):Promise<RoomPoint> {
@@ -188,9 +203,11 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
     const currentPhase=phase(run), action=informedPolicy(run), expected=transition(run,action);
     const names={engage:/Approach/,enter:/Enter room/,"skip-loot":"Leave loot", collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
     const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
+    const recoveryPotion=action === "potion" && currentPhase === "recovery";
     if (isMobile && shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
+    if (recoveryPotion) await page.locator(isMobile ? ".descent-mobile-menu > summary" : ".descent-supplies-menu > summary").click();
     const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})
-      : action === "potion" && currentPhase === "recovery" ? page.locator(isMobile ? ".descent-mobile-health" : ".descent-recovery-potion")
+      : recoveryPotion ? page.locator(isMobile ? ".descent-mobile-menu-panel" : ".descent-supplies-menu")
       : ["attack","storm","potion"].includes(action) ? page.getByRole("group",{name:"Combat actions"}) : page;
     if (currentPhase === "reward") await expect(page.getByRole("region",{name:"Boss relic reward"}).getByRole("button")).toHaveCount(2);
     if (action === "collect") {
@@ -199,6 +216,7 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
     } else await scope.getByRole("button",{name:names[action]}).click();
     await expect.poll(async()=>(await saved(page)).revision).toBe(expected.revision);
     expect(await saved(page)).toEqual(expected);
+    if (recoveryPotion) await page.locator(isMobile ? ".descent-mobile-menu > summary" : ".descent-supplies-menu > summary").click();
     if (isMobile && shopAction) await page.getByRole("button",{name:"Close Kevin's shop"}).click();
     run=expected;
     if ([5,9,10].includes(run.game.roomsCleared) && !reloaded.has(run.game.roomsCleared)) {
@@ -222,6 +240,8 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await seed(page,run);
   await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
   await expect(page.getByRole("button",{name:/Enter room/})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:/Pick up loot|Leave loot/})).toHaveCount(0);
+  await expect(page.getByRole("group",{name:/Room 1 floor/})).toHaveAttribute("aria-label",/E to use the door/);
   expect({gold:(await saved(page)).game.gold,potions:(await saved(page)).game.potions,weapon:(await saved(page)).game.weaponLevel,armor:(await saved(page)).game.armorLevel}).toEqual(before);
 
   const floor=page.getByRole("group",{name:/Room 1 floor/});
@@ -305,46 +325,57 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
   }
 });
 
-test("entering a cleared room remains available when walking animation stalls",async({page})=>{
-  let run=transition(createDescent(777,"stalled-room-exit"),"engage");
+test("a door tap walks past visible loot and enters once when animation frames stall",async({page})=>{
+  let run=transition(createDescent(159,"stalled-loot-exit"),"engage");
   while (phase(run) === "combat") run=transition(run,"attack");
   expect(phase(run)).toBe("loot");
-  run=transition(run,"collect");
+  expect(run.pendingLoot).not.toBeNull();
   await seed(page,run);
-  const exit=page.getByRole("button",{name:/Enter room 2/});
-  await expect(exit).toBeEnabled();
+  const floor=page.getByRole("group",{name:/Room 1 floor/});
+  const lootPoint=await stableRenderedLootPoint(page);
+  expect(distanceToSegment(lootPoint,{x:400,y:391},{x:450,y:92}),"fixture loot must lie on the direct door path at every supported viewport").toBeLessThanOrEqual(32);
+  await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
+  await expect(page.getByRole("button",{name:/Pick up loot|Leave loot|Enter room/})).toHaveCount(0);
 
   // Accept animation work without ever delivering a frame. The timer clock
-  // must still walk to the door and commit the arrival exactly once.
+  // must still walk through this seed's loot position to the door and commit
+  // the explicit leave-on-arrival transition exactly once.
   await page.evaluate(()=>{
     const request=window.requestAnimationFrame, cancel=window.cancelAnimationFrame;
     let next=0;
-    const frames=new Set<number>();
+    const frames=new Map<number,FrameRequestCallback>(), canceled:FrameRequestCallback[]=[];
     Object.assign(window,{
-      requestAnimationFrame:()=>{ const id=++next; frames.add(id); return id; },
-      cancelAnimationFrame:(id:number)=>{ frames.delete(id); },
-      __descentFrames:{count:()=>frames.size,restore:()=>{
+      requestAnimationFrame:(callback:FrameRequestCallback)=>{ const id=++next; frames.set(id,callback); return id; },
+      cancelAnimationFrame:(id:number)=>{ const callback=frames.get(id); if(callback) canceled.push(callback); frames.delete(id); },
+      __descentFrames:{count:()=>frames.size,fireCanceled:()=>{
+        const callbacks=canceled.splice(0); for(const callback of callbacks) callback(performance.now()+10_000);
+      },restore:()=>{
         window.requestAnimationFrame=request; window.cancelAnimationFrame=cancel;
       }},
     });
   });
   try {
     expect(await saved(page)).toEqual(run);
-    await expect(exit).toBeEnabled();
-    // Native clicks avoid making the test runner's actionability clock part of
-    // this stalled-RAF fixture; the ordinary full-run spec tests pointer input.
-    await exit.evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
-    expect(await saved(page),"clicking the exit starts a walk without advancing the room").toEqual(run);
-    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+    await dispatchRoomPoint(floor,{x:450,y:65});
+    await dispatchRoomPoint(floor,{x:450,y:65});
+    expect(await saved(page),"tapping the door starts a walk without discarding the floor loot").toEqual(run);
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","loot");
     await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
+    await page.waitForTimeout(650);
+    expect((await avatarPoint(page)).y,"the fallback walk should already have passed the drop").toBeLessThan(lootPoint.y);
+    expect(await saved(page),"passing within pickup range with door intent must preserve the loot").toEqual(run);
+    await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
     const entered=transition(run,"enter");
     await expect.poll(async()=>(await saved(page)).revision).toBe(entered.revision);
     expect(await saved(page)).toEqual(entered);
     await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","explore");
     await expect(page.getByRole("group",{name:/Room 2 floor/})).toBeVisible();
     await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+    await page.evaluate(()=>{
+      (window as Window & {__descentFrames?:{fireCanceled:()=>void}}).__descentFrames?.fireCanceled();
+    });
     await page.waitForTimeout(400);
-    expect(await saved(page),"the canceled first click and stale clocks cannot enter twice").toEqual(entered);
+    expect(await saved(page),"the canceled first tap and stale clocks cannot enter twice").toEqual(entered);
     expect(await page.evaluate(()=>{
       return (window as Window & {__descentFrames?:{count:()=>number}}).__descentFrames?.count();
     })).toBe(0);
@@ -358,11 +389,11 @@ test("entering a cleared room remains available when walking animation stalls",a
   expect(await saved(page)).toEqual(transition(run,"enter"));
 });
 
-test("retargeting a door walk to ordinary floor cannot advance the room",async({page})=>{
-  let run=transition(createDescent(777,"cancel-room-exit"),"engage");
+test("retargeting a loot-room door walk leaves the drop and cannot advance the room",async({page})=>{
+  let run=transition(createDescent(159,"cancel-loot-exit"),"engage");
   while (phase(run) === "combat") run=transition(run,"attack");
-  run=transition(run,"collect");
-  expect(phase(run)).toBe("recovery");
+  expect(phase(run)).toBe("loot");
+  expect(run.pendingLoot).not.toBeNull();
   await seed(page,run);
   await page.evaluate(()=>{
     const request=window.requestAnimationFrame, cancel=window.cancelAnimationFrame;
@@ -378,24 +409,19 @@ test("retargeting a door walk to ordinary floor cannot advance the room",async({
   });
   try {
     const floor=page.getByRole("group",{name:/Room 1 floor/});
-    await page.getByRole("button",{name:/Enter room 2/}).evaluate((button:HTMLButtonElement)=>button.click());
+    await dispatchRoomPoint(floor,{x:450,y:65});
     expect(await saved(page)).toEqual(run);
     await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
-    await floor.evaluate((element,target)=>{
-      const matrix=(element as SVGSVGElement).getScreenCTM();
-      if(!matrix) throw new Error("Room floor has no screen transform");
-      const init={bubbles:true,clientX:matrix.a*target.x+matrix.c*target.y+matrix.e,clientY:matrix.b*target.x+matrix.d*target.y+matrix.f,pointerId:1,isPrimary:true};
-      element.dispatchEvent(new PointerEvent("pointerdown",init));
-      element.dispatchEvent(new PointerEvent("pointerup",init));
-    },{x:450,y:435});
+    await dispatchRoomPoint(floor,{x:450,y:435});
     await page.evaluate(()=>{
       (window as Window & {__descentFrames?:{fireCanceled:()=>void}}).__descentFrames?.fireCanceled();
     });
     await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
     await expect(page.locator("[data-avatar-position]")).toHaveAttribute("data-avatar-position","450,435");
     await page.waitForTimeout(1_400);
-    expect(await saved(page),"neither the canceled frame nor fallback timer may deliver the old door arrival").toEqual(run);
-    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+    expect(await saved(page),"neither the canceled frame nor fallback timer may discard loot or deliver the old door arrival").toEqual(run);
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","loot");
+    await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
   } finally {
     await page.evaluate(()=>{
       const fixture=window as Window & {__descentFrames?:{restore:()=>void}};

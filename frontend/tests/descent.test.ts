@@ -72,6 +72,24 @@ test("leaving floor loot forfeits its resources once and persists without changi
   assert.equal(found.size, 4);
 });
 
+test("walking to the door leaves loot and enters atomically without credit or duplicate entry", () => {
+  const combat = transition(createDescent(99, "door-bypass"), "engage");
+  const killed = transition({ ...combat, game: { ...combat.game, monsterHp: 1 } }, "attack");
+  assert.equal(phase(killed), "loot");
+  const entered = transition(killed, "enter");
+  const expected = transition(transition(killed, "skip-loot"), "enter");
+  assert.equal(phase(entered), "explore");
+  assert.deepEqual(entered.game, expected.game);
+  assert.equal(entered.rngState, expected.rngState, "only the existing room entry consumes randomness");
+  assert.equal(entered.pendingLoot, null);
+  assert.equal(entered.turns, killed.turns);
+  assert.equal(entered.revision, killed.revision + 1, "discard and entry are one save transition");
+  assert.equal(transition(killed, "enter", killed.revision - 1), killed);
+  assert.equal(transition(entered, "enter"), entered, "replayed arrival cannot skip another room");
+  assert.equal(transition(entered, "collect"), entered, "left loot cannot be collected later");
+  assert.ok(isDescent(JSON.parse(JSON.stringify(entered))));
+});
+
 test("enemy descriptions never alter Practice damage or replies", () => {
   for (const type of [0, 1, 2, 3] as const) {
     for (let turn = 0; turn < 8; turn++) {
@@ -186,7 +204,7 @@ test("every engine loot result waits for collection, survives reload, and applie
     if (loaded.status !== "restored") throw new Error("pending loot did not reload");
     assert.deepEqual(loaded.run, killed);
 
-    for (const action of ["engage", "attack", "storm", "potion", "enter", "claim", "claim-equip", "supply-bandage", "camp-rest"] as const) {
+    for (const action of ["engage", "attack", "storm", "potion", "claim", "claim-equip", "supply-bandage", "camp-rest"] as const) {
       assert.equal(transition(loaded.run, action), loaded.run, `${action} progressed before pickup`);
     }
     assert.equal(transition(loaded.run, "collect", loaded.run.revision - 1), loaded.run);
@@ -224,6 +242,14 @@ test("boss loot is collected before the original keep or equip relic choice", ()
   assert.deepEqual(killed.game.ownedRelics, []);
   assert.equal(killed.game.equippedRelic, 0);
   assert.equal(transition(killed, "claim"), killed);
+
+  const door = transition(killed, "enter");
+  assert.equal(phase(door), "reward", "the exit preserves the required boss relic choice");
+  assert.deepEqual(door.game, killed.game);
+  assert.equal(door.pendingLoot, null);
+  assert.equal(door.rngState, killed.rngState);
+  assert.equal(door.revision, killed.revision + 1);
+  assert.equal(transition(door, "enter"), door);
 
   const left = transition(killed, "skip-loot");
   assert.equal(phase(left), "reward", "leaving supplies still allows the existing boss relic decision");

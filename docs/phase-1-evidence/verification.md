@@ -1,6 +1,66 @@
-# First Descent verification — 2026-09-15
+# First Descent verification — 2026-09-16
 
-## Current correction — optional loot, endless shared grid and readable Kevin shop
+## Current correction — tap the doorway to bypass loot
+
+The previous correction did not meet the user's intended interaction: it added
+a Leave loot button, but the actual doorway still redirected the player to loot.
+This correction changes that routing. A direct doorway tap walks to the door,
+never collects on that path, and enters only on arrival. A direct loot tap still
+walks there and automatically collects once. There are no loot-phase pickup or
+bypass buttons. The normal recovery-room entry shortcut is retained.
+
+Local discard plus entry is one state/save transition. A failed encounter roll
+preserves pending loot, and retargeting/canceling the walk cannot discard it.
+Boss floor loot still yields to the original relic decision. Onchain door entry
+uses the existing room-entry transaction; its already-credited rewards remain
+unchanged, and failed/unconfirmed entry retains the local loot display.
+
+The extra between-room Potion button was removed from the mobile footer and
+desktop grid. Safe healing is available in Menu (desktop `/play`: Supplies);
+the established combat Potion control and its position are unchanged.
+
+### Actual checks
+
+- **149 tests passed, 0 failed, 0 skipped.** New coverage includes direct-door
+  hit testing, atomic local discard/entry, failed entry, repeated/stale arrivals,
+  onchain confirmation/retry presentation and required boss relic choice.
+- TypeScript passed; ESLint **0 errors, 14 existing warnings**; whitespace checks
+  passed. The previous 100-run save/restore flow test remains green.
+- Browser test discovery passed: **178 scenarios in 10 files**. Updated door,
+  loot and recovery-healing scenarios were listed, not executed in a browser.
+- All three local frontend CI build configurations passed: RISE compatibility,
+  Somnia standard and Somnia session keys. This is local validation, not remote
+  GitHub CI on unpublished changes. Contracts and VRF setup were not exercised.
+- Actual no-DOM scene callbacks: start `[400,391]`, loot `[423,287]`, door
+  `[450,92]`. The door walk crosses the loot path, collects **zero**, and calls
+  `enter(true)` **once on arrival**. Retargeting to `[450,435]` keeps loot and
+  calls neither entry nor collection. Direct loot navigation collects once.
+  Stale callbacks cannot duplicate either action; app movement timers, frames
+  and listeners are cleared on unmount.
+- The actual Practice page's callbacks complete start → approach → two attacks
+  → loot → door arrival → next encounter. The next saved game has **zero gold**
+  from the uncollected reward and no pending loot; a legacy midfight save still
+  resumes combat. This exercises the page wiring in a no-DOM component harness.
+- Actual shared-room component callbacks confirm no recovery Potion button in
+  the floor, functioning safe healing inside Menu, and one supplied combat
+  Potion control. This is component testing, not responsive-render evidence.
+- The approved Browser was retried on 2026-09-16. Its mandatory admin-policy
+  check still denied access; no alternate browser bypass was used. Native
+  phone/desktop interaction remains unverified, as does live Somnia/VRF.
+
+Changed files: scene and shared-room presentation; Descent model/game/styles;
+Practice and onchain presentation adapters; associated unit and browser
+specifications; gameplay documentation. No original artwork, combat engine,
+contract, deployment configuration or production domain was changed.
+
+Phone check: defeat a monster and tap the actual north doorway while loot is
+still present. Confirm walking, unchanged reward balance locally, and next-room
+entry. Repeat with a direct loot tap, then test canceling a doorway walk.
+Confirm the separate recovery Potion button is gone from the grid.
+
+**Review preview; not production-ready without native gameplay checks.**
+
+## Previous correction — optional loot, endless shared grid and readable Kevin shop
 
 ### Current phone preview
 

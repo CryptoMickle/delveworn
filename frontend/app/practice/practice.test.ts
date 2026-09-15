@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EMPTY_GAME, attack, buy, claimRelic, enterNextRoom, startRun, stormAttack, usePotion, type PracticeGame } from "./engine";
 import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText } from "./feedback";
-import { collectPracticeLoot, countPracticeTurn, createPracticeGrid, engagePracticeGrid, enterPracticeRoom, holdPracticeLoot, legacyPracticeGrid, practiceGridPhase, skipPracticeLoot } from "./grid-state";
+import { collectPracticeLoot, countPracticeTurn, createPracticeGrid, engagePracticeGrid, enterPracticeRoom, holdPracticeLoot, legacyPracticeGrid, passPracticeLootAtDoor, practiceGridPhase, skipPracticeLoot } from "./grid-state";
 import { inspectPracticeRun, isStoredPracticeGame, loadPracticeRun, PRACTICE_RUN_STORAGE_KEY, savePracticeRun } from "./storage";
 
 function memoryStorage(raw: string | null = null) {
@@ -87,6 +87,96 @@ test("new rooms start with an approach and the grid phase follows loot, reward a
   );
   assert.equal(practiceGridPhase(bossLoot.game, bossLoot.grid), "loot");
   assert.equal(practiceGridPhase(bossLoot.game, skipPracticeLoot(bossLoot.grid)), "reward");
+});
+
+test("walking past ordinary loot discards it and enters exactly once", (context) => {
+  context.mock.method(globalThis.crypto, "getRandomValues", (array: Uint32Array) => { array.fill(0); return array; });
+  const game = combat({
+    roomsCleared: 1,
+    monsterHp: 0,
+    gold: 0,
+    weaponLevel: 0,
+    lastLootType: 3,
+    lastLootAmount: 1,
+  });
+  const grid = {
+    ...createPracticeGrid(19),
+    pendingLoot: { gold: 9, potions: 0, weapon: 1, armor: 0 },
+    roomTurns: 2,
+  };
+  let entries = 0;
+  const result = passPracticeLootAtDoor(game, grid, current => {
+    entries += 1;
+    return enterNextRoom(current);
+  });
+
+  assert.ok(result);
+  assert.equal(result.entered, true);
+  assert.equal(entries, 1);
+  assert.equal(result.game.roomsCleared, 1);
+  assert.ok(result.game.monsterHp > 0);
+  assert.equal(result.game.gold, 0);
+  assert.equal(result.game.weaponLevel, 0);
+  assert.equal(result.grid.pendingLoot, null);
+  assert.equal(result.grid.roomTurns, 0);
+  assert.equal(practiceGridPhase(result.game, result.grid), "explore");
+
+  const duplicate = passPracticeLootAtDoor(result.game, result.grid, current => {
+    entries += 1;
+    return enterNextRoom(current);
+  });
+  assert.equal(duplicate, null);
+  assert.equal(entries, 1);
+  assert.notEqual(grid.pendingLoot, null);
+});
+
+test("a failed pass-by entry leaves held loot and game state untouched", (context) => {
+  const game = combat({ roomsCleared: 1, monsterHp: 0, lastLootType: 2, lastLootAmount: 12 });
+  const grid = {
+    ...createPracticeGrid(20),
+    pendingLoot: { gold: 21, potions: 0, weapon: 0, armor: 0 },
+  };
+  context.mock.method(globalThis.crypto, "getRandomValues", () => { throw new DOMException("Unavailable", "OperationError"); });
+
+  assert.throws(() => passPracticeLootAtDoor(game, grid, enterNextRoom), /Unavailable/);
+  assert.equal(game.monsterHp, 0);
+  assert.equal(game.gold, 0);
+  assert.deepEqual(grid.pendingLoot, { gold: 21, potions: 0, weapon: 0, armor: 0 });
+  assert.equal(practiceGridPhase(game, grid), "loot");
+});
+
+test("walking past boss loot reveals the relic choice without entering", () => {
+  const game = combat({
+    roomsCleared: 10,
+    monsterType: 3,
+    monsterHp: 0,
+    monsterMaxHp: 122,
+    relicOfferAvailable: true,
+    relicOfferRarity: 1,
+    relicOfferId: 1,
+    lastLootType: 1,
+    lastLootAmount: 1,
+  });
+  const grid = {
+    ...createPracticeGrid(21),
+    pendingLoot: { gold: 30, potions: 1, weapon: 0, armor: 0 },
+  };
+  let entries = 0;
+  const result = passPracticeLootAtDoor(game, grid, current => {
+    entries += 1;
+    return enterNextRoom(current);
+  });
+
+  assert.ok(result);
+  assert.equal(result.entered, false);
+  assert.equal(entries, 0);
+  assert.equal(result.game, game);
+  assert.equal(result.game.gold, 0);
+  assert.equal(result.game.potions, 3);
+  assert.equal(result.grid.pendingLoot, null);
+  assert.equal(result.game.relicOfferAvailable, true);
+  assert.equal(practiceGridPhase(result.game, result.grid), "reward");
+  assert.equal(passPracticeLootAtDoor(result.game, result.grid, enterNextRoom), null);
 });
 
 test("Practice game and held loot share one validated atomic save", () => {

@@ -28,6 +28,23 @@ async function waitForPhase(page: Page, phase: string) {
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", phase);
 }
 
+async function clickRoomPoint(page: Page, point: { x: number; y: number }) {
+  const floor = page.locator("svg.dungeon-scene");
+  await floor.scrollIntoViewIfNeeded();
+  const screen = await floor.evaluate((element, target) => {
+    const matrix = (element as SVGSVGElement).getScreenCTM();
+    if (!matrix) throw new Error("Room floor has no screen transform");
+    const transformed = new DOMPoint(target.x, target.y).matrixTransform(matrix);
+    return { x: transformed.x, y: transformed.y };
+  }, point);
+  await page.mouse.click(screen.x, screen.y);
+}
+
+async function passLootAtDoor(page: Page, phase: string) {
+  await clickRoomPoint(page, { x: 450, y: 65 });
+  await waitForPhase(page, phase);
+}
+
 async function walkThrough(page: Page, name: RegExp, phase: string) {
   await page.getByRole("button", { name }).click();
   await waitForPhase(page, phase);
@@ -103,9 +120,7 @@ test("keyboard and pointer attacks share guarded result path", async ({ page }) 
   await page.keyboard.press("a");
   await waitForPhase(page, "loot");
   await expect(page.getByRole("progressbar", { name: "Your health" }).first()).toHaveAttribute("aria-valuenow", "60");
-  await page.getByRole("button", { name: "Leave loot" }).click();
-  await waitForPhase(page, "recovery");
-  await walkThrough(page, /Enter room 2/, "explore");
+  await passLootAtDoor(page, "explore");
   await walkThrough(page, /^Approach /, "combat");
   await expect(page.getByRole("button", { name: /⚔️ ATTACK/ })).toBeEnabled();
   await page.getByRole("button", { name: /⚔️ ATTACK/ }).click();
@@ -133,8 +148,7 @@ test("boss reward retains HUD and progression, relic survives reload", async ({ 
   await seed(page, { roomsCleared: 9, monsterType: 3, monsterHp: 1, monsterMaxHp: 90 });
   await page.getByRole("button", { name: /⚔️ ATTACK/ }).click();
   await waitForPhase(page, "loot");
-  await page.getByRole("button", { name: "Leave loot" }).click();
-  await waitForPhase(page, "reward");
+  await passLootAtDoor(page, "reward");
   await expect(page.getByRole("heading", { name: "MANAGEMENT DEFEATED" })).toBeVisible();
   await expect(page.locator(".descent-hud")).toBeVisible();
   await page.getByRole("button", { name: "KEEP NO RELIC" }).click();

@@ -68,6 +68,9 @@
 .descent-recovery-potion button { display:flex; align-items:center; justify-content:center; gap:8px; min-width:190px; min-height:44px; padding:7px 10px; border:1px solid #a7f3d0; border-radius:8px; background:#d1fae5; color:#064e3b; }
 .descent-recovery-potion button span { font-size:10px; }
 .descent-merchant,.descent-result { padding:20px; }
+.descent-supplies-menu { padding:10px 14px; border:1px solid #735a35; background:#151017; color:#edd4a7; }
+.descent-supplies-menu summary { min-height:44px; display:flex; align-items:center; cursor:pointer; }
+.descent-supplies-menu button { width:100%; min-height:44px; padding:8px; border:1px solid #735a35; }
 .descent-kevin { width:100%; height:145px; object-fit:cover; margin-bottom:18px; border:1px solid #876942; }
 .descent-merchant h2,.descent-result h2 { font-size:27px; line-height:1.2; margin:0 0 10px; }
 .descent-merchant p,.descent-result p { font-size:12px; line-height:1.7; color:#ccbbab; }
@@ -212,7 +215,7 @@
 
   .descent-mobile-footer { display:grid; width:100%; min-height:0; color:#eee1cf; background:#0b0910f2; pointer-events:none; }
   .descent-mobile-footer button { pointer-events:auto; }
-  .descent-mobile-health { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; min-height:42px; padding:4px 8px; border-top:1px solid #4f3b50; }
+  .descent-mobile-health { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; gap:8px; min-height:42px; padding:4px 8px; border-top:1px solid #4f3b50; }
   .descent-mobile-health > div { display:grid; grid-template-columns:auto minmax(60px,1fr); align-items:center; gap:9px; min-width:0; }
   .descent-mobile-health > div > span { color:#c9bfc7; font-size:11px; white-space:nowrap; }
   .descent-mobile-health strong { color:#a7f3d0; font-size:13px; font-variant-numeric:tabular-nums; }

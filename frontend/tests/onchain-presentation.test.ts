@@ -6,6 +6,7 @@ import {
   canUseOnchainPresentationAction,
   createOnchainPresentationState,
   engageOnchainEncounter,
+  onchainDoorDecision,
   onchainPresentationKey,
   onchainPresentationPhase,
   onchainPresentationScope,
@@ -37,6 +38,41 @@ test("confirmed kills expose optional floor loot without changing credited resou
   assert.equal(acknowledged.loot, null);
   assert.deepEqual(credited, fight({ monsterHp: 0, roomsCleared: 1, gold: 27, lastLootType: 3, lastLootAmount: 1 }));
   assert.equal(onchainPresentationPhase(acknowledged, scope, credited), "recovery");
+});
+
+test("a door pass enters after ordinary floor loot only when the transition confirms", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const beforeKill = fight({ monsterHp: 3, gold: 10 });
+  const cleared = fight({ monsterHp: 0, roomsCleared: 1, gold: 22, lastLootType: 2, lastLootAmount: 4 });
+  const loot = applyConfirmedOnchainPresentation(createOnchainPresentationState(), scope, "attack", beforeKill, cleared);
+
+  assert.equal(onchainDoorDecision(loot, scope, cleared, false, false), "blocked");
+  assert.equal(onchainDoorDecision(loot, scope, cleared, true, true), "blocked");
+  assert.equal(onchainDoorDecision(loot, scope, cleared, false, true), "enter-next-room");
+
+  // A rejected or interrupted send applies no confirmed snapshot, so the same
+  // floor presentation remains available for a retry.
+  assert.equal(onchainPresentationPhase(loot, scope, cleared), "loot");
+  assert.equal(onchainDoorDecision(loot, scope, cleared, false, true), "enter-next-room");
+
+  const enteredSnapshot = fight({ roomsCleared: 1, monsterHp: 35, gold: 22 });
+  const entered = applyConfirmedOnchainPresentation(loot, scope, "enterNextRoom", cleared, enteredSnapshot);
+  assert.equal(entered.loot, null);
+  assert.equal(onchainPresentationPhase(entered, scope, enteredSnapshot), "explore");
+});
+
+test("a boss-loot door pass reveals the confirmed relic decision without entering", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const beforeKill = fight({ monsterHp: 2, roomsCleared: 9 });
+  const cleared = fight({ monsterHp: 0, roomsCleared: 10, gold: 40, relicOfferAvailable: true });
+  const loot = applyConfirmedOnchainPresentation(createOnchainPresentationState(), scope, "attack", beforeKill, cleared);
+
+  assert.equal(onchainDoorDecision(loot, scope, cleared, false, true), "acknowledge-relic");
+  const acknowledged = acknowledgeOnchainLoot(loot, scope, 10);
+  assert.equal(acknowledged.loot, null);
+  assert.equal(onchainPresentationPhase(acknowledged, scope, cleared), "reward");
 });
 
 test("confirmed start and room entry require a local approach and reset stale loot", () => {

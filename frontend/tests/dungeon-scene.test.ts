@@ -16,7 +16,7 @@ test("portrait camera keeps tier-one actors modest and walking inside the visibl
       assert.ok(center-halfWidth >= 11.99 && center+halfWidth <= width-11.99, "walking keeps the full avatar on screen");
     }
     const loot=roomLootPoint(42,1,camera);
-    const target=roomFloorTarget({x:450,y:65},true,0,loot);
+    const target=roomFloorTarget(loot,true,0,loot);
     assert.ok(target.point.x >= camera.minX && target.point.x <= camera.maxX);
     assert.ok(nearRoomLoot(target.point,loot), "resizing never prevents floor pickup");
   }
@@ -55,20 +55,19 @@ test("walking cannot reach the guarded doorway but the cleared exit is reachable
   assert.deepEqual(clampRoomPoint({ x: 900, y: 600 }, true), { x: 733, y: 505 });
 });
 
-test("door and loot taps lead to reachable loot before allowing the next room", () => {
+test("a cleared door tap bypasses visible loot while the loot graphic remains collectible", () => {
   const door = { x: 450, y: 65 }, droppedItem = { x: 550, y: 275 };
-  for (const point of [door, droppedItem]) {
-    const target = roomFloorTarget(point, true, 0, droppedItem);
-    assert.equal(target.destination, "loot");
-    assert.ok(nearRoomLoot(clampRoomPoint(target.point, true),droppedItem), "the approach point must be within pickup range");
-  }
+  assert.deepEqual(roomFloorTarget(door,true,0,droppedItem),{point:{x:450,y:92},destination:"door"});
+  const pickup=roomFloorTarget(droppedItem,true,0,droppedItem);
+  assert.equal(pickup.destination,"loot");
+  assert.ok(nearRoomLoot(clampRoomPoint(pickup.point,true),droppedItem),"the loot approach point must be within pickup range");
   assert.equal(nearRoomLoot({ x: 400, y: 391 },droppedItem), false, "winning from the combat anchor does not collect remotely");
   assert.equal(nearRoomLoot({ x: 420, y: 496 },droppedItem), false, "reload at entry cannot collect remotely");
   assert.equal(roomFloorTarget(door, true, 0).destination, "door");
   assert.deepEqual(roomFloorTarget({ x: 300, y: 435 }, true, 0, droppedItem), { point: { x: 300, y: 435 } });
 });
 
-test("Kevin taps approach the figure inside every visible room and loose loot stays the first stop", () => {
+test("Kevin taps approach the figure in recovery while loot rooms do not invent a merchant target", () => {
   const cameras=[{actorScale:1,minX:170,maxX:733},...[
     [320,440],[320,650],[375,650],[430,800],
   ].map(([width,height])=>portraitRoomCamera(width,height))];
@@ -82,8 +81,8 @@ test("Kevin taps approach the figure inside every visible room and loose loot st
       const figureCenter={x:merchant.x,y:merchant.y-75};
       assert.deepEqual(roomFloorTarget(figureCenter,true,0,undefined,merchant),{point:approach,destination:"merchant"});
 
-      const loot={x:Math.min(bounds.maxX,550),y:275};
-      assert.deepEqual(roomFloorTarget(figureCenter,true,0,loot,merchant),{point:loot,destination:"loot"},"uncollected loot gates Kevin");
+      const loot={x:room === 5 ? bounds.maxX : bounds.minX,y:400};
+      assert.deepEqual(roomFloorTarget(figureCenter,true,0,loot,merchant),{point:figureCenter},"loot phase has no merchant interaction and must not redirect an unrelated tap");
       assert.deepEqual(roomFloorTarget({x:450,y:435},true,0,undefined,merchant),{point:{x:450,y:435}},"ordinary floor remains walkable");
     }
   }
@@ -114,18 +113,22 @@ test("floor reward labels distinguish actual loot and boss pickup from an equipp
   assert.equal(roomLootLabel({ type: 4, amount: 1, gold: 30, relicId: 2 }), "30 gold · Armor +1 · Boss relic");
 });
 
-test("the explicit exit requires collected loot and respects a pending game action", () => {
+test("loot rooms expose both physical exits and no action buttons", () => {
   const base:RoomView={room:1,enemy:0,enemyName:"Grave Belle",enemyHp:0,hp:85,
     relic:0,weapon:0,armor:0,phase:"recovery",pending:false,cue:null,cueId:0,damage:0,incoming:0};
   const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
-    view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{},collect:()=>{}},
+    view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{},collect:()=>{},skipLoot:()=>{}},
   }));
   assert.match(render(), /<button>Enter room 2 /);
   assert.match(render({pending:true}), /<button disabled="">Enter room 2 /);
-  for (const phase of ["explore","combat","loot","reward","won","lost"] as const) {
+  for (const phase of ["explore","combat","reward","won","lost"] as const) {
     assert.doesNotMatch(render({phase,loot:{type:2,amount:16,gold:21,relicId:0}}), /Enter room/);
   }
-  assert.match(render({phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}), /Pick up loot/);
+  const loot=render({phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}});
+  assert.match(loot,/class="dungeon-door-open"/);
+  assert.match(loot,/data-loot-position=/);
+  assert.doesNotMatch(loot,/<button[^>]*>(?:Pick up loot|Leave loot|Enter room|Continue)/);
+  assert.match(loot,/E to use the door/);
 });
 
 

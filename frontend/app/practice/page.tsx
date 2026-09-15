@@ -56,6 +56,7 @@ import {
   enterPracticeRoom,
   holdPracticeLoot,
   legacyPracticeGrid,
+  passPracticeLootAtDoor,
   practiceGridPhase,
   practiceLootSummary,
   skipPracticeLoot,
@@ -377,7 +378,7 @@ export default function PracticePage() {
     setFeedback(nextGrid.pendingLoot && beforeGrid.pendingLoot === null
       ? {
           title: `${kind === "storm" ? "Storm" : nextGame.lastCritical ? "Critical attack" : "Attack"} · ${nextGame.lastPlayerDamage} damage`,
-          detail: `Room ${nextGame.roomsCleared} cleared. Walk to the loot to collect it or leave it behind.`,
+          detail: `Room ${nextGame.roomsCleared} cleared. Tap the loot to collect it, or tap the door to leave it behind.`,
           tone: "good",
         }
       : describePracticeAction(before, nextGame, kind));
@@ -456,6 +457,43 @@ export default function PracticePage() {
     setFeedback({ title: "Loot left behind", detail: `${practiceLootSummary(discarded)} discarded.`, tone: "neutral" });
     if (gameRef.current.monsterType === 3) audio.playOutcome("victory");
     else audio.playAction("click");
+  };
+
+  const enterRoom = (leaveFloorLoot = false) => {
+    if (!leaveFloorLoot) {
+      runLocalAction("encounter", enterNextRoom);
+      return;
+    }
+
+    const before = gameRef.current;
+    const beforeGrid = gridRef.current;
+    if (busy || actionBusyRef.current || !before.active || before.monsterHp !== 0
+      || beforeGrid.pendingLoot === null) return;
+    actionBusyRef.current = true;
+    try {
+      const result = passPracticeLootAtDoor(before, beforeGrid, enterNextRoom);
+      if (result === null) return;
+      commit(result.game, result.grid);
+      setStorageNotice((notice) => notice === "restored" ? null : notice);
+      setCue(null);
+      setCueId((id) => id + 1);
+      setFeedback(result.entered
+        ? {
+            title: `Room ${practiceRoom(result.game)}`,
+            detail: `${practiceLootSummary(result.discarded)} left behind. Walk toward the next enemy when ready.`,
+            tone: "neutral",
+          }
+        : {
+            title: "Loot left behind",
+            detail: `${practiceLootSummary(result.discarded)} discarded. Choose what to do with the boss relic.`,
+            tone: "neutral",
+          });
+      audio.playAction("click");
+    } catch {
+      actionFailed();
+    } finally {
+      queueMicrotask(() => { actionBusyRef.current = false; });
+    }
   };
 
   const retryStorage = () => {
@@ -735,7 +773,7 @@ export default function PracticePage() {
         }}
         actions={{
           approach,
-          enter: () => runLocalAction("encounter", enterNextRoom),
+          enter: enterRoom,
           collect: collectLoot,
           skipLoot: leaveLoot,
           interact: () => audio.playAction("click"),

@@ -135,6 +135,11 @@ export function transition(run: Descent, action: DescentAction, expectedRevision
       revision: run.revision + 1,
     };
   }
+  // Door arrival leaves floor resources in one saved transition. A boss still
+  // requires its separate relic choice before any further progression.
+  if (action === "enter" && current === "loot" && (before.relicOfferAvailable || before.roomsCleared >= 10)) {
+    return { ...run, pendingLoot: null, revision: run.revision + 1 };
+  }
 
   const rng = createSeededRandom(run.seed, run.rngState);
   let game = before, roomTurns = run.roomTurns, engaged = run.engaged;
@@ -149,7 +154,7 @@ export function transition(run: Descent, action: DescentAction, expectedRevision
     game = drinkPotion(before, rng.nextInt);
     combatTurn = current === "combat";
   } else if (action === "enter") {
-    if (current !== "recovery" || before.relicOfferAvailable || before.roomsCleared >= 10) return run;
+    if ((current !== "recovery" && current !== "loot") || before.relicOfferAvailable || before.roomsCleared >= 10) return run;
     game = enterNextRoom(before, rng.nextInt, ROOMS[before.roomsCleared].enemy);
     roomTurns = 0;
     engaged = false;
@@ -162,7 +167,7 @@ export function transition(run: Descent, action: DescentAction, expectedRevision
     if (game.gold === before.gold) return run;
   }
 
-  let pendingLoot = run.pendingLoot;
+  let pendingLoot = action === "enter" ? null : run.pendingLoot;
   if (before.monsterHp > 0 && game.monsterHp === 0 && game.active) {
     const held = withHeldLoot(before, game);
     game = held.game;

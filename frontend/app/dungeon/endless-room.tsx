@@ -48,7 +48,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
   const soundLabel = !sound.available ? "Sound unavailable" : sound.paused && sound.enabled ? "Resume sound" : sound.enabled ? "Mute sound" : "Enable sound";
   const title = view.phase === "explore" ? `Approach ${view.enemyName}` : view.phase === "loot" ? "Loot on the floor" : recovery ? "Room secured" : view.phase === "reward" ? "Boss defeated" : "Your turn";
   const detail = view.phase === "explore" ? "Tap the floor to walk. Reach the monster to begin combat."
-    : view.phase === "loot" ? mode === "onchain" ? "Rewards are already credited onchain. Walk to the drop or leave it and continue." : "Walk to the drop to collect it, or leave it behind."
+    : view.phase === "loot" ? mode === "onchain" ? "Rewards are already credited onchain. Tap the loot, or tap the door to continue." : "Tap the loot to collect it, or tap the door to leave it behind."
     : recovery ? "Heal, change your relic, or walk to the next room." : "Attack is steady. Storm can miss. Potions heal before a reduced reply.";
   const report = feedback ?? { title, detail };
   const tier = Math.ceil(view.room / 10), inTier = (view.room - 1) % 10 + 1;
@@ -79,7 +79,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
     {notices && <button className="endless-room-status" onClick={() => open("status")}>Run status · view details</button>}
   </div>;
   const footer = <div className="descent-mobile-footer">
-    {!combat && <div className="descent-mobile-health"><div><span>HP <strong>{view.hp} / {maxHp}</strong></span>{health}</div>{recovery && healAction}</div>}
+    {!combat && <div className="descent-mobile-health"><div><span>HP <strong>{view.hp} / {maxHp}</strong></span>{health}</div></div>}
     {renderReport(true)}
     {recovery && relics && <button className="endless-room-relic-button" onClick={() => open("relics")}>Relics · change equipment</button>}
   </div>;
@@ -95,7 +95,6 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
         presentationOverlay={view.phase !== "explore" ? <MonsterReveal enemy={view.enemy} room={view.room} name={view.enemyName} role={art.role} hp={view.enemyHp} maxHp={enemyMaxHp} phase={view.phase} roomTurns={roomTurns} cueId={view.cueId} pending={view.pending} /> : undefined}>
         {combat && <div className="descent-actions descent-practice-controls" data-keyboard-action-scope aria-busy={view.pending}>{health}{combatActions}</div>}
       </DungeonScene>
-      {recovery && <div className="descent-recovery-potion"><div className="descent-action-health"><span>HP <strong>{view.hp} / {maxHp}</strong></span>{health}</div>{healAction}{relics && <button onClick={() => open("relics")}>Relics</button>}</div>}
       {renderReport()}
     </div><aside className="descent-sidebar">
       <section className="descent-enemy-card"><Image src={art.src} alt={view.enemyName} width={art.width} height={art.height} unoptimized className="descent-portrait" /><div><DescentEnemyStatus name={view.enemyName} hp={view.enemyHp} maxHp={enemyMaxHp} incoming={incoming} isBoss={view.enemy === 3} /><p className="descent-subtle">{detail}</p></div></section>
@@ -105,7 +104,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
     </aside></div>
     <dialog ref={dialog} className="descent-log-dialog endless-room-dialog" aria-label={activePanel ? titleByPanel[activePanel] : "Dungeon panel"} onClose={() => setPanel(null)} onCancel={() => setPanel(null)}>
       <header><h2>{activePanel ? titleByPanel[activePanel] : "Dungeon panel"}</h2><button autoFocus onClick={() => setPanel(null)} aria-label={activePanel ? `Close ${titleByPanel[activePanel]}` : "Close panel"}>Close</button></header>
-      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use arrows to walk. Approach the monster, then use Attack, Storm or Potion. Collect floor loot or leave it. Walk to the door to continue.</p>{menu}{notices}<Link href="/">All modes</Link></div>}
+      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use arrows to walk. Approach the monster, then use Attack, Storm or Potion. Tap loot to collect it, or tap the door to leave it behind and continue.</p>{recovery && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
       {activePanel === "shop" && <div><ShopVitals hp={view.hp} maxHp={maxHp} gold={gold} potions={potions} weapon={view.weapon} armor={view.armor} /><ShopKeeper camp={view.room % 10 === 9} />{notices}{shop}</div>}
       {activePanel === "relics" && <div>{notices}{relics}</div>}
       {activePanel === "status" && notices}

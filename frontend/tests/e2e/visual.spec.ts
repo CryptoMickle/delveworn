@@ -95,7 +95,6 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
       potion: bounds(".practice-potion-action"),
       loot: bounds("[data-room-loot]"),
       floorControls: bounds(".dungeon-floor-controls"),
-      recoveryPanel: bounds(".descent-recovery-potion"),
       merchant: bounds(".descent-merchant"),
       shop: bounds(".practice-kevin-shop"),
       reward: bounds(".boss-reward-view"),
@@ -159,6 +158,7 @@ test("capture six representative local experience states", async ({ page }, test
   );
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
   await expect(page.getByRole("img", { name: /Loot on the floor: 12 gold · Weapon \+1/ })).toBeVisible();
+  await expect(page.locator(".dungeon-floor-controls button")).toHaveCount(0);
   measurements.loot = await capture(page, testInfo, "loot");
   await expectRoomLayout(page, measurements.loot);
   expect(measurements.loot.loot).not.toBeNull();

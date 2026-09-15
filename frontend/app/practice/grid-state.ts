@@ -165,6 +165,42 @@ export function enterPracticeRoom(grid: PracticeGridState): PracticeGridState {
   return { ...grid, engaged: false, pendingLoot: null, roomTurns: 0 };
 }
 
+export type PracticeLootDoorResult = Readonly<{
+  game: PracticeGame;
+  grid: PracticeGridState;
+  discarded: PendingPracticeLoot;
+  entered: boolean;
+}>;
+
+/**
+ * Resolves a completed walk to the exit while regular loot is still on the
+ * floor. The caller commits this result once, so a failed encounter roll
+ * leaves both the game and the held loot untouched.
+ */
+export function passPracticeLootAtDoor(
+  game: PracticeGame,
+  grid: PracticeGridState,
+  enter: (current: PracticeGame) => PracticeGame,
+): PracticeLootDoorResult | null {
+  if (!game.hasStarted || !game.active || game.monsterHp !== 0 || grid.pendingLoot === null) return null;
+  const discarded = grid.pendingLoot;
+  const withoutLoot = skipPracticeLoot(grid);
+
+  // A boss relic is a separate decision and never belongs to regular floor
+  // loot. Reaching the exit reveals that choice before another room can spawn.
+  if (game.relicOfferAvailable) {
+    return { game, grid: withoutLoot, discarded, entered: false };
+  }
+
+  const nextGame = enter(game);
+  return {
+    game: nextGame,
+    grid: enterPracticeRoom(withoutLoot),
+    discarded,
+    entered: true,
+  };
+}
+
 export function countPracticeTurn(grid: PracticeGridState): PracticeGridState {
   return { ...grid, roomTurns: grid.roomTurns + 1 };
 }

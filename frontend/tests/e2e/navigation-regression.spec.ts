@@ -26,6 +26,18 @@ const storm = (page: Page) => page.getByRole("button", { name: /⚡ STORM/ });
 const potion = (page: Page) => page.getByRole("button", { name: /POTION ·/ });
 const resetFocus = (page: Page) => page.locator(".endless-room, main").first().evaluate(element => { (element as HTMLElement).tabIndex = -1; (element as HTMLElement).focus({ preventScroll: true }); });
 
+async function clickRoomPoint(page: Page, point: { x: number; y: number }) {
+  const floor = page.locator("svg.dungeon-scene");
+  await floor.scrollIntoViewIfNeeded();
+  const screen = await floor.evaluate((element, target) => {
+    const matrix = (element as SVGSVGElement).getScreenCTM();
+    if (!matrix) throw new Error("Room floor has no screen transform");
+    const transformed = new DOMPoint(target.x, target.y).matrixTransform(matrix);
+    return { x: transformed.x, y: transformed.y };
+  }, point);
+  await page.mouse.click(screen.x, screen.y);
+}
+
 async function expectVisibleFocus(control: Locator) {
   await expect(control).toBeFocused();
   await expect.poll(() => control.evaluate(element => {
@@ -98,7 +110,7 @@ test("boss reward arrows enter KEEP from above and EQUIP from below", async ({ p
   await resetFocus(page);
   await page.keyboard.press("a");
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
-  await page.getByRole("button", { name: "Leave loot" }).click();
+  await clickRoomPoint(page, { x: 450, y: 65 });
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "reward");
   await expect(page.getByRole("heading", { name: "MANAGEMENT DEFEATED" })).toBeVisible();
   const before = await storedRun(page);

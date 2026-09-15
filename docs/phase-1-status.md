@@ -1,6 +1,6 @@
 # Revised Phase 1 — continuation record
 
-Updated: 2026-09-15. Scope: a top-down, turn-based Delveworn vertical slice.
+Updated: 2026-09-16. Scope: a top-down, turn-based Delveworn vertical slice.
 
 ## Decision gate
 
@@ -24,7 +24,22 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — optional loot and a shared endless room
+## Current checkpoint — direct door bypass and removal of the extra Potion control
+
+The user clarified that bypass means **tapping the actual doorway instead of the
+loot in the grid**. The earlier separate Leave loot button failed that intent:
+door taps still rerouted to the drop. Door taps now keep their destination and
+never collect along the door path. Only arrival commits the existing room entry
+and discards local pending loot; cancellation and failed entry preserve it.
+Bosses still require the existing relic choice. The loot-phase pickup/bypass
+buttons are removed. Tapping loot and proximity pickup continue to work.
+
+The extra between-room Potion control is removed from the grid. Safe healing is
+available in Menu (desktop `/play`: Supplies); the established combat Potion
+control is unchanged. This is a preview pending native phone/browser checks.
+See `ENDLESS_GRID.md` and the verification record for behavior and evidence.
+
+## Previous checkpoint — optional loot and a shared endless room
 
 The walking grid now serves active Practice and onchain runs through a shared
 presentation component. Practice's existing engine and onchain's confirmed

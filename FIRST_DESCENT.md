@@ -17,7 +17,7 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    relic selection, wallet, account or payment.
 2. Tap the floor or use arrows/WASD to walk. The avatar turns left/right with
    travel and moves continuously to the monster guarding the north door.
-   E/Enter interacts with the current enemy, loot or exit.
+   E/Enter approaches the enemy or uses the cleared room's exit.
 3. Approaching starts a short close-up of the original monster illustration.
    It fades away after two seconds of loaded artwork. Attacking, waiting for
    an action, or landing a killing blow keeps the same timer. **Close artwork**
@@ -32,12 +32,16 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    during combat. Two combat potions per normal encounter, three per boss.
 4. After victory, loot appears at a seeded random location on the visible floor.
    Tap the floor/loot or use arrows to walk there: entering pickup range collects
-   it automatically, without another button press. **Pick up loot**, E and the
-   floor doorway remain walking shortcuts. Inventory changes once, on reaching the loot.
+   it automatically, without another button press. Inventory changes once, on
+   reaching the loot. To bypass it, tap the north doorway directly instead.
+   The avatar walks to the door without collecting along that route, and leaves
+   the reward only on arrival. Canceling that walk keeps the loot available.
    Reload does not collect or reroll the reward or its layout for that viewport.
-   **Leave loot** discards the floor resources and opens the way forward.
+   No separate pickup or bypass button is required or shown.
    The existing boss relic decision remains separate.
-5. Heal or buy supplies after pickup or leaving loot. **Enter room** walks to the north doorway;
+5. Heal through **Menu** (desktop: **Supplies**) or buy supplies after pickup.
+   The extra recovery Potion button is removed from the room; combat's Potion
+   remains in its established position. **Enter room** walks to the north doorway;
    the room changes only after arrival. A floor tap or E uses the same walk.
    Kevin appears in person after rooms 5 and 9: tap his figure, walk beside him,
    or use **Visit Kevin** to approach and open trade. His original illustration

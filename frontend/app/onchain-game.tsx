@@ -51,6 +51,7 @@ import {
   canUseOnchainPresentationAction,
   createOnchainPresentationState,
   engageOnchainEncounter,
+  onchainDoorDecision,
   onchainPresentationKey,
   onchainPresentationPhase,
   onchainPresentationScope,
@@ -8873,6 +8874,24 @@ function DelvewornGame() {
     setActionFeedback(`${sceneMonster.name} is in range. Choose your move.`);
   }
 
+  function enterSceneDoor(leaveLoot = false) {
+    const decision = onchainDoorDecision(
+      onchainPresentation,
+      presentationScope,
+      presentationPlayer,
+      busy,
+      leaveLoot
+    );
+
+    if (decision === "acknowledge-relic") {
+      acknowledgeRoomLoot(true);
+      return;
+    }
+    if (decision === "enter-next-room") {
+      void runGameTransaction("enterNextRoom");
+    }
+  }
+
   const inCombat =
     player.hasStarted &&
     player.active &&
@@ -9881,7 +9900,7 @@ function DelvewornGame() {
   const activeRoomFeedback = roomLootActive
     ? {
         title: "Reward confirmed onchain",
-        detail: `${getLootMessage(player)} Gold and rolled loot are already credited. Walk to the drop or skip the pickup.${player.relicOfferAvailable ? " Your boss relic choice follows this presentation." : ""}`,
+        detail: `${getLootMessage(player)} Gold and rolled loot are already credited. Tap the loot, or tap the door to continue.${player.relicOfferAvailable ? " Your boss relic choice follows this presentation." : ""}`,
       }
     : {
         title: randomnessPending
@@ -9922,7 +9941,7 @@ function DelvewornGame() {
         }}
         actions={{
           approach: engageSceneMonster,
-          enter: () => void runGameTransaction("enterNextRoom"),
+          enter: enterSceneDoor,
           collect: () => acknowledgeRoomLoot(false),
           skipLoot: () => acknowledgeRoomLoot(true),
           interact: () => audio.playAction("click"),
