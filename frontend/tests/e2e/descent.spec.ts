@@ -175,7 +175,7 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
   const reloaded=new Set<number>();
   for (let n=0;n<180 && !["won","lost"].includes(phase(run));n++) {
     const currentPhase=phase(run), action=informedPolicy(run), expected=transition(run,action);
-    const names={engage:/Approach/,enter:/Walk to room/,collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
+    const names={engage:/Approach/,enter:/Enter room/,collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
     const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
     if (isMobile && shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
     const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})
@@ -210,7 +210,7 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   const before={gold:run.game.gold,potions:run.game.potions,weapon:run.game.weaponLevel,armor:run.game.armorLevel};
   await seed(page,run);
   await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
-  await expect(page.getByRole("button",{name:/Walk to room/})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:/Enter room/})).toHaveCount(0);
   expect({gold:(await saved(page)).game.gold,potions:(await saved(page)).game.potions,weapon:(await saved(page)).game.weaponLevel,armor:(await saved(page)).game.armorLevel}).toEqual(before);
 
   const floor=page.getByRole("group",{name:/Room 1 floor/});
@@ -238,7 +238,56 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await expect.poll(async()=>(await saved(page)).revision).toBe(collected.revision);
   expect(await saved(page)).toEqual(collected);
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
-  await expect(page.getByRole("button",{name:/Walk to room 2/})).toBeVisible();
+  await expect(page.getByRole("button",{name:/Enter room 2/})).toBeVisible();
+});
+
+test("entering a cleared room remains available when walking animation stalls",async({page})=>{
+  let run=transition(createDescent(777,"stalled-room-exit"),"engage");
+  while (phase(run) === "combat") run=transition(run,"attack");
+  expect(phase(run)).toBe("loot");
+  run=transition(run,"collect");
+  await seed(page,run);
+  const exit=page.getByRole("button",{name:/Enter room 2/});
+  await expect(exit).toBeEnabled();
+
+  // Reproduce a suspended cosmetic clock, without changing the game/save.
+  await page.evaluate(()=>{
+    const request=window.requestAnimationFrame, cancel=window.cancelAnimationFrame;
+    let next=0;
+    const frames=new Set<number>();
+    Object.assign(window,{
+      requestAnimationFrame:()=>{ const id=++next; frames.add(id); return id; },
+      cancelAnimationFrame:(id:number)=>{ frames.delete(id); },
+      __descentFrames:{count:()=>frames.size,restore:()=>{
+        window.requestAnimationFrame=request; window.cancelAnimationFrame=cancel;
+      }},
+    });
+    document.querySelector("svg.dungeon-scene")!.dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowUp",bubbles:true}));
+  });
+  try {
+    await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
+    expect(await saved(page)).toEqual(run);
+    await expect(exit).toBeEnabled();
+    // Native clicks avoid making the test runner's actionability clock part of
+    // this stalled-RAF fixture; the ordinary full-run spec tests pointer input.
+    await exit.evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
+    const entered=transition(run,"enter");
+    await expect.poll(async()=>(await saved(page)).revision).toBe(entered.revision);
+    expect(await saved(page)).toEqual(entered);
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","explore");
+    await expect(page.getByRole("group",{name:/Room 2 floor/})).toBeVisible();
+    await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+    expect(await page.evaluate(()=>{
+      return (window as Window & {__descentFrames?:{count:()=>number}}).__descentFrames?.count();
+    })).toBe(0);
+  } finally {
+    await page.evaluate(()=>{
+      const fixture=window as Window & {__descentFrames?:{restore:()=>void}};
+      fixture.__descentFrames?.restore(); delete fixture.__descentFrames;
+    });
+  }
+  await page.reload();
+  expect(await saved(page)).toEqual(transition(run,"enter"));
 });
 
 test("responsive room keeps compact combat controls inside the scene",async({page,isMobile},testInfo)=>{

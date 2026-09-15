@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clampRoomPoint, ENEMY_ART, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel } from "../app/dungeon/scene";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { clampRoomPoint, DungeonScene, ENEMY_ART, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, type RoomView } from "../app/dungeon/scene";
 import { roomLootPoint } from "../app/dungeon/movement";
 
 test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
@@ -71,4 +73,18 @@ test("floor reward labels distinguish actual loot and boss pickup from an equipp
   assert.equal(roomLootLabel({ type: 2, amount: 9, gold: 14, relicId: 0 }), "14 gold");
   assert.equal(roomLootLabel({ type: 3, amount: 1, gold: 12, relicId: 0 }), "12 gold · Weapon +1");
   assert.equal(roomLootLabel({ type: 4, amount: 1, gold: 30, relicId: 2 }), "30 gold · Armor +1 · Boss relic");
+});
+
+test("the explicit exit requires collected loot and respects a pending game action", () => {
+  const base:RoomView={room:1,enemy:0,enemyName:"Grave Belle",enemyHp:0,hp:85,
+    relic:0,weapon:0,armor:0,phase:"recovery",pending:false,cue:null,cueId:0,damage:0,incoming:0};
+  const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
+    view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{},collect:()=>{}},
+  }));
+  assert.match(render(), /<button>Enter room 2 /);
+  assert.match(render({pending:true}), /<button disabled="">Enter room 2 /);
+  for (const phase of ["explore","combat","loot","reward","won","lost"] as const) {
+    assert.doesNotMatch(render({phase,loot:{type:2,amount:16,gold:21,relicId:0}}), /Enter room/);
+  }
+  assert.match(render({phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}), /Pick up loot/);
 });

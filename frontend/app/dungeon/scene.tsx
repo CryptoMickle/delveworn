@@ -168,6 +168,15 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
     });
   }
 
+  function enterRoom() {
+    if (view.pending || view.phase !== "recovery") return;
+    actions.interact?.();
+    stopWalk.current?.(); stopWalk.current=null; setWalking(false);
+    // Explicit progression must not wait for cosmetic animation frames. Floor
+    // taps still walk to the door; the model still requires collected loot.
+    actions.enter();
+  }
+
   function keyboard(event: KeyboardEvent<SVGSVGElement>) {
     if (!["explore","loot","recovery"].includes(view.phase)) return;
     const moves: Record<string,Point> = { ArrowLeft:{x:-42,y:0},a:{x:-42,y:0},ArrowRight:{x:42,y:0},d:{x:42,y:0},ArrowUp:{x:0,y:-42},w:{x:0,y:-42},ArrowDown:{x:0,y:42},s:{x:0,y:42} };
@@ -232,9 +241,9 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
     {footer && <div className="dungeon-scene-footer">{footer}</div>}
     {children && <div className="dungeon-scene-overlay">{children}</div>}
     <div className="dungeon-floor-controls">
-      {view.phase === "explore" && <button onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending || walking}>Approach {view.enemyName} <span>↗</span></button>}
-      {loot && <button onClick={() => moveTo(lootPoint,"loot")} disabled={view.pending || walking}>Pick up loot <span>↑</span></button>}
-      {view.phase === "recovery" && <><button onClick={() => moveTo(DOOR,"door")} disabled={view.pending || walking}>Walk to room {view.room+1} <span>↑</span></button>{actions.merchant && <button onClick={() => moveTo({x:298,y:343},"merchant")} disabled={walking || view.pending}>Visit Kevin</button>}</>}
+      {view.phase === "explore" && <button onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending}>Approach {view.enemyName} <span>↗</span></button>}
+      {loot && <button onClick={() => moveTo(lootPoint,"loot")} disabled={view.pending}>Pick up loot <span>↑</span></button>}
+      {view.phase === "recovery" && <><button onClick={enterRoom} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{actions.merchant && <button onClick={() => moveTo({x:298,y:343},"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
       {view.phase === "combat" && !children && <span>Your turn · Choose an action below</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>

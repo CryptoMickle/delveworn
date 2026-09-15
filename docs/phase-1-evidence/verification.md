@@ -1,6 +1,51 @@
 # First Descent verification — 2026-09-15
 
-## Current investigation — phone crash after defeating a monster (unresolved)
+## Current correction — exit blocked after collecting loot
+
+The supplied phone screenshots distinguish this case from an exception: room 1
+is cleared, Grave Belle is at 0 HP, loot is collected, the log still opens and
+closes, and Potion is enabled. Only **Walk to room 2** is disabled. Its disabled
+condition included local walking state; Potion only depends on the game action
+lock/resources. This explains why the error-report screen did not appear.
+
+Reproduction with the previous scene: leave a movement frame queued without
+servicing it. Recovery stays at revision 5, Potion is available and the exit is
+disabled. This establishes a progress dependency on cosmetic walking. It does
+not establish why animation frames stopped or remained pending on this phone.
+
+The explicit **Enter room** button now cancels movement and calls the existing
+guarded enter transition directly after collection. Floor-door walking remains
+available; loot still requires reaching pickup range. Approach, pickup and shop
+shortcuts can be retried/retargeted while walking. Art, camera tracks, combat,
+RNG, rewards and save format are unchanged. Local error reporting is retained.
+
+Verification:
+
+- Temporary no-DOM React 19.2.8 harness: the corrected exit advanced to room 2
+  with a deliberately stalled movement clock. Two immediate clicks committed
+  exactly one revision (5 → 6), no frame remained queued, pending game actions
+  disabled entry, and entry was absent before loot collection. Also passed
+  50 lethal attacks and 10 full kill → collect → enter flows, 30 in Strict Mode.
+- **111 unit/integration tests passed; 0 failed.** The new scene test covers
+  exit visibility after collection, pending-action gating and other phases.
+- TypeScript and the Somnia standard production build passed.
+- Full ESLint: **0 errors, 14 existing warnings**.
+- Browser suite discovery: **163 cases**, including 28 Descent device cases.
+  A persisted paused-frame regression checks the actual rendered button,
+  double-click protection, cancelled movement and saved room-2 recovery.
+  Browser scenarios are **unexecuted**: the approved Browser's mandatory admin
+  policy verification remains unavailable. No alternate browser is used.
+
+Changed files: `app/dungeon/scene.tsx`, `app/descent/game.tsx`,
+`tests/dungeon-scene.test.ts`, `tests/e2e/descent.spec.ts` and documentation.
+The temporary React harness lives under `/tmp/delveworn-rtr-19-2-8/`; no package
+or telemetry dependency was added.
+
+Status: **review build; phone confirmation required; not production-ready**.
+First check: defeat room 1, walk to loot, tap **Enter room 2**, and confirm the
+next monster appears. Repeat through several rooms, including during movement.
+
+## Previous diagnostic preview — reported post-kill crash
 
 The user reports another crash after a lethal attack on the walking-hotfix
 preview. This crash has **not been reproduced or declared fixed**. The next
@@ -37,9 +82,9 @@ Changed files: `app/play/error.tsx`, `app/descent/{game.tsx,failure.ts}`,
 harness and test-renderer dependency are under `/tmp/delveworn-rtr-19-2-8/`;
 no new production or test dependency was added to the repository.
 
-Status: **diagnostic review build; not production-ready**. Need the actual
-phone error report or a description distinguishing an error page, frozen room
-and full browser reload before claiming a root-cause fix.
+Status at that checkpoint: **diagnostic review build; not production-ready**.
+The later phone screenshots supplied the missing distinction; see the current
+exit correction above.
 
 Diagnostic preview: source `3520e1e96b86a9fd6487be3dd9a0dc40c473d809`, deployment
 `dpl_7Vg1JUa7e5HbHt1NRNHk4SS1Pc9K`, **READY**.

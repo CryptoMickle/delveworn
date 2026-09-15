@@ -27,9 +27,10 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 4. After victory, loot appears at a seeded random location on the visible floor.
    Tap the floor/loot or use arrows to walk there: entering pickup range collects
    it automatically, without another button press. **Pick up loot**, E and the
-   exit remain walking shortcuts. Inventory changes once, on reaching the loot.
+   floor doorway remain walking shortcuts. Inventory changes once, on reaching the loot.
    Reload does not collect or reroll the reward or its layout for that viewport.
-5. Heal or buy supplies after pickup, then walk through the north doorway.
+5. Heal or buy supplies after pickup, then use **Enter room** or walk through
+   the north doorway.
    Supplies follow room 5; the room-9 camp retains its original 15 HP arrival
    recovery and existing shop prices.
 6. Defeat the room-10 boss and pick up its loot. The earned relic can then be
@@ -140,8 +141,11 @@ Storage problems remain visible in the HUD. No new wallet or chain integration.
 
 Use the latest owner-authorized preview link. Observe:
 
-The latest phone crash after defeating a monster is still under investigation.
-If the error screen appears, use **Copy error report** and share the text with
+The latest phone screenshots show collected loot and a responsive room, with
+the exit disabled by walking state. **Enter room** now progresses directly
+after loot, even if a walking animation stalls. Floor-door walking remains
+available. This correction still needs confirmation on the affected phone.
+If a separate error screen appears, use **Copy error report** and share the text with
 the developer. **Resume saved run** reloads the last committed state without
 starting a new run. This report stays local until manually shared. A full
 browser process crash/reload cannot be caught by the in-game error screen.
