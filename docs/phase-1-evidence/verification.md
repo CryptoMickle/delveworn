@@ -45,6 +45,15 @@ Status: **review build; phone confirmation required; not production-ready**.
 First check: defeat room 1, walk to loot, tap **Enter room 2**, and confirm the
 next monster appears. Repeat through several rooms, including during movement.
 
+Exit correction preview: source `76f17c093d6d43de17339d376f9a47008075b9e2`,
+deployment `dpl_Fq8t71GVCLT6ckYDKFZoPvgKeQPG`, **READY**.
+<https://delveworn-c4ouy8jy3-crypto-mickle.vercel.app/play>
+
+Seven-day deployment-specific phone access was created; its token is only in
+the conversation/local temporary access file. Delivery check: HTTP 200 with
+`Delveworn · The First Descent`. This is not browser interaction verification.
+No production release, remote Git push or contract transaction.
+
 ## Previous diagnostic preview — reported post-kill crash
 
 The user reports another crash after a lethal attack on the walking-hotfix
