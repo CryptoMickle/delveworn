@@ -63,7 +63,7 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
           <h1>Your call. Your way in.</h1>
           <p>Fight the monsters. Face the boss. Live with your choices.</p>
         </header>
-        <Link href="/play" className={styles.firstDescent}><span>NEW · NO WALLET NEEDED</span><strong>Play The First Descent</strong><span>Ten rooms · Three relic builds <b>↗</b></span></Link>
+        <Link href="/play" className={styles.firstDescent}><span>NEW · NO WALLET NEEDED</span><strong>Play The First Descent</strong><span>Ten rooms · Classic combat <b>↗</b></span></Link>
         <div data-keyboard-actions>
           <div className={styles.modes} role="group" aria-label="Choose your dungeon">
             {(["practice", "challenge", "onchain"] as const).map(value => (

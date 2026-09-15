@@ -1,81 +1,86 @@
 # The First Descent — Phase 1 review build
 
-Status: implementation available locally and in a user-authorized Vercel preview;
-browser/device verification remains open. No production release or contract
-transaction is included. The phone-test preview uses source commit `4ebf5cb`:
-<https://delveworn-iph4uuz9a-crypto-mickle.vercel.app/play>.
-The deployment remains protected; the user received a seven-day shareable link
-in the conversation on 2026-09-15. Its access token is not stored in the repo.
+Status: gameplay corrections available locally; browser/device verification
+remains open. Preview deployment history is recorded in
+`docs/phase-1-evidence/verification.md`. No production release or contract
+transaction is included. Shareable preview access tokens are never committed.
 
 ## Start and play
 
 From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 `npm run dev -- --hostname 127.0.0.1 --port 3100`. Open
 <http://127.0.0.1:3100/play>, or choose **Play The First Descent** on the home page.
-`/concept` is the old development-only visual review, not the new full run.
+`/concept` is the historical development-only visual review.
 
-1. Choose Warden, Duelist or Stormcaller. No wallet/account/payment.
-2. Click/tap the floor, or focus it and use arrows/WASD. E/Enter approaches the
-   enemy or walks to the door. The large approach/door controls are equivalent.
-   The monster guards the north doorway. Tapping that door approaches its guard
-   while it is alive; after victory the same doorway leads to the next room.
-3. Read the next intention. Attack is narrow with crits; Storm varies from zero
-   to a higher maximum and bypasses a guard; Potion heals 25 before a half reply.
-   Use buttons or desktop keys 1/2/3. Two combat potions per ordinary fight,
-   three against the boss; safe healing between fights has no combat limit.
-4. Walk to the north door after winning. Supplies follow room 5. Kevin's camp
-   after room 9 restores up to 15 HP on arrival and offers recovery/equipment.
-5. Defeat room-10 Management, collect the local relic and review the recap.
-   Try another build for a fresh set of rolls. The training loadout is fixed
-   for this descent; the boss relic is a local end-of-run reward.
+1. Start a run. The original starting state applies: **100 HP, three potions,
+   zero gold, base weapon/armor and no owned or equipped relic**. No build or
+   relic selection, wallet, account or payment.
+2. Tap the floor or use arrows/WASD to walk. Approach the monster guarding the
+   north door. E/Enter interacts with the current enemy, loot or exit.
+3. Use **Attack / Storm / Potion**, or keys **1 / 2 / 3**. Attack has the original
+   steady damage and critical chance. Storm has its original range and can roll
+   zero. Potion heals 25 HP and receives the original half-strength retaliation
+   during combat. Two combat potions per normal encounter, three per boss.
+4. After victory, walk to the dropped loot. Tap its image or **Pick up loot** to
+   walk there. The inventory updates only after arrival. Clicking the exit with
+   uncollected loot first leads to the loot. Reload does not collect or reroll it.
+5. Heal or buy supplies after pickup, then walk through the north doorway.
+   Supplies follow room 5; the room-9 camp retains its original 15 HP arrival
+   recovery and existing shop prices.
+6. Defeat the room-10 boss and pick up its loot. The earned relic can then be
+   kept or equipped using the original relic rules. Review the recap or replay.
 
-Mute/resume is in the header. Sound starts only after interaction. The scene
-uses native scrolling outside movement controls and respects reduced motion.
+On mobile, numeric HP, the health bar and compact combat controls sit inside
+the bottom of the room. Desktop keeps them below the scene in the same panel.
+Sound starts on interaction; mute is in the header. The UI uses the same background
+as classic Practice/onchain and respects reduced motion and phone safe areas.
 
 ## Rules and authority
 
-`app/descent/model.ts` defines the ten-room sequence and `first-descent-1` rules.
-`practice/engine.ts` supplies the real combat, loot, healing, armor, relic and
-shop operations. Optional context parameters leave classic v1 calls unchanged.
-The entry grants one explicitly local training relic. No onchain item is granted.
+`app/descent/model.ts` is a presentation/progression wrapper around the actual
+Practice engine. It retains the ten curated encounters, but uses the engine's
+**default** Attack, Storm, Potion, critical, armor, loot, camp and relic rules.
+The former starter builds, extra guard penalties and alternating reply multipliers
+are removed. Enemy descriptions report ordinary retaliation; they do not change it.
 
-Normal damage order: roll, critical, existing relic rounding, floor(guard %).
-Reply order: roll, floor(intent %), armor, existing incoming relic rounding.
-Wind-up zero stays zero; combat Potion halves the resulting reply, rounding up.
-A killing blow prevents the reply. Zombie turns 3/6/9… wind up; the following
-reply is 150%. Gary guards every third action. Thud alternates 50%/150% replies.
-Management cycles normal, guard with a 50% reply, then a 175% reply.
+A killing action calls the engine exactly once. Its existing loot roll and total
+resource changes are stored as `pendingLoot`; gold, potions and upgrades wait for
+collection. Walking to the loot applies those exact deltas once, without spending
+a turn or advancing RNG. Door entry, shopping, healing and boss relic decisions
+are blocked until collection. Camp/kill HP effects retain their original timing.
+The boss relic offer is rolled by the engine at victory, and claimed after pickup.
 
-A new run receives a local random seed. Its seed and PRNG state are saved.
-The pure reducer reproduces the next outcome from the same saved state/action;
-animation, walking and sound never consume this RNG. This is a local learning
-game, not a competitive proof or anti-cheat system. Local saves can be edited
-by their owner; validation rejects malformed/inconsistent data, not all cheating.
+A new run receives a local random seed. Seed and PRNG state are saved. Animation,
+walking, audio and loot collection do not draw new combat randomness. Local saves
+are editable by their owner; validation rejects inconsistent/malformed data, not
+all cheating. This is local gameplay, not a competitive or onchain proof.
 
-The scene consumes `RoomView` and `RoomActions`, not wallets, RPCs or chain names.
+The scene consumes `RoomView` / `RoomActions`, not wallets, RPCs or chain names.
 Classic Practice, prior Weekly work and the existing onchain renderer remain.
-Somnia is the intended onchain product configuration. Current contract behavior
-does not support training intentions or free starter relics, and is not presented
-as doing so. The previously observed VRF adapter mismatch is still unresolved.
+Somnia is the intended onchain configuration. No live adapter to the new room
+renderer is shipped; the previously observed VRF adapter mismatch is unresolved.
 
 ## Save and recovery
 
-Only `delveworn_first_descent_v1` is written for this mode. Saves include rules,
-run ID, seed/RNG state, revision, build, actual Practice game, engagement/turns
-and recap counters. No name, wallet, email or new analytics identity is added.
-Existing site-wide analytics remain unchanged; no new analytics dependency.
+Rules: `first-descent-2`. Save key: `delveworn_first_descent_v2`.
+Earlier `delveworn_first_descent_v1` preview saves are preserved separately;
+their starter relics are not imported into the corrected rules.
 
-- Reload resumes combat, recovery, camp or reward at a safe scene anchor.
-- Invalid/newer saves remain untouched until **Replace save & enter** is chosen.
-- Denied storage/quota allows session-only play with a visible notice.
-- Revisions and Web Locks prevent stale writes where supported. Without Web
-  Locks compare-before-write is best-effort. Use one tab for a run; no cross-device
-  save or server synchronization exists.
-- Start again asks before replacing an in-progress descent. Classic saves remain.
+- Saves include the run ID, seed/RNG state, revision, original game state,
+  engagement, pending loot and recap counters.
+- Reload resumes combat, uncollected loot, recovery or boss relic selection at
+  a safe avatar position. It cannot grant rewards twice.
+- Unknown/newer saves stay untouched until explicit replacement is chosen.
+- Denied storage allows clearly labeled session-only play.
+- Revision checks and Web Locks prevent stale writes where supported. Without
+  Web Locks, compare-before-write is best-effort. There is no server/cross-device save.
+- Start again confirms replacement of the active run. Other modes' saves remain.
+
+No new names, emails, wallet identifiers or analytics identities are collected.
 
 ## Verification
 
-Run from `frontend/`:
+From `frontend/`:
 
 ```sh
 npm test
@@ -86,46 +91,32 @@ node --import tsx scripts/simulate-descent.ts
 npm run test:e2e
 ```
 
-Browser suite: desktop Chromium, Android-sized Chromium, small iPhone WebKit.
-The new tests cover fresh entry, keyboard/repeated input, full run/reload/shop/
-reward, responsive/reduced motion and invalid/blocked storage. They are authored
-but **not yet run for this checkpoint** because the agent's browser policy check
-is unavailable. Do not mistake test discovery or static art exports for a pass.
-After policy access is restored, rerun the full suite and inspect actual pages.
+Regression checks compare corrected starts and combat outcomes with the original
+engine, including RNG, all loot types, once-only pickup, reload and boss relic
+keep/equip behavior. The original Practice/Weekly golden traces remain required.
+Actual results and preview checks are in `docs/phase-1-evidence/verification.md`.
 
-Repository root: `forge fmt --check`, `forge build --sizes`, `forge test`.
-The existing frontend CI matrix includes RISE legacy, Somnia standard and Somnia
-session keys. Those configurations are build checks, not chain transactions.
+Browser scenarios cover wallet-free entry, keyboard/repeated actions, movement
+and loot pickup, full run/reload/shop/relic choices, compact mobile controls and
+invalid/blocked storage. Browser automation remains blocked because its required
+admin policy check is unavailable. Static illustration exports and HTTP checks
+are not mobile/browser gameplay verification.
 
-`docs/phase-1-status.md` is the continuation record; evidence includes exact art
-prompts, source-rendered scene illustrations, seeded simulation JSON and checks.
+## Next phone test
 
-## Blind test once the browser gate passes
+Use the latest owner-authorized preview link. Observe:
 
-Invite 5–10 people unfamiliar with the game. Give only the `/play` link and
-"Try to survive the dungeon." Do not explain buttons or recommend a build.
-Use local/private review access approved by the project owner; do not publish
-or send invitations automatically. `127.0.0.1` is only the current computer,
-not a link another device can reach.
+- Starting immediately without a relic choice.
+- Finding remaining HP and using Attack/Storm/Potion without hunting or scrolling.
+- Reading retaliation and understanding Storm misses and Potion healing.
+- Walking to loot; seeing the inventory update once; using the exit afterwards.
+- Reload before and after pickup; recovery at supplies/camp and the boss relic.
+- Original background, item transparency, touch targets and sound on a phone.
 
-Observe and time:
+After browser verification, run the planned uncoached 5–10-person blind test.
+Ask what each action did, when loot entered the inventory, why HP changed and
+what the player would try next. Record anonymous observations and aggregate times.
+Human first-run duration and the intended 10–15-minute session remain unmeasured.
 
-- First movement and first attack; ability to find the next doorway.
-- Whether intention changes are noticed before committing an action.
-- Understanding that Storm can roll zero, guard only reduces Attack, and a
-  potion can still receive damage.
-- Recognition of the floating relic and its benefit/cost.
-- Supply/camp purchases, understanding room-9 recovery, and the boss cycle.
-- Reload during a run, mobile scrolling/targets, sound/mute and reduced motion.
-- Cause of death, time to complete and voluntary replay/build change.
-
-Ask after play: "What changed because of your relic?", "Why did you lose HP?",
-"What did you expect Storm/Potion to do?", "What would you try differently?"
-Record only aggregate counts/times and anonymous observations; no unnecessary
-personal data. The automated policy's 67.5–76% win rate is not a beginner target.
-The planned 10–15-minute session length is still unmeasured; do not add delays
-to make the duration fit.
-
-Release gate: a complete current browser pass, actual desktop and physical-phone
-review, no progress-loss/duplicate-action bug, and understandable first-run play.
-Until then this is a **local review build, not production or certified blind-test ready**.
+This is a **review build, not production or certified blind-test ready** until
+current browser and physical-phone checks pass.

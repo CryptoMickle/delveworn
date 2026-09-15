@@ -15,6 +15,8 @@
 .dungeon-enemy { animation:dungeon-breathe 4.3s ease-in-out infinite; }
 .dungeon-enemy.is-hit { animation:dungeon-enemy-hit .55s ease-out; }
 .dungeon-door-open text { fill:#edd2a4; font:600 12px var(--font-geist-sans),sans-serif; letter-spacing:2px; }
+.dungeon-loot text { fill:#f5d38d; stroke:#100c12; stroke-width:3px; paint-order:stroke; font:600 18px var(--font-geist-sans),sans-serif; }
+.dungeon-scene-overlay { position:relative; z-index:3; }
 .dungeon-damage { fill:#fce6c5; stroke:#1b101f; stroke-width:3px; paint-order:stroke; font:700 32px Georgia,serif; animation:dungeon-number .95s ease-out forwards; }
 .dungeon-damage.incoming { fill:#ffac9f; font-size:23px; animation-delay:.18s; }
 .dungeon-impact path { stroke-dasharray:250; animation:dungeon-strike .6s ease-out forwards; }
@@ -42,6 +44,9 @@
 @keyframes dungeon-healing { 30% { opacity:1; } to { opacity:0; translate:0 -16px; } }
 @media(max-width:760px) {
   .dungeon-scene { height:330px; }
+  .descent-world .dungeon-scene { height:390px; }
+  .dungeon-scene-wrap.has-overlay .dungeon-scene { height:390px; }
+  .dungeon-scene-wrap.has-overlay .dungeon-scene-overlay { position:absolute; bottom:0; left:0; right:0; }
   .dungeon-scene-wrap { overflow:hidden; }
   .dungeon-floor-controls { bottom:27px; }
   .dungeon-controls-help { font-size:9px; bottom:6px; }

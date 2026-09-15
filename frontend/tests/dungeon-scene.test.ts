@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clampRoomPoint, roomFloorTarget } from "../app/dungeon/scene";
+import { clampRoomPoint, nearRoomLoot, roomFloorTarget, roomLootLabel } from "../app/dungeon/scene";
 
 test("the same north-door tap approaches its living guard and enters only after clearing", () => {
   const door = { x: 450, y: 65 };
@@ -33,4 +33,24 @@ test("walking cannot reach the guarded doorway but the cleared exit is reachable
   assert.deepEqual(clampRoomPoint({ x: 300, y: 435 }, false), { x: 300, y: 435 });
   assert.deepEqual(clampRoomPoint({ x: 0, y: 0 }, false), { x: 170, y: 194 });
   assert.deepEqual(clampRoomPoint({ x: 900, y: 600 }, true), { x: 733, y: 505 });
+});
+
+test("door and loot taps lead to reachable loot before allowing the next room", () => {
+  const door = { x: 450, y: 65 }, droppedItem = { x: 450, y: 218 };
+  for (const point of [door, droppedItem]) {
+    const target = roomFloorTarget(point, true, 0, true);
+    assert.equal(target.destination, "loot");
+    assert.ok(nearRoomLoot(clampRoomPoint(target.point, true)), "the approach point must be within pickup range");
+  }
+  assert.equal(nearRoomLoot({ x: 400, y: 391 }), false, "winning from the combat anchor does not collect remotely");
+  assert.equal(nearRoomLoot({ x: 420, y: 496 }), false, "reload at entry cannot collect remotely");
+  assert.equal(roomFloorTarget(door, true, 0, false).destination, "door");
+  assert.deepEqual(roomFloorTarget({ x: 300, y: 435 }, true, 0, true), { point: { x: 300, y: 435 } });
+});
+
+test("floor reward labels distinguish actual loot and boss pickup from an equipped relic", () => {
+  assert.equal(roomLootLabel({ type: 1, amount: 1, gold: 5, relicId: 0 }), "5 gold · +1 potion");
+  assert.equal(roomLootLabel({ type: 2, amount: 9, gold: 14, relicId: 0 }), "14 gold");
+  assert.equal(roomLootLabel({ type: 3, amount: 1, gold: 12, relicId: 0 }), "12 gold · Weapon +1");
+  assert.equal(roomLootLabel({ type: 4, amount: 1, gold: 30, relicId: 2 }), "30 gold · Armor +1 · Boss relic");
 });

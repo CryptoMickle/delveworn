@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
-import type { MonsterType } from "../practice/engine";
+import type { LootType, MonsterType } from "../practice/engine";
 
 export type Point = { x: number; y: number };
 export type SceneCue = "attack" | "storm" | "potion" | "critical" | "revive" | null;
+export type RoomLoot = { type: LootType; amount: number; gold: number; relicId: number };
 /** Presentation boundary: confirmed values only, no wallet/RPC/engine imports. */
 export type RoomView = {
   room: number; enemy: MonsterType; enemyName: string; enemyHp: number;
   hp: number; relic: number; weapon: number; armor: number;
-  phase: "explore" | "combat" | "recovery" | "reward" | "won" | "lost";
+  phase: "explore" | "combat" | "loot" | "recovery" | "reward" | "won" | "lost";
+  loot?: RoomLoot;
   pending: boolean; cue: SceneCue; cueId: number; damage: number; incoming: number;
 };
-export type RoomActions = { approach: () => void; enter: () => void; merchant?: () => void; interact?: () => void };
+export type RoomActions = { approach: () => void; enter: () => void; collect?: () => void; merchant?: () => void; interact?: () => void };
 export const ENEMY_ART = [
   { name: "Grave Belle", role: "Zombie", src: "/monsters/zombie-1-grave-belle.webp", width: 1672, height: 941, roomHeight: 120,
     crop: "565 30 490 770", outline: "M590 777 L615 691 640 608 674 552 712 498 742 451 751 409 776 378 754 331 713 364 694 405 683 449 662 477 640 477 619 466 618 444 637 387 661 346 700 311 716 272 744 241 694 230 671 201 679 146 716 84 748 55 822 47 863 63 889 103 914 156 919 185 877 204 893 218 919 221 941 273 956 324 974 368 981 416 998 451 1033 474 1039 503 1013 535 1004 512 998 493 983 486 981 517 967 523 956 502 955 478 941 447 932 421 927 464 912 478 916 541 937 599 961 638 978 681 1007 710 1001 755 985 779 936 784 931 772 948 746 956 715 936 680 907 654 874 613 852 583 843 538 817 527 782 571 745 611 707 653 672 694 655 740 659 776 643 788 613 788 Z" },
@@ -46,6 +48,19 @@ export function AvatarSprite() {
 
 const ENTRY = { x: 420, y: 496 }, STAGING = { x: 400, y: 391 }, DOOR = { x: 450, y: 92 };
 const GUARD = { x: DOOR.x, y: 236 }, DOOR_HALF_WIDTH = 65;
+const PICKUP = { x: GUARD.x - 50, y: GUARD.y + 54 };
+const LOOT_ART = {
+  0: "/assets/delveworn-gold-coin.webp",
+  1: "/dungeon/loot/potion.webp",
+  2: "/assets/delveworn-gold-coin.webp",
+  3: "/dungeon/loot/weapon.webp",
+  4: "/dungeon/loot/armor.webp",
+} as const;
+export function roomLootLabel(loot: RoomLoot): string {
+  const extra = loot.type === 1 ? "+1 potion" : loot.type === 3 ? "Weapon +1" : loot.type === 4 ? "Armor +1" : "";
+  return [loot.gold > 0 ? `${loot.gold} gold` : "", extra, loot.relicId > 0 ? "Boss relic" : ""].filter(Boolean).join(" · ");
+}
+export function nearRoomLoot(point: Point) { return Math.hypot(point.x-GUARD.x,point.y-GUARD.y) <= 80; }
 function inDoorLane(point: Point) { return Math.abs(point.x - DOOR.x) < DOOR_HALF_WIDTH; }
 export function clampRoomPoint(point: Point, cleared: boolean): Point {
   const door = cleared && inDoorLane(point) && point.y < 190;
@@ -54,16 +69,17 @@ export function clampRoomPoint(point: Point, cleared: boolean): Point {
   return { x: Math.max(170, Math.min(733, point.x)), y: Math.max(northEdge, Math.min(505, point.y)) };
 }
 
-export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType): { point: Point; destination?: "enemy" | "door" } {
+export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType, lootPending = false): { point: Point; destination?: "enemy" | "door" | "loot" } {
   const door = inDoorLane(point) && point.y <= 130;
   const guard = Math.abs(point.x - GUARD.x) < 90 && point.y >= GUARD.y - ENEMY_ART[enemy].roomHeight - 15 && point.y <= GUARD.y + 25;
   if (!cleared && (door || guard)) return { point: STAGING, destination: "enemy" };
+  if (cleared && lootPending && (door || nearRoomLoot(point))) return { point: PICKUP, destination: "loot" };
   if (cleared && door) return { point: DOOR, destination: "door" };
   return { point };
 }
 
 /** Mount with a confirmed run/room key. Recovery never trusts saved coordinates. */
-export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomActions }) {
+export function DungeonScene({ view, actions, children }: { view: RoomView; actions: RoomActions; children?: ReactNode }) {
   const [position, setPosition] = useState<Point>(view.phase === "explore" ? ENTRY : STAGING);
   const [walking, setWalking] = useState(false);
   const point = useRef(position), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,6 +89,7 @@ export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomA
   const relic = getRelicDefinition(view.relic);
   const cleared = view.enemyHp === 0;
   const relicClip = useId();
+  const loot = view.phase === "loot" ? view.loot : undefined;
   // First Descent uses tier 1 art throughout. Keep a modest base scale so later
   // tiers can grow without making early zombies tower over the adventurer.
   const art = ENEMY_ART[view.enemy], spriteHeight = art.roomHeight;
@@ -87,8 +104,8 @@ export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomA
     return () => { if (timer.current) clearTimeout(timer.current); window.removeEventListener("blur",stop); document.removeEventListener("visibilitychange",stop); };
   }, []);
 
-  function moveTo(target: Point, destination?: "enemy" | "door" | "merchant") {
-    if (view.pending || !["explore","recovery"].includes(view.phase)) return;
+  function moveTo(target: Point, destination?: "enemy" | "door" | "merchant" | "loot") {
+    if (view.pending || !["explore","loot","recovery"].includes(view.phase)) return;
     actions.interact?.();
     if (timer.current) clearTimeout(timer.current);
     const next = clampRoomPoint(target,cleared);
@@ -101,7 +118,8 @@ export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomA
       if (current.view.pending) return;
       if (current.view.phase === "explore" && (destination === "enemy" || Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125)) {
         point.current = STAGING; setPosition(STAGING); current.actions.approach();
-      } else if (current.view.phase === "recovery" && (destination === "door" || (next.y <= 130 && inDoorLane(next)))) current.actions.enter();
+      } else if (current.view.phase === "loot" && current.view.loot && nearRoomLoot(next)) current.actions.collect?.();
+      else if (current.view.phase === "recovery" && (destination === "door" || (next.y <= 130 && inDoorLane(next)))) current.actions.enter();
       else if (destination === "merchant") current.actions.merchant?.();
     },duration);
   }
@@ -111,7 +129,7 @@ export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomA
     const delta = moves[event.key];
     if (delta) { event.preventDefault(); moveTo({x:point.current.x+delta.x,y:point.current.y+delta.y}); }
     if ((event.key === "Enter" || event.key.toLowerCase() === "e") && !event.repeat) {
-      event.preventDefault(); moveTo(cleared ? DOOR : STAGING,cleared ? "door" : "enemy");
+      event.preventDefault(); moveTo(loot ? PICKUP : cleared ? DOOR : STAGING,loot ? "loot" : cleared ? "door" : "enemy");
     }
   }
   function floor(event: PointerEvent<SVGSVGElement>) {
@@ -120,22 +138,28 @@ export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomA
     const matrix = svg.current?.getScreenCTM(); if (!matrix) return;
     const p = new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());
     svg.current?.focus({preventScroll:true});
-    const target = roomFloorTarget(p,cleared,view.enemy);
+    const target = roomFloorTarget(p,cleared,view.enemy,Boolean(loot));
     moveTo(target.point,target.destination);
   }
 
-  return <div className={`dungeon-scene-wrap ${view.phase} ${view.room === 10 ? "boss-room" : ""}`} data-room-scene data-room={view.room}>
-    <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Arrow keys or WASD to walk; E to ${cleared ? "use the door" : "approach the enemy"}.`}
+  return <div className={`dungeon-scene-wrap ${view.phase} ${view.room === 10 ? "boss-room" : ""} ${children ? "has-overlay" : ""}`} data-room-scene data-room={view.room}>
+    <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Arrow keys or WASD to walk; E to ${loot ? "pick up loot" : cleared ? "use the door" : "approach the enemy"}.`}
       onKeyDown={keyboard} onPointerDown={e => { pointer.current={x:e.clientX,y:e.clientY}; }} onPointerUp={floor} onPointerCancel={() => {pointer.current=null;}}>
       <image href="/dungeon/stone-room.webp" width="900" height="600" />
       <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
-      {cleared && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.room === 10 ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
+      {cleared && !loot && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.room === 10 ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
       {!cleared && <g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
         <ellipse cx={GUARD.x} cy={GUARD.y-3} rx={spriteWidth*.4} ry={spriteHeight*.07} fill="#000" opacity=".62" />
         <svg x={GUARD.x-spriteWidth/2} y={GUARD.y-spriteHeight} width={spriteWidth} height={spriteHeight} overflow="visible"><EnemySprite type={view.enemy} /></svg>
       </g>}
-      {cleared && <g aria-hidden="true"><ellipse cx={GUARD.x} cy={GUARD.y-3} rx="36" ry="10" fill="#c59742" opacity=".2" /><text x={GUARD.x} y={GUARD.y-5} textAnchor="middle" fill="#eac170" fontSize="30">✦</text></g>}
-      {(view.room === 5 || view.room === 9) && cleared && <g aria-hidden="true" className="dungeon-camp-prop"><circle cx="252" cy="309" r="34" fill="#f5ab42" opacity=".17" />{view.room === 9 ? <g><ellipse cx="252" cy="321" rx="23" ry="8" fill="#30251e" stroke="#89725b" strokeWidth="5" /><path d="M237 317 Q230 302 246 287 Q243 300 253 275 Q274 300 265 316Z" fill="#b65822" /><path d="M244 318 Q239 303 253 288 Q252 301 262 305 L259 319Z" fill="#edab44" /><path d="M249 319 Q245 309 254 302 L258 318Z" fill="#f8dd8c" /></g> : <image href="/assets/loot/potion-v1.webp" x="230" y="282" width="44" height="44" />}<text x="252" y="351" textAnchor="middle" fill="#e9c78a" fontSize="13">{view.room === 9 ? "CAMP" : "SUPPLIES"}</text></g>}
+      {loot && <g className="dungeon-loot" data-room-loot={loot.type} role="img" aria-label={`Loot on the floor: ${roomLootLabel(loot)}. Walk here to collect.`}>
+        <ellipse cx={GUARD.x} cy={GUARD.y+4} rx="48" ry="14" fill="#c59742" opacity=".2" />
+        <image href={LOOT_ART[loot.type]} x={GUARD.x-34} y={GUARD.y-66} width="68" height="68" />
+        {loot.type !== 0 && loot.type !== 2 && loot.gold > 0 && <image href={LOOT_ART[2]} x={GUARD.x+17} y={GUARD.y-20} width="28" height="28" />}
+        {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
+        <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
+      </g>}
+      {(view.room === 5 || view.room === 9) && cleared && !loot && <g aria-hidden="true" className="dungeon-camp-prop"><circle cx="252" cy="309" r="34" fill="#f5ab42" opacity=".17" />{view.room === 9 ? <g><ellipse cx="252" cy="321" rx="23" ry="8" fill="#30251e" stroke="#89725b" strokeWidth="5" /><path d="M237 317 Q230 302 246 287 Q243 300 253 275 Q274 300 265 316Z" fill="#b65822" /><path d="M244 318 Q239 303 253 288 Q252 301 262 305 L259 319Z" fill="#edab44" /><path d="M249 319 Q245 309 254 302 L258 318Z" fill="#f8dd8c" /></g> : <image href="/dungeon/loot/potion.webp" x="230" y="282" width="44" height="44" />}<text x="252" y="351" textAnchor="middle" fill="#e9c78a" fontSize="13">{view.room === 9 ? "CAMP" : "SUPPLIES"}</text></g>}
       <g className="dungeon-actor-position" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`}>
         <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
         <g key={`avatar-${view.cueId}`} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
@@ -158,10 +182,11 @@ export function DungeonScene({ view, actions }: { view: RoomView; actions: RoomA
     </svg>
     <div className="dungeon-floor-controls">
       {view.phase === "explore" && <button onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending || walking}>Approach {view.enemyName} <span>↗</span></button>}
+      {loot && <button onClick={() => moveTo(PICKUP,"loot")} disabled={view.pending || walking}>Pick up loot <span>↑</span></button>}
       {view.phase === "recovery" && <><button onClick={() => moveTo(DOOR,"door")} disabled={view.pending || walking}>Walk to room {view.room+1} <span>↑</span></button>{actions.merchant && <button onClick={() => moveTo({x:298,y:343},"merchant")} disabled={walking || view.pending}>Visit Kevin</button>}</>}
-      {view.phase === "combat" && <span>Your turn · Choose an action below</span>}
+      {view.phase === "combat" && !children && <span>Your turn · Choose an action below</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>
-    <p className="dungeon-controls-help">Tap the floor to walk · Arrow keys / WASD · E to interact</p>
+    {children ? <div className="dungeon-scene-overlay">{children}</div> : <p className="dungeon-controls-help">Tap the floor to walk · Arrow keys / WASD · E to interact</p>}
   </div>;
 }

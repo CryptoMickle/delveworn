@@ -1,45 +1,18 @@
 {
-  "rules": "first-descent-1",
+  "rules": "first-descent-2",
   "seeds": "1..200",
   "policy": "tests/helpers/descent-policy.ts",
-  "note": "Seeded simulation, not observed human completion rate or session duration.",
-  "results": [
-    {
-      "build": "warden",
-      "runs": 200,
-      "wins": 135,
-      "winPercent": 67.5,
-      "meanTurns": 51.33,
-      "meanFinalHp": 20.355,
-      "deathsByRoom": {
-        "9": 22,
-        "10": 43
-      }
-    },
-    {
-      "build": "duelist",
-      "runs": 200,
-      "wins": 138,
-      "winPercent": 69,
-      "meanTurns": 49.42,
-      "meanFinalHp": 18.68,
-      "deathsByRoom": {
-        "9": 25,
-        "10": 37
-      }
-    },
-    {
-      "build": "stormcaller",
-      "runs": 200,
-      "wins": 152,
-      "winPercent": 76,
-      "meanTurns": 46.845,
-      "meanFinalHp": 26.775,
-      "deathsByRoom": {
-        "8": 1,
-        "9": 22,
-        "10": 25
-      }
+  "note": "Seeded simulation of unchanged Practice rules, not observed human completion rate or session duration.",
+  "result": {
+    "runs": 200,
+    "wins": 110,
+    "winPercent": 55.00000000000001,
+    "meanTurns": 46.17,
+    "meanFinalHp": 16.99,
+    "deathsByRoom": {
+      "8": 5,
+      "9": 62,
+      "10": 23
     }
-  ]
+  }
 }

@@ -24,119 +24,80 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — C–E available in preview, F open
+## Current checkpoint — restored core and mobile room controls
 
-The new playable slice is **`/play`**, linked from the mode-selection home as
-"Play The First Descent". `/concept` remains a development-only historical
-review. Classic Practice, Weekly and the existing Somnia onchain mode remain.
-A Vercel preview was explicitly authorized and created on 2026-09-15 for phone
-testing. Project: `delveworn-app`; source: `4ebf5cb`; deployment:
-`dpl_9ua69oNVJ9jghrixShS6sRn5xyxE`. Its build is READY, and `/play` plus the room,
-avatar and zombie assets return HTTP 200 through a deployment-specific shareable
-link (seven days, delivered in the conversation; token not committed).
-No production release, remote GitHub CI run, merge or contract transaction has
-occurred. A deployment/HTTP check does not complete browser or phone gameplay QA.
+The user's phone-review corrections supersede the earlier training proposal:
+no starting relic choice, original combat rules, physical floor-loot pickup,
+original Delveworn background, and compact HP/actions inside the room on mobile.
+`/play` is the playable local slice. `/concept` is a historical development-only
+review. Classic Practice, Weekly and existing Somnia onchain mode remain.
 
-### Milestone C — local dungeon implementation
+### Milestones C–D — gameplay and state
 
-- Ten curated combat rooms; entrance, supply after 5, camp after 9, boss 10,
-  boss relic collection and final recap. One continuously visible room layout
-  supports exploration, combat, loot, shop and recovery.
-- Keyboard/floor-tap movement, accessible approach/door buttons, physically
-  walking to the north door, explored/current/unseen ten-node progress strip.
-- A read-only `RoomView` / `RoomActions` renderer has no wallet, RPC or chain
-  dependencies. One authoritative `Descent` state wraps the actual Practice
-  transitions. Position, animation and audio do not consume gameplay RNG.
-- Save namespace `delveworn_first_descent_v1`, rules `first-descent-1`. Seed
-  and RNG position persist with health, items, room/turn and chosen build.
-  Reload restores a safe entry/combat anchor. Unknown saves are preserved;
-  denied storage permits a clearly labeled session-only run.
-- Revision guards reject stale actions. Save writes use a named Web Lock where
-  supported plus compare-before-write; storage events synchronize other tabs.
-  Without Web Locks the fallback is best-effort, not an atomic cross-tab CAS.
-- Original Practice saves and onchain snapshots are not migrated or rewritten.
-  The new room renderer is currently wired to the local slice. Classic Practice
-  and onchain retain their existing shared renderer and original art; binding
-  that renderer boundary to a live onchain snapshot remains unverified/unshipped.
+- One start button: 100 HP, three potions, zero gold, base weapon/armor and no
+  owned/equipped relic. Ten curated encounters, supplies after 5, camp after 9,
+  boss in 10. No starter builds or added guard/reply multipliers.
+- Attack, Storm, Potion, criticals, armor, camp and relic choices use default
+  Practice engine calculations. Original Practice/Weekly golden traces remain
+  identical; direct parity tests cover all three actions and a complete win.
+- Killing rolls the original reward once. Gold/items stay in `pendingLoot`
+  until the avatar arrives. Pickup applies those exact deltas once without a
+  turn or RNG draw. A door tap first routes to uncollected loot. Reload cannot
+  reroll it. Healing/shop/door/relic decisions wait until pickup.
+- Boss loot precedes the original keep/equip relic decision. Relics are earned
+  after the boss, and each new run starts with no relic.
+- Rules `first-descent-2`; save key `delveworn_first_descent_v2`. Earlier v1
+  preview saves remain separate and untouched. Unknown saves are preserved;
+  unavailable storage permits a labeled session-only run.
+- Revision guards and Web Locks protect writes; the fallback without Web Locks
+  remains best-effort. Movement/animation/audio own no combat RNG. Reload uses
+  a safe actor anchor. Other modes' saves are unchanged.
+- The scene accepts only `RoomView` / `RoomActions`. Its new combat-control slot
+  contains UI, not wallet/RPC authority. Somnia remains the intended onchain
+  configuration; a live snapshot adapter to this scene is not shipped, and the
+  previous VRF adapter mismatch is unresolved.
+- Documented automated policy: 200 valid terminal runs, 110 wins (55%), mean
+  46.17 combat turns. These are not measured human completion or session times.
 
-### Milestone D — gameplay implementation and model verification
+### Milestone E — presentation
 
-- Opt-in intent context applies only to the local training rules. Zombie wind-up
-  and heavy reply, Gary's guard, Thud's alternating swings and the boss's
-  three-step cycle are shown before acting. Storm bypasses guards.
-- Normal damage: roll → critical → relic rounding → floor(guard percentage).
-  Reply: roll → floor(intent percentage) → armor → relic rounding. A zero
-  wind-up remains zero; Potion then halves the reply with upward rounding.
-- Warden/Iron Shell, Duelist/Echo Lens and Stormcaller/Stormglass use existing
-  relic effects. They are explicitly training loadouts, not earned onchain items.
-- Guarded action feedback, visible HP deltas, damage/critical/Storm/heal/revive
-  effects, next intention, safe healing and priced camp decisions.
-- Three pre-change golden traces prove identical classic Practice/Weekly
-  game state, logs and RNG. All three builds finish the seeded integration run;
-  every transition round-trips through validated persistence, including death,
-  supply, camp, boss reward and completion.
-- 600 additional runs (200 seeds/build), documented policy: Warden **67.5%**,
-  Duelist **69%**, Stormcaller **76%** completion; mean **51.33 / 49.42 / 46.845**
-  combat turns. These are automated policy results, not human success rates or
-  measured 10–15-minute sessions. Main difficulty is rooms 9–10.
+- Original monster files and androgynous avatar preserved. All tier-1 enemies
+  guard the north door, with heights 120/110/146/178 scene units. No new tiers.
+- Loot uses four new transparent WebP cutouts: potion, weapon, armor and boss
+  pouch. Gold reuses the original coin. All four have genuine alpha and clear
+  corners; prompts/provenance are in `phase-1-evidence/transparent-loot.md`.
+- The original plum-to-black background is restored exactly. Attack, Storm
+  and Potion use the original orange/violet/green accents. Mobile combat HP,
+  potion count and 58px action buttons sit inside the bottom of the room.
+- Same 390px mobile room height across phases avoids resizing during combat
+  and pickup. Desktop controls remain inside the room panel below the scene.
+  A compact safe-healing row appears after pickup. Reduced motion and native
+  scrolling remain supported.
+- Nine static React/SVG illustrations cover four enemies and five loot views.
+  These are illustration exports, not browser screenshots or responsive QA.
 
-### Milestone E — presentation implementation
+### Milestone F — verification and preview
 
-- Original Gary, Grave Belle, Thud and Dungeon Lord images remain untouched.
-  Runtime SVG silhouette clips reuse those same files as room actors. Original
-  full portraits, relics, merchant, loot and logo remain in the HUD.
-- Monsters share an anchor directly on the north-door path. Shadows, tap targets,
-  attack effects and dropped loot use that anchor. A guarded-door tap approaches
-  the monster; walking into the door lane stops in front of it until victory.
-  Tier 1 sprite heights are 120/110/146/178 scene units (zombie/goblin/orc/boss).
-  These are modest baselines, not a new tier system: this ten-room slice only
-  uses tier 1. Future tiers need their own art crops and room-fit checks.
-- Small ImageGen set: one stone room (414 KiB) and one androgynous base avatar
-  (27 KiB), WebP encoded. Source prompts and selected outputs are recorded in
-  `phase-1-evidence/production-assets.md`. No flat replacement monster designs.
-- Avatar idle/walk/attack/hit/death are lightweight transforms of the base pose;
-  not a hand-drawn multi-frame sprite sheet. Weapon/armor highlights and floating
-  relic use separate layers. Reduced motion disables motion/flash effects.
-- Shared scene layout through all local room phases; compact mobile health,
-  intent and action controls, native page scrolling, 44px-or-larger action targets.
-- Existing action/boss cues reused. Optional two-tone exploration ambience has
-  no scheduler or downloads. Sound requires interaction and stops on blur/mute.
-- Four static scene illustrations were exported from React/SVG and inspected.
-  **These are illustration exports, not browser screenshots or responsive QA.**
+- Frontend tests: **97 passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
+  14 pre-existing warnings**. Alpha-channel and loot routing checks pass.
+- All three existing CI build configurations passed locally. Development-only
+  `/concept` remains a production 404. Current evidence is in
+  `phase-1-evidence/verification.md`.
+  The earlier phone preview was source `4ebf5cb`, deployment
+  `dpl_9ua69oNVJ9jghrixShS6sRn5xyxE`; a new preview follows this correction.
+- Browser suite discovery: **153 tests in 10 files**, including 18 First
+  Descent device cases. Discovery is not execution.
+- Current browser execution remains blocked: the in-app Browser's mandatory
+  admin policy check is unavailable. No alternative browser bypass was used.
+- Earlier baseline: 129 passed, 2 failed, 4 skipped. These are historical, not
+  a current pass. Physical phone/desktop review, current full browser suite,
+  measured first-run duration and the 5–10-person blind test remain open.
+- No production release, Git push/merge, new remote CI or contract transaction.
 
-### Milestone F — verification status and remaining gate
+**Status: phone-review preview; not production-ready. Phase 1 remains open
+until actual device and browser gameplay checks pass.**
 
-- Frontend tests: **91 passed, 0 failed** (including new rules/persistence,
-  classic golden traces, audio lifecycle and existing wallet/snapshot guards).
-  Three added scene tests cover guarded/open door taps, centered-monster targets
-  and walking bounds after the room composition correction.
-- Lint: **0 errors, 14 pre-existing warnings**. Explicit TypeScript check passed.
-- Foundry formatting and size build passed; **143 contract tests passed** in
-  13 suites. Optional signature-cache write warning from the sandbox only.
-- Production builds passed for all three existing CI configurations (RISE
-  legacy, Somnia standard, Somnia session keys), with `/play` generated and
-  `/concept` remaining production-404. Results are recorded in
-  `phase-1-evidence/verification.md`; no remote CI is claimed. Somnia standard
-  was rerun successfully after the door-layout correction; the other two and
-  contract checks are from the preceding implementation checkpoint.
-- Added five Playwright scenarios (15 device/project cases): wallet-free start,
-  keyboard/rapid input/reload, full ten-room UI run, responsive/reduced motion,
-  malformed/blocked storage. Suite discovery: **150 tests in 10 files**.
-- **Browser tests were not executed in this checkpoint.** In-app browser access
-  again failed because its admin-enforced security policy could not be verified.
-  Do not bypass that restriction with another browser automation path.
-- Fixes implemented for the two baseline issues: immediate terminal boss-score
-  cleanup (unit-tested) and a compact short-screen navigation row (CSS). Their
-  real-browser regressions remain unverified. The old baseline was 129 passed,
-  2 failed, 4 skipped, not a passing current browser run.
-- Requested direct user feedback on `/play` while completing code checks.
-  Pending: actual desktop/touch/phone visual and interaction checks, full current
-  Playwright pass, measured first-run duration and the 5–10-person blind test.
-
-**Status: local review build; not production-ready and not yet certified
-blind-test-ready. Phase 1 is not marked complete while F is blocked.**
-
-See `FIRST_DESCENT.md` for play/recovery/rules and the blind-test checklist.
+See `FIRST_DESCENT.md` for play, recovery and the next phone checklist.
 
 ## Workspace and baseline
 

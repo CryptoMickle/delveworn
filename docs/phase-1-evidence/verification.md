@@ -1,5 +1,74 @@
 # First Descent verification — 2026-09-15
 
+## Current correction — original core, floor loot and mobile controls
+
+User phone feedback overrides the earlier starter-build proposal. `/play` now
+starts with the original kit, uses default Practice combat, and applies loot
+only when the avatar reaches it. HP and Attack/Storm/Potion are inside the room
+on mobile. Original background and original monster files are preserved.
+
+| Check | Actual result |
+| --- | --- |
+| Frontend Node/tsx suite | 97 passed, 0 failed, 0 skipped |
+| ESLint | 0 errors; 14 existing warnings in legacy onchain/monitor code |
+| Explicit TypeScript | Passed |
+| Somnia standard production build | Passed; `/play` generated |
+| Existing RISE legacy production build | Passed; `/play` generated |
+| Somnia session-key production build | Passed; `/play` generated; development-only `/concept` remains 404 |
+| Original combat | Start/RNG/action state parity, all three actions, complete win; three classic golden hashes unchanged |
+| Loot/persistence | All drop types; deferred inventory; once-only pickup; stale/invalid actions; reload; boss keep/equip |
+| Transparent artwork | Four WebPs; four channels; alpha-zero corners and significant genuine transparent/opaque areas |
+| Scene geometry | Guarded/open door, reachable pickup, door-before-pickup routing and exact reward labels |
+| Scripted simulation | 200 valid terminal runs; 110 wins; mean 46.17 turns; see `descent-simulation.json` |
+| Browser discovery only | 153 tests in 10 files; 18 First Descent device cases; not executed |
+| Static illustrations | Nine React/SVG exports; loot labels moved clear of the avatar; not browser QA |
+
+The browser test specification now includes no starter relic, physical pickup,
+full run/reload, boss keep/equip, original background, and combat controls within
+the room on mobile. Actual execution is still unavailable because the mandatory
+browser admin-policy check failed. It was not bypassed with another browser.
+
+Local Node is 24.19.0; GitHub frontend CI uses Node 22. Local checks do not certify
+remote CI on unpublished commits. Contracts and original monster raster files
+are unchanged by this correction; prior 143 contract tests are historical.
+
+## Updated phone preview
+
+Deployment pending final local code checks. Only a preview is authorized; no
+production deploy, Git push, merge, account creation or contract transaction.
+The shareable link token is delivered to the user and is never committed.
+
+## Remaining review gates
+
+- Current Playwright execution and actual desktop/phone gameplay/rendering.
+- Native touch, 200% zoom, phone sound, reduced motion and first-run duration.
+- Earlier browser baseline was 129 passed, 2 failed, 4 skipped. Boss-score and
+  short-screen fixes exist, but their browser regressions are not certified.
+- New room renderer is local-only. Existing Somnia UI remains; the previously
+  observed VRF adapter mismatch is unresolved. No live onchain scene adapter.
+
+**Review preview, not production-ready. Phase 1 is still open.** Follow the phone
+checklist in `FIRST_DESCENT.md`, then run the planned 5–10-person uncoached test
+once the browser/device checks pass.
+
+## Changed files in this correction
+
+- `frontend/app/descent/{model.ts,storage.ts,game.tsx,game.css}`
+- `frontend/app/dungeon/{scene.tsx,scene.css}`
+- `frontend/app/play/page.tsx`, `frontend/app/dungeon-home.tsx`
+- `frontend/public/dungeon/loot/{potion,weapon,armor,pouch}.webp`
+- `frontend/tests/{descent.test.ts,dungeon-scene.test.ts,dungeon-loot-art.test.ts}`
+- `frontend/tests/helpers/descent-policy.ts`, `frontend/tests/e2e/descent.spec.ts`
+- `frontend/scripts/{simulate-descent.ts,render-descent-scene.tsx}`
+- `FIRST_DESCENT.md`, `docs/phase-1-{status,vertical-slice}.md`
+- This file, simulation JSON, transparent-loot provenance and nine scene exports.
+
+## Historical evidence (superseded rules, retained for traceability)
+
+The sections below describe older checkpoints, including their starter builds.
+They do not describe the restored v2 gameplay. The current simulation JSON has
+been replaced by the v2 run above; the old 600-run artifact remains in Git history.
+
 ## User-authorized Vercel phone-test preview
 
 - Project `delveworn-app`, root `frontend`, source commit

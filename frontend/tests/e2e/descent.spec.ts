@@ -4,7 +4,7 @@ import { DESCENT_SAVE_KEY } from "../../app/descent/storage";
 import { informedPolicy } from "../helpers/descent-policy";
 
 const saved = (page: Page): Promise<Descent> => page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),DESCENT_SAVE_KEY);
-async function seed(page: Page,run=createDescent("warden",12345,"browser-test")) {
+async function seed(page: Page,run=createDescent(12345,"browser-test")) {
   await page.addInitScript(({key,run})=>{
     if (!sessionStorage.getItem("descent-fixture")) {
       localStorage.setItem(key,JSON.stringify(run)); sessionStorage.setItem("descent-fixture","1");
@@ -14,15 +14,18 @@ async function seed(page: Page,run=createDescent("warden",12345,"browser-test"))
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase",phase(run));
 }
 
-test("a newcomer can choose a visible relic and start without wallet or RPC",async({page,isMobile})=>{
+test("a newcomer starts with the original kit and no wallet or RPC",async({page,isMobile})=>{
   const forbidden:string[]=[];
   page.on("request",r=>{ if (/somnia|thirdweb|walletconnect|eth_(call|send)/i.test(r.url()+String(r.postData()))) forbidden.push(r.url()); });
   await page.goto("/");
   await page.getByRole("link",{name:/Play The First Descent/}).click();
-  await page.getByRole("button",{name:/Enter as Stormcaller/}).click();
-  await expect(page.locator("[data-avatar-relic]")).toHaveAttribute("data-avatar-relic","6");
-  await expect(page.getByRole("region",{name:"Equipped relic"})).toContainText("Stormglass");
-  expect((await saved(page)).game.equippedRelic).toBe(6);
+  await expect(page.getByRole("button",{name:/Start run/i})).toHaveCount(1);
+  await expect(page.getByText("100 HP · 3 potions · no relic")).toBeVisible();
+  await page.getByRole("button",{name:/Start run/i}).click();
+  const started=await saved(page);
+  expect({hp:started.game.hp,maxHp:started.game.maxHp,potions:started.game.potions,relic:started.game.equippedRelic}).toEqual({hp:100,maxHp:100,potions:3,relic:0});
+  await expect(page.locator("[data-avatar-relic]")).toHaveCount(0);
+  await expect(page.getByRole("region",{name:"Equipped relic"})).toHaveCount(0);
   const floor=page.getByRole("group",{name:/Room 1 floor/});
   await floor.scrollIntoViewIfNeeded();
   const box=(await floor.boundingBox())!, scale=Math.max(box.width/900,box.height/600);
@@ -61,9 +64,13 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
   let run=await saved(page);
   const reloaded=new Set<number>();
   for (let n=0;n<180 && !["won","lost"].includes(phase(run));n++) {
-    const action=informedPolicy(run), expected=transition(run,action);
-    const names={engage:/Approach/,enter:/Walk to room/,attack:/Attack/,storm:/Storm/,potion:/Potion/,claim:/Collect relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
-    const scope=action.includes("-") ? page.getByRole("region",{name:"Kevin's shop"}) : ["attack","storm","potion"].includes(action) ? page.getByRole("group",{name:"Combat actions"}) : page;
+    const currentPhase=phase(run), action=informedPolicy(run), expected=transition(run,action);
+    const names={engage:/Approach/,enter:/Walk to room/,collect:/Pick up loot/,attack:/Attack/,storm:/Storm/,potion:/Potion/,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
+    const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
+    const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})
+      : action === "potion" && currentPhase === "recovery" ? page.locator(".descent-recovery-potion")
+      : ["attack","storm","potion"].includes(action) ? page.getByRole("group",{name:"Combat actions"}) : page;
+    if (currentPhase === "reward") await expect(page.getByRole("region",{name:"Boss relic reward"}).getByRole("button")).toHaveCount(2);
     await scope.getByRole("button",{name:names[action]}).click();
     await expect.poll(async()=>(await saved(page)).revision).toBe(expected.revision);
     expect(await saved(page)).toEqual(expected);
@@ -79,16 +86,60 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
   await page.screenshot({path:testInfo.outputPath("descent-finished.png"),fullPage:true});
 });
 
-test("responsive room, controls and intention remain readable with reduced motion",async({page},testInfo)=>{
+test("loot is credited only after the avatar reaches it, and the door routes to pickup first",async({page,isMobile})=>{
+  let run=createDescent(777,"loot-test");
+  run=transition(run,"engage");
+  while (phase(run) === "combat") run=transition(run,"attack");
+  expect(phase(run)).toBe("loot");
+  expect(run.pendingLoot).not.toBeNull();
+  const before={gold:run.game.gold,potions:run.game.potions,weapon:run.game.weaponLevel,armor:run.game.armorLevel};
+  await seed(page,run);
+  await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
+  await expect(page.getByRole("button",{name:/Walk to room/})).toHaveCount(0);
+  expect({gold:(await saved(page)).game.gold,potions:(await saved(page)).game.potions,weapon:(await saved(page)).game.weaponLevel,armor:(await saved(page)).game.armorLevel}).toEqual(before);
+
+  const floor=page.getByRole("group",{name:/Room 1 floor/});
+  const box=(await floor.boundingBox())!, scale=Math.max(box.width/900,box.height/600);
+  const x=box.x+(box.width-900*scale)/2+450*scale, y=box.y+(box.height-600*scale)/2+90*scale;
+  if (isMobile) await page.touchscreen.tap(x,y); else await page.mouse.click(x,y);
+  await expect(page.locator("[data-avatar-position]")).not.toHaveAttribute("data-avatar-position","400,391");
+  expect((await saved(page)).revision).toBe(run.revision);
+
+  const collected=transition(run,"collect");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(collected.revision);
+  expect(await saved(page)).toEqual(collected);
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+  await expect(page.getByRole("button",{name:/Walk to room 2/})).toBeVisible();
+});
+
+test("responsive room keeps compact combat controls inside the scene",async({page,isMobile},testInfo)=>{
   await page.emulateMedia({reducedMotion:"reduce"});
-  await seed(page,transition(createDescent("stormcaller",42,"layout"),"engage"));
+  await seed(page,transition(createDescent(42,"layout"),"engage"));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1)).toBe(true);
   const scene=page.locator("[data-room-scene]");
   const box=await scene.boundingBox(); expect(box!.height).toBeGreaterThanOrEqual(300);
-  for (const button of await page.getByRole("group",{name:"Combat actions"}).getByRole("button").all()) {
+  const actions=page.getByRole("group",{name:"Combat actions"});
+  await actions.scrollIntoViewIfNeeded();
+  await expect(actions).toBeInViewport();
+  await expect(actions.getByRole("progressbar",{name:"Your health beside combat actions"})).toBeVisible();
+  await expect(actions.getByText("Potions 3 / 5",{exact:true})).toBeVisible();
+  const dock=await actions.evaluate(element=>{const rect=element.getBoundingClientRect(),room=element.closest("[data-room-scene]")!.getBoundingClientRect();return {height:rect.height,top:rect.top,bottom:rect.bottom,roomTop:room.top,roomBottom:room.bottom,inside:Boolean(element.closest(".dungeon-scene-overlay"))};});
+  expect(dock.height).toBeLessThanOrEqual(160); expect(dock.inside).toBe(true);
+  if (isMobile) { expect(dock.top).toBeGreaterThanOrEqual(dock.roomTop); expect(dock.bottom).toBeLessThanOrEqual(dock.roomBottom+1); }
+  for (const button of await actions.getByRole("button").all()) {
     await button.scrollIntoViewIfNeeded(); const b=await button.boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44); expect(b!.width).toBeGreaterThanOrEqual(44);
   }
+  const backgrounds=await page.evaluate(()=>{
+    const descent=getComputedStyle(document.querySelector(".descent-shell")!).backgroundImage;
+    const reference=document.createElement("main"); reference.className="practice-shell"; document.body.append(reference);
+    const practice=getComputedStyle(reference).backgroundImage; reference.remove(); return {descent,practice};
+  });
+  expect(backgrounds.descent).toBe(backgrounds.practice);
+  const scrollBefore=await page.evaluate(()=>scrollY);
+  await actions.getByRole("button",{name:/Attack/}).click();
+  await expect(actions).toHaveAttribute("aria-busy","false");
+  expect(await page.evaluate(()=>scrollY)).toBe(scrollBefore);
   await page.screenshot({path:testInfo.outputPath("descent-combat.png"),fullPage:true});
 });
 
@@ -99,7 +150,7 @@ test("unknown saves are preserved and denied storage still allows a session",asy
   expect(await page.evaluate(key=>localStorage.getItem(key),DESCENT_SAVE_KEY)).toBe('{"rules":"future"}');
   await page.addInitScript(()=>Object.defineProperty(window,"localStorage",{get:()=>{throw Error("Unavailable");}}));
   await page.reload();
-  await page.getByRole("button",{name:/Enter as Warden/}).click();
+  await page.getByRole("button",{name:/Start run/i}).click();
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","explore");
   await expect(page.getByText(/This run lasts for this visit only/)).toBeVisible();
 });

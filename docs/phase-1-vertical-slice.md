@@ -1,5 +1,24 @@
 # Delveworn — the first descent
 
+## Current correction — original core and physical loot (2026-09-15)
+
+The user's phone review overrides the earlier training-build proposal below:
+no relic/build selection at entry and no extra combat modifiers. Start with the
+original 100 HP, three potions and no relic. Use the default Practice combat and
+reward calculations; retain the ten-room visual sequence. Keep original monster
+art, the androgynous avatar and modest tier-1 scale at the north door.
+
+Loot uses the existing rolled rewards, held until the avatar physically reaches
+it. Collection is once-only and does not reroll or consume a combat turn. Boss
+relic keep/equip decisions follow pickup. Save rules/key advance to v2 while
+preserving earlier preview saves separately. Restore the exact classic Delveworn
+background and place HP beside compact, accessible Attack/Storm/Potion controls.
+
+`FIRST_DESCENT.md` defines current behavior. The proposal below is historical;
+its starter builds, guard/wind-up cycles and training-save details are superseded.
+
+## Approved earlier visual proposal (historical)
+
 Milestone B specification, 2026-09-15. **Approved** with the correction to retain
 the original monster artwork style. User: "Veldig bra. Fortsett". C–F authorized.
 
