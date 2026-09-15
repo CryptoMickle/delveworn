@@ -15,7 +15,7 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 | Previous version | [Open the original frontend](https://delveworn.vercel.app) | Preserved separately from the upgraded experience. |
 | Somnia Verified Run | [Open the canonical Somnia game](https://delveworn-somnia.vercel.app/onchain) | Contract-backed state, popup-free sponsored actions and Somnia-native verifiable randomness. |
 
-The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet (chain `50312`) and the existing contract [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292), with standard MetaMask transactions. The original `delveworn.vercel.app` remains on RISE Testnet contract [`0xf5d7…3DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA). The separate `delveworn-somnia.vercel.app` configuration is unchanged.
+The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet (chain `50312`) and the existing contract [`0x07c5…c292`](https://shannon-explorer.somnia.network/address/0x07c5D071132ae95C3708031790b3feC740F4c292), with Thirdweb session keys for Popup-free Play and standard MetaMask transactions as an alternative. The original `delveworn.vercel.app` remains on RISE Testnet contract [`0xf5d7…3DbA`](https://explorer.testnet.riselabs.xyz/address/0xf5d7Da409545E74bD9d4fEaD8365AF0158c43DbA). The separate `delveworn-somnia.vercel.app` configuration is unchanged.
 
 Practice Mode is the fastest way to review the complete gameplay loop. Onchain Mode demonstrates the contract-backed state, wallet flow and randomness lifecycle, but depends on testnet and wallet availability.
 
@@ -256,10 +256,11 @@ NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F
 NEXT_PUBLIC_SOMNIA_SHANNON_RPC_URL=https://api.infra.testnet.somnia.network/
 NEXT_PUBLIC_SOMNIA_SHANNON_WS_URL=wss://api.infra.testnet.somnia.network/ws
 NEXT_PUBLIC_SOMNIA_SHANNON_EXPLORER_URL=https://shannon-explorer.somnia.network/
-NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=false
+NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=<public client ID configured for delveworn.app>
 ```
 
-The optional Somnia Popup-free Play session additionally requires:
+Somnia Popup-free Play requires:
 
 ```text
 NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true
@@ -267,9 +268,9 @@ NEXT_PUBLIC_THIRDWEB_CLIENT_ID=<public Thirdweb client ID>
 ```
 
 Enable the feature flag only when the Thirdweb client is restricted to the
-intended canonical domain and has a Shannon sponsored-gas policy. The canonical
-Somnia deployment satisfies those requirements; other deployments should keep
-the flag disabled until they have an equivalent policy. MetaMask remains the
+intended canonical domain and has a Shannon sponsored-gas policy. The `delveworn.app` and canonical
+Somnia deployments satisfy those requirements. Other deployments should keep
+the flag disabled until their domain and sponsorship policy are configured. MetaMask remains the
 owner/admin wallet. The temporary session key expires after eight hours and is
 limited onchain to zero-value calls against the configured Delveworn contract.
 Because the ERC-4337 smart account has its own address, it has separate player

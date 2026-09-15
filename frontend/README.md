@@ -1,6 +1,6 @@
 # Delveworn
 
-Delveworn is a fully onchain dungeon crawler. The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet, MetaMask standard transactions and Somnia Native VRF. The original `delveworn.vercel.app` keeps its RISE Testnet configuration. Somnia ERC-4337 Instant Play remains an optional feature and is disabled on `delveworn.app`.
+Delveworn is a fully onchain dungeon crawler. The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet, Thirdweb session keys for Popup-free Play, MetaMask standard transactions and Somnia Native VRF. The original `delveworn.vercel.app` keeps its RISE Testnet configuration. Popup-free Play is enabled on `delveworn.app`; the player approves an eight-hour session with MetaMask before playing without repeated wallet approvals.
 
 ## Status
 
@@ -26,7 +26,7 @@ Install dependencies:
 npm install
 ```
 
-Copy `.env.example` to `.env.local` to use the same Somnia testnet configuration as `delveworn.app`:
+Copy `.env.example` to `.env.local` for Somnia testnet development. Local session keys default to disabled until the development domain is configured:
 
 ```bash
 NEXT_PUBLIC_DEPLOYMENT=somniaShannon
@@ -35,8 +35,7 @@ NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS=0x07c5D071132ae95C3708031790b3feC740F
 NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=false
 ```
 
-Standard MetaMask play remains the Somnia default. To test the separate
-ERC-4337 Instant Play path, create a public Thirdweb client for Shannon,
+To test ERC-4337 Popup-free Play locally, use a public Thirdweb client for Shannon,
 configure its allowed development domain and sponsored-gas policy, then add:
 
 ```bash
@@ -73,7 +72,7 @@ The `delveworn-app` Vercel project connects this repository's `upgrade/market-du
 
 The original `delveworn` project and its `main` production branch continue serving the previous version at `https://delveworn.vercel.app`. The Somnia project remains separate. Do not merge the upgraded branch into `main` when preserving those versions.
 
-Set `NEXT_PUBLIC_DEPLOYMENT=somniaShannon`, `NEXT_PUBLIC_SITE_URL=https://delveworn.app` and `NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS` in the new project. Use the public HTTPS/WSS/explorer values from `.env.example`. RISE deployments continue using `NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS` in their own projects.
+Set `NEXT_PUBLIC_DEPLOYMENT=somniaShannon`, `NEXT_PUBLIC_SITE_URL=https://delveworn.app` and `NEXT_PUBLIC_SOMNIA_SHANNON_DUNGEON_ADDRESS` in the new project. Use the public HTTPS/WSS/explorer values from `.env.example`. Enable `NEXT_PUBLIC_SOMNIA_SESSION_KEYS_ENABLED=true` with the public `NEXT_PUBLIC_THIRDWEB_CLIENT_ID` whose domain allowlist includes `delveworn.app` and whose sponsorship policy allows Shannon. RISE deployments continue using `NEXT_PUBLIC_RISE_TESTNET_DUNGEON_ADDRESS` in their own projects.
 
 The legacy `NEXT_PUBLIC_DUNGEON_ADDRESS` variable is retained for deployment compatibility.
 
