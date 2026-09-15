@@ -2,6 +2,22 @@
 
 ## Current correction — safe healing from the existing potion inventory
 
+### Current phone preview
+
+- Source `741ad2c3bbcfe9981ae4b9c7e31a6f6f7569834a`; Vercel deployment
+  `dpl_H9oHD3bu5SC6aFaTPi5k7EnS5Q7X`: **READY**, preview target.
+- <https://delveworn-cq73d8z5q-crypto-mickle.vercel.app/practice>
+  (the deployment-specific seven-day access link is delivered in the
+  conversation; its token is not committed).
+- `/practice`, `/play` and `/onchain` returned **HTTP 200** with expected titles.
+  Kevin, tier-4 Meatwall and transparent potion artwork returned **HTTP 200**,
+  `image/webp`. These are delivery checks, not browser gameplay verification.
+- Exported tracked frontend files only; Somnia standard, session keys disabled.
+  No production release, remote Git push/merge, domain/configuration change,
+  account creation or live contract transaction.
+
+### Correction
+
 The previous preview hid recovery healing in Menu and blocked it entirely while
 loot was pending. The existing potion inventory slot now becomes **Potion +25
 HP** after a kill, on both desktop and mobile. Tapping it invokes the original
@@ -17,6 +33,10 @@ the separate relic reward choice still precedes further recovery actions.
 - TypeScript passed. ESLint: **0 errors, 14 existing warnings**. Whitespace
   checks passed. Browser discovery lists **189 scenarios in 10 files**, including
   new inventory-healing regressions; these browser scenarios were not executed.
+- All three existing CI build configurations passed locally: RISE compatibility,
+  Somnia standard and Somnia session keys. The initial sandboxed build stalled
+  and was terminated; the matrix passed on retry with the required local process
+  permissions. Remote GitHub CI was not triggered for these unpublished commits.
 - Actual Practice page callbacks in a no-DOM component harness: start, approach,
   defeat enemy, tap inventory potion with loot pending, check capped HP increase
   and one potion consumed, then bypass through the door. Pending loot and room
