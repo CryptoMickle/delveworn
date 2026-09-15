@@ -83,8 +83,10 @@ review. Classic Practice, Weekly and existing Somnia onchain mode remain.
 - All three existing CI build configurations passed locally. Development-only
   `/concept` remains a production 404. Current evidence is in
   `phase-1-evidence/verification.md`.
-  The earlier phone preview was source `4ebf5cb`, deployment
-  `dpl_9ua69oNVJ9jghrixShS6sRn5xyxE`; a new preview follows this correction.
+  Current phone preview: source `a542b55`, deployment
+  `dpl_H3RoHdmpY6reNWa7tcC6X6i7huC3`, READY. `/play` and seven room/actor/loot
+  assets returned HTTP 200 through its seven-day shareable link. The earlier
+  `4ebf5cb` preview is superseded; tokens are delivered only in the conversation.
 - Browser suite discovery: **153 tests in 10 files**, including 18 First
   Descent device cases. Discovery is not execution.
 - Current browser execution remains blocked: the in-app Browser's mandatory

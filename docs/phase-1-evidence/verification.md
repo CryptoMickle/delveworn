@@ -34,9 +34,17 @@ are unchanged by this correction; prior 143 contract tests are historical.
 
 ## Updated phone preview
 
-Deployment pending final local code checks. Only a preview is authorized; no
-production deploy, Git push, merge, account creation or contract transaction.
-The shareable link token is delivered to the user and is never committed.
+- Project `delveworn-app`; source commit `a542b559d1eda53f2668950bb4aa0ef5c7618368`.
+- Deployment `dpl_H3RoHdmpY6reNWa7tcC6X6i7huC3`: **READY**, preview target.
+  <https://delveworn-q2fvt6inb-crypto-mickle.vercel.app/play>
+- Exported tracked frontend files only. Somnia configuration, session keys off.
+- Deployment-specific shareable link created for seven days and delivered to
+  the user; token never committed. Project-wide protection unchanged.
+- `/play` returned HTTP **200** with the expected First Descent title. Room,
+  avatar, Grave Belle and all four transparent loot assets returned **200** with
+  `image/webp` content types through that shareable link.
+- These are deployment/asset checks, not interaction or responsive-render checks.
+- No production release, Git push/merge, account creation or contract transaction.
 
 ## Remaining review gates
 

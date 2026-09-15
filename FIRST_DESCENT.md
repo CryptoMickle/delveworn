@@ -1,6 +1,6 @@
 # The First Descent — Phase 1 review build
 
-Status: gameplay corrections available locally; browser/device verification
+Status: gameplay corrections available in the phone preview; browser/device verification
 remains open. Preview deployment history is recorded in
 `docs/phase-1-evidence/verification.md`. No production release or contract
 transaction is included. Shareable preview access tokens are never committed.
