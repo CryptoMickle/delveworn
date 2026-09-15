@@ -20,6 +20,7 @@
   width: 100%;
   height: auto;
   object-fit: contain;
+  transform: translateY(-6px);
 }
 
 .delveworn-brand-logo:hover img { filter: brightness(1.14); }
@@ -33,4 +34,24 @@
 
 @media (min-width: 1200px) and (min-height: 800px) {
   .delveworn-brand-compact { width: 252px; }
+}
+
+/* Fits inside the existing logo area so the game keeps its current position. */
+.delveworn-development-label {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 7px;
+  border: 1px solid #74542f;
+  border-radius: 999px;
+  background: #211a13;
+  color: #edc083;
+  font: 600 10px/1.2 Arial, Helvetica, sans-serif;
+  white-space: nowrap;
+}
+
+.delveworn-brand-compact .delveworn-development-label {
+  padding-inline: 4px;
+  font-size: 9px;
 }
