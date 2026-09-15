@@ -7,6 +7,8 @@ import { GameLogo } from "./game-logo";
 import { RunResultShare } from "./run-result-share";
 import { siteUrl } from "./site-origin";
 import { somniaTimingCopy } from "./deployment-copy";
+import { OnchainWalletControls } from "./onchain-wallet-controls";
+import { createWalletViewGuard, type WalletView } from "./wallet-view-guard";
 import { DungeonRecovery } from "./between-rooms";
 import { DungeonRunEnd } from "./run-end";
 import type { RunCardData } from "./run-card";
@@ -3002,6 +3004,11 @@ function DelvewornGame() {
     setSomniaSessionCreating,
   ] = useState(false);
 
+  const walletViewRef = useRef(createWalletViewGuard());
+  const somniaModeIntentRef = useRef<boolean | null>(null);
+  const walletTransitionLockRef = useRef(false);
+  const [walletTransitionPending, setWalletTransitionPending] = useState(false);
+
   const [
     loading,
     setLoading,
@@ -3098,7 +3105,7 @@ function DelvewornGame() {
     >([]);
 
   const canonicalRecoveryRef =
-    useRef(false);
+    useRef<{ view: WalletView | null; playerAddress: Address } | null>(null);
 
   const sessionBundleFailureRef =
     useRef<
@@ -3368,6 +3375,14 @@ function DelvewornGame() {
         )
       )
     );
+
+  const walletControlsBusy = Boolean(
+    loading || walletTransitionPending || somniaSessionCreating ||
+    grantPermissions.isPending || revokePermissions.isPending ||
+    pendingAction !== null || vrfRetrying || canonicalSyncing ||
+    rollingKind !== RequestKind.None ||
+    (player && (!actionReady || player.pendingRequestId > BigInt(0)))
+  );
 
   function loadStoredSession(
     address: Address
@@ -3928,6 +3943,11 @@ function DelvewornGame() {
     ==========================================================
   */
 
+  function isPlayerViewCurrent(view: WalletView | null, playerAddress: Address) {
+    return walletViewRef.current.isCurrent(view) &&
+      connectedAddressRef.current?.toLowerCase() === playerAddress.toLowerCase();
+  }
+
   async function finalizeCanonicalAction(
     playerAddress:
       Address,
@@ -3936,11 +3956,15 @@ function DelvewornGame() {
       number,
 
     expectedState:
-      PlayerState | null
+      PlayerState | null,
+
+    view: WalletView | null
   ):
     Promise<
       PlayerState | null
     > {
+    if (!isPlayerViewCurrent(view, playerAddress)) return null;
+
     setCanonicalSyncing(
       true
     );
@@ -3954,7 +3978,7 @@ function DelvewornGame() {
       ACTION_READY_TIMEOUT_MS;
 
     while (
-      runtimeNowMs() <
+      isPlayerViewCurrent(view, playerAddress) && runtimeNowMs() <
       deadline
     ) {
       try {
@@ -3963,6 +3987,8 @@ function DelvewornGame() {
             playerAddress,
             "canonical"
           );
+
+        if (!isPlayerViewCurrent(view, playerAddress)) return null;
 
         if (
           canonical.pendingRequestId ===
@@ -3989,6 +4015,8 @@ function DelvewornGame() {
             await sleep(
               remainingDisplay
             );
+
+            if (!isPlayerViewCurrent(view, playerAddress)) return null;
           }
 
           setPlayer(
@@ -4012,6 +4040,7 @@ function DelvewornGame() {
       } catch (
         error
       ) {
+        if (!isPlayerViewCurrent(view, playerAddress)) return null;
         console.debug(
           "Canonical action lock still waiting:",
           error
@@ -4022,6 +4051,8 @@ function DelvewornGame() {
         ACTION_READY_POLL_MS
       );
     }
+
+    if (!isPlayerViewCurrent(view, playerAddress)) return null;
 
     setWalletMessage(
       "RISE randomness is resolved, but canonical state is still catching up. Actions stay locked until the next transaction is safe to send."
@@ -4034,15 +4065,17 @@ function DelvewornGame() {
       unlock the UI before the transaction has actually landed.
     */
     if (
-      !canonicalRecoveryRef.current
+      !canonicalRecoveryRef.current ||
+      canonicalRecoveryRef.current.view !== view ||
+      canonicalRecoveryRef.current.playerAddress.toLowerCase() !== playerAddress.toLowerCase()
     ) {
-      canonicalRecoveryRef.current =
-        true;
+      const recovery = { view, playerAddress };
+      canonicalRecoveryRef.current = recovery;
 
       void (async () => {
         try {
           while (
-            true
+            isPlayerViewCurrent(view, playerAddress)
           ) {
             try {
               const canonical =
@@ -4050,6 +4083,8 @@ function DelvewornGame() {
                   playerAddress,
                   "canonical"
                 );
+
+              if (!isPlayerViewCurrent(view, playerAddress)) return;
 
               if (
                 canonical.pendingRequestId ===
@@ -4083,6 +4118,7 @@ function DelvewornGame() {
             } catch (
               error
             ) {
+              if (!isPlayerViewCurrent(view, playerAddress)) return;
               console.debug(
                 "Background canonical recovery still waiting:",
                 error
@@ -4094,8 +4130,10 @@ function DelvewornGame() {
             );
           }
         } finally {
-          canonicalRecoveryRef.current =
-            false;
+          // A cancelled owner's cleanup must not erase a newer recovery.
+          if (canonicalRecoveryRef.current === recovery) {
+            canonicalRecoveryRef.current = null;
+          }
         }
       })();
     }
@@ -4114,8 +4152,12 @@ function DelvewornGame() {
       PlayerState,
 
     stage:
-      string
-  ): PlayerState {
+      string,
+
+    view: WalletView | null
+  ): PlayerState | null {
+    if (!isPlayerViewCurrent(view, playerAddress)) return null;
+
     setActionProgressPhase(
       "syncing"
     );
@@ -4153,9 +4195,11 @@ function DelvewornGame() {
     void finalizeCanonicalAction(
       playerAddress,
       displayStartedAt,
-      resolvedState
+      resolvedState,
+      view
     ).then(
       (canonical) => {
+        if (!isPlayerViewCurrent(view, playerAddress)) return;
         timingLog(
           canonical
             ? "canonical action lock released"
@@ -4187,11 +4231,15 @@ function DelvewornGame() {
       PlayerState | null,
 
     bundleId:
-      string | null = null
+      string | null = null,
+
+    view: WalletView | null = walletViewRef.current.capture()
   ):
     Promise<
       PlayerState | null
     > {
+    if (!isPlayerViewCurrent(view, playerAddress)) return null;
+
     let observedRequestId =
       requestId;
 
@@ -4209,7 +4257,7 @@ function DelvewornGame() {
       false
     );
 
-    while (true) {
+    while (isPlayerViewCurrent(view, playerAddress)) {
       const elapsed =
         runtimeNowMs() -
         displayStartedAt;
@@ -4247,6 +4295,8 @@ function DelvewornGame() {
               "canonical"
             );
 
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
+
           const changed =
             beforeState
               ? playerStateChanged(
@@ -4267,6 +4317,7 @@ function DelvewornGame() {
         } catch (
           error
         ) {
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
           if (
             error instanceof Error &&
             error.message.includes(
@@ -4328,6 +4379,8 @@ function DelvewornGame() {
               ],
             });
 
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
+
           setVrfRetryAvailable(
             Boolean(
               available
@@ -4336,6 +4389,7 @@ function DelvewornGame() {
         } catch (
           error
         ) {
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
           console.debug(
             "VRF retry availability check delayed:",
             error
@@ -4416,6 +4470,8 @@ function DelvewornGame() {
                 : "realtime"
             );
 
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
+
           timingLog(
             `state read via ${cached.source} completed`
           );
@@ -4443,18 +4499,22 @@ function DelvewornGame() {
               await sleep(
                 remainingDisplay
               );
+
+              if (!isPlayerViewCurrent(view, playerAddress)) return null;
             }
 
             return finishFastVrfResolution(
               playerAddress,
               displayStartedAt,
               resolvedState,
-              "VRF resolved; canonical action lock engaged"
+              "VRF resolved; canonical action lock engaged",
+              view
             );
           }
         } catch (
           error
         ) {
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
           console.debug(
             "VRF completion event arrived; state read is still catching up:",
             error
@@ -4480,6 +4540,8 @@ function DelvewornGame() {
               playerAddress,
               "realtime"
             );
+
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
 
           if (
             realtime.pendingRequestId >
@@ -4534,18 +4596,22 @@ function DelvewornGame() {
               await sleep(
                 remainingDisplay
               );
+
+              if (!isPlayerViewCurrent(view, playerAddress)) return null;
             }
 
             return finishFastVrfResolution(
               playerAddress,
               displayStartedAt,
               realtime,
-              "VRF resolved via pending-state recovery; canonical action lock engaged"
+              "VRF resolved via pending-state recovery; canonical action lock engaged",
+              view
             );
           }
         } catch (
           error
         ) {
+          if (!isPlayerViewCurrent(view, playerAddress)) return null;
           console.debug(
             "Realtime VRF recovery still waiting:",
             error
@@ -4567,6 +4633,8 @@ function DelvewornGame() {
                 playerAddress,
                 "canonical"
               );
+
+            if (!isPlayerViewCurrent(view, playerAddress)) return null;
 
             if (
               canonical.pendingRequestId >
@@ -4600,12 +4668,14 @@ function DelvewornGame() {
                 playerAddress,
                 displayStartedAt,
                 canonical,
-                "VRF resolved via canonical recovery; canonical action lock engaged"
+                "VRF resolved via canonical recovery; canonical action lock engaged",
+                view
               );
             }
           } catch (
             error
           ) {
+            if (!isPlayerViewCurrent(view, playerAddress)) return null;
             console.debug(
               "Canonical VRF recovery still waiting:",
               error
@@ -4618,6 +4688,8 @@ function DelvewornGame() {
         TESTNET_POLLING_MS
       );
     }
+
+    return null;
   }
 
   function extractRandomnessRequestId(
@@ -4712,12 +4784,16 @@ function DelvewornGame() {
     playerAddress:
       Address
   ) {
+    const view = walletViewRef.current.capture();
+    if (!isPlayerViewCurrent(view, playerAddress)) return;
     try {
       const state =
         await fetchPlayerState(
           playerAddress,
           "canonical"
         );
+
+      if (!isPlayerViewCurrent(view, playerAddress)) return;
 
       /*
         Startup must never wait for an old VRF request to resolve before
@@ -4771,11 +4847,13 @@ function DelvewornGame() {
                 displayStartedAt,
                 state.pendingRequestKind,
                 0,
-                state
+                state,
+                null,
+                view
               );
 
             if (
-              recovered
+              isPlayerViewCurrent(view, playerAddress) && recovered
             ) {
               addMessages([
                 `🎲 Pending ${activeRandomnessProviderLabel()} request resolved.`,
@@ -4784,22 +4862,25 @@ function DelvewornGame() {
           } catch (
             error
           ) {
+            if (!isPlayerViewCurrent(view, playerAddress)) return;
             console.error(
               "Background startup VRF recovery failed:",
               error
             );
           } finally {
-            setRollingKind(
-              RequestKind.None
-            );
+            if (isPlayerViewCurrent(view, playerAddress)) {
+              setRollingKind(
+                RequestKind.None
+              );
 
-            setVrfDelayed(
-              false
-            );
+              setVrfDelayed(
+                false
+              );
 
-            setVrfRetryAvailable(
-              false
-            );
+              setVrfRetryAvailable(
+                false
+              );
+            }
           }
         })();
       } else {
@@ -4818,6 +4899,7 @@ function DelvewornGame() {
     } catch (
       error
     ) {
+      if (!isPlayerViewCurrent(view, playerAddress)) return;
       console.error(
         error
       );
@@ -4835,6 +4917,8 @@ function DelvewornGame() {
   async function restoreSomniaInstantPlay(
     ownerAddress: Address
   ) {
+    const view = walletViewRef.current.select(ownerAddress, "somnia-session");
+    connectedAddressRef.current = ownerAddress;
     setSomniaSessionModeEnabled(
       true
     );
@@ -4881,6 +4965,8 @@ function DelvewornGame() {
           record
         );
 
+      if (!walletViewRef.current.isCurrent(view)) return;
+      connectedAddressRef.current = handle.record.smartAccountAddress;
       setSomniaSessionHandle(
         handle
       );
@@ -4895,6 +4981,7 @@ function DelvewornGame() {
     } catch (
       error
     ) {
+      if (!walletViewRef.current.isCurrent(view)) return;
       console.warn(
         "Stored Somnia session could not be restored:",
         error
@@ -4932,6 +5019,9 @@ function DelvewornGame() {
       "metamask" |
       "somnia-session"
   ) {
+    if (walletControlsBusy || walletTransitionLockRef.current) return;
+    walletTransitionLockRef.current = true;
+    setWalletTransitionPending(true);
     const label =
       wallet ===
         "rise"
@@ -4941,6 +5031,8 @@ function DelvewornGame() {
     const wantsSomniaSession =
       wallet ===
         "somnia-session";
+
+    somniaModeIntentRef.current = wantsSomniaSession;
 
     try {
       if (
@@ -5005,6 +5097,8 @@ function DelvewornGame() {
             ownerAddress
           );
         } else {
+          walletViewRef.current.select(ownerAddress, "standard");
+          connectedAddressRef.current = ownerAddress;
           setSomniaSessionMode(
             ownerAddress,
             false
@@ -5047,10 +5141,15 @@ function DelvewornGame() {
       setWalletMessage(
         label + " connection failed."
       );
+    } finally {
+      walletTransitionLockRef.current = false;
+      setWalletTransitionPending(false);
     }
   }
 
   async function createSomniaInstantPlaySession() {
+    if (walletControlsBusy || walletTransitionLockRef.current) return;
+    const view = walletViewRef.current.capture();
     if (
       !wagmiAddress ||
       !connector ||
@@ -5068,6 +5167,7 @@ function DelvewornGame() {
         wagmiAddress
       );
 
+    walletTransitionLockRef.current = true;
     try {
       setSomniaSessionCreating(
         true
@@ -5088,6 +5188,8 @@ function DelvewornGame() {
           ownerAddress
         );
 
+      if (!walletViewRef.current.isCurrent(view)) return;
+      connectedAddressRef.current = handle.record.smartAccountAddress;
       writeSomniaSessionRecord(
         handle.record
       );
@@ -5115,6 +5217,7 @@ function DelvewornGame() {
     } catch (
       error
     ) {
+      if (!walletViewRef.current.isCurrent(view)) return;
       console.error(
         error
       );
@@ -5123,6 +5226,7 @@ function DelvewornGame() {
         "Could not enable Somnia popup-free play. The MetaMask approval, smart-account deployment or sponsored session request failed."
       );
     } finally {
+      walletTransitionLockRef.current = false;
       setSomniaSessionCreating(
         false
       );
@@ -5279,6 +5383,12 @@ function DelvewornGame() {
   }
 
   async function resetWalletConnection() {
+    if (walletControlsBusy || walletTransitionLockRef.current) return;
+    walletTransitionLockRef.current = true;
+    setWalletTransitionPending(true);
+    walletViewRef.current.clear();
+    connectedAddressRef.current = null;
+    somniaModeIntentRef.current = false;
     try {
       if (
         connectedAddress &&
@@ -5350,16 +5460,23 @@ function DelvewornGame() {
       setWalletMessage(
         "Could not reset the wallet connection. Reload the page and try again."
       );
+    } finally {
+      walletTransitionLockRef.current = false;
+      setWalletTransitionPending(false);
     }
   }
 
   async function revokeSession() {
+    if (walletControlsBusy || walletTransitionLockRef.current) return;
+    const view = walletViewRef.current.capture();
     if (
       !connectedAddress
     ) {
       return;
     }
 
+    walletTransitionLockRef.current = true;
+    setWalletTransitionPending(true);
     try {
       if (
         hasSomniaSession &&
@@ -5397,6 +5514,10 @@ function DelvewornGame() {
           );
         }
 
+        if (!walletViewRef.current.isCurrent(view)) return;
+        walletViewRef.current.select(ownerAddress, "standard");
+        somniaModeIntentRef.current = false;
+        connectedAddressRef.current = ownerAddress;
         clearSomniaSessionRecord(
           ownerAddress
         );
@@ -5458,6 +5579,7 @@ function DelvewornGame() {
     } catch (
       error
     ) {
+      if (!walletViewRef.current.isCurrent(view)) return;
       console.error(
         error
       );
@@ -5465,6 +5587,9 @@ function DelvewornGame() {
       setWalletMessage(
         "Could not revoke the current Instant Play session."
       );
+    } finally {
+      walletTransitionLockRef.current = false;
+      setWalletTransitionPending(false);
     }
   }
 
@@ -7900,6 +8025,8 @@ function DelvewornGame() {
       !isConnected ||
       !wagmiAddress
     ) {
+      walletViewRef.current.clear();
+      connectedAddressRef.current = null;
       setConnectedAddress(
         null
       );
@@ -7937,6 +8064,8 @@ function DelvewornGame() {
     if (
       !supportedConnector
     ) {
+      walletViewRef.current.clear();
+      connectedAddressRef.current = null;
       setConnectedAddress(
         null
       );
@@ -7969,10 +8098,7 @@ function DelvewornGame() {
       ) &&
       supportsThirdwebSessionKeys() &&
       (
-        somniaSessionMode ||
-        wantsSomniaSessionMode(
-          address
-        )
+        somniaModeIntentRef.current ?? wantsSomniaSessionMode(address)
       );
 
     if (
@@ -7997,6 +8123,8 @@ function DelvewornGame() {
       return;
     }
 
+    walletViewRef.current.select(address, "standard");
+    connectedAddressRef.current = address;
     setConnectedAddress(
       address
     );
@@ -8267,10 +8395,9 @@ function DelvewornGame() {
                 createSession
               }
 
-              disabled={
-                grantPermissions.isPending ||
-                somniaSessionCreating
-              }
+              disabled={supportsThirdwebSessionKeys()
+                ? walletControlsBusy
+                : grantPermissions.isPending || walletTransitionPending}
 
               className="w-full bg-violet-500 hover:bg-violet-400 disabled:opacity-50 text-black font-black text-lg py-4 rounded-xl transition mt-6"
             >
@@ -8280,6 +8407,17 @@ function DelvewornGame() {
                   ? "🔑 ENABLE POPUP-FREE PLAY"
                   : "🔑 ENABLE INSTANT PLAY"}
             </button>
+
+            {supportsThirdwebSessionKeys() && (
+              <button
+                type="button"
+                onClick={() => connectWallet("metamask")}
+                disabled={walletControlsBusy}
+                className="mt-3 min-h-11 w-full rounded-xl border border-zinc-600 px-4 py-3 text-sm font-bold text-zinc-200 disabled:opacity-50"
+              >
+                CONTINUE WITH STANDARD METAMASK
+              </button>
+            )}
 
             {walletMessage && (
               <>
@@ -8291,6 +8429,7 @@ function DelvewornGame() {
                   onClick={
                     resetWalletConnection
                   }
+                  disabled={walletControlsBusy}
                   className="w-full mt-4 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-bold py-3 rounded-xl transition"
                 >
                   RESET WALLET CONNECTION
@@ -8431,6 +8570,8 @@ function DelvewornGame() {
       BigInt(0);
 
   const busy =
+    walletTransitionPending ||
+    somniaSessionCreating ||
     pendingAction !==
       null ||
     randomnessPending ||
@@ -9327,47 +9468,14 @@ function DelvewornGame() {
           subtitle={subtitle}
           meta={<>ONCHAIN SESSION · {connectedAddress.slice(0, 6)}…{connectedAddress.slice(-4)}</>}
         >
-          {isRiseWallet || hasSomniaSession ? (
-            <div data-wallet-controls className="flex items-center justify-center gap-2 mt-2">
-
-              <span className="text-[10px] text-emerald-400">
-                {hasSomniaSession
-                  ? "🔑 POPUP-FREE VERIFIED PLAY ACTIVE"
-                  : "🔑 INSTANT PLAY ACTIVE"}
-              </span>
-
-              <button
-                onClick={
-                  revokeSession
-                }
-
-                className="text-[9px] text-zinc-600 hover:text-zinc-400 underline"
-              >
-                revoke
-              </button>
-
-            </div>
-          ) : (
-            <div data-wallet-controls className="flex items-center justify-center gap-2 mt-2">
-
-              <span className="text-[10px] text-orange-300">
-                {ACTIVE_ECOSYSTEM_NAME === "Somnia"
-                  ? "🦊 VERIFIED RUN · CONFIRM EACH ACTION"
-                  : "🦊 METAMASK · STANDARD PLAY"}
-              </span>
-
-              <button
-                onClick={
-                  resetWalletConnection
-                }
-
-                className="text-[9px] text-zinc-600 hover:text-zinc-400 underline"
-              >
-                disconnect
-              </button>
-
-            </div>
-          )}
+          <OnchainWalletControls
+            mode={hasSomniaSession ? "somnia-session" : isRiseWallet ? "rise-session" : "standard"}
+            supportsSomniaSession={isMetaMask && supportsThirdwebSessionKeys()}
+            busy={walletControlsBusy}
+            onEnableSomniaSession={() => void connectWallet("somnia-session")}
+            onDisconnect={() => void resetWalletConnection()}
+            onRevoke={() => void revokeSession()}
+          />
         </GameHeader>
 
         {ACTIVE_ECOSYSTEM_NAME ===

@@ -204,8 +204,20 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
 .delveworn-sound[aria-pressed='true'] { color: #a7f3d0; border-color: #486154; }
 .delveworn-sound:disabled { opacity: .6; }
 .practice-in-run .practice-header { margin: 0; }
-.practice-in-run .practice-header > :not(.delveworn-navigation):not(.practice-header-title) { display: none; }
+.practice-in-run .practice-header > :not(.delveworn-navigation):not(.practice-header-title):not([data-wallet-controls]) { display: none; }
 .practice-in-run .practice-header-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.onchain-wallet-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 4px 14px; margin: 4px 0 10px; padding: 0 0 10px; border-bottom: 1px solid #3c3042; text-align: left; }
+.onchain-wallet-status { margin: 0; color: #dacbdf; font-size: 10px; font-weight: 800; line-height: 1.4; letter-spacing: .06em; }
+.onchain-wallet-controls[data-mode$='session'] .onchain-wallet-status { color: #a7f3d0; }
+.onchain-wallet-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-wrap: wrap; gap: 6px; }
+.onchain-wallet-actions button { min-height: 44px; padding: 8px 12px; border: 1px solid #53465d; border-radius: 9px; color: #e4dfea; background: #251f2c; font-size: 11px; font-weight: 750; line-height: 1.25; cursor: pointer; }
+.onchain-wallet-actions .onchain-wallet-enable { border-color: #8963a2; color: #f3e8ff; background: #3a234c; }
+.onchain-wallet-actions button:hover:not(:disabled) { background: #493451; border-color: #a080b2; }
+.onchain-wallet-actions button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 3px; }
+.onchain-wallet-actions button:disabled { opacity: .55; cursor: wait; }
+.onchain-wallet-note, .onchain-wallet-waiting { margin: 0; color: #b9adc9; font-size: 11px; line-height: 1.45; }
+.onchain-wallet-note { max-width: 78ch; }
+.onchain-wallet-waiting { grid-column: 1 / -1; color: #f5d59b; }
 .practice-shell :is(a, button, summary):focus-visible { outline: 3px solid #67e8f9; outline-offset: 3px; }
 .practice-hud { display: grid; grid-template-columns: 1fr 1.15fr; overflow: visible; background: #17131e; border-color: #40364b; backdrop-filter: none; font-variant-numeric: tabular-nums; }
 .practice-hud-primary { grid-column: 2; grid-row: 1; }
@@ -338,6 +350,10 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
   .delveworn-navigation { min-height: 48px; gap: 4px; padding-bottom: 4px; margin-bottom: 4px; }
   .delveworn-navigation .delveworn-modes a { display: grid; min-height: 44px; padding: 0 5px; font-size: 10px; }
   .delveworn-sound { min-height: 44px; max-width: 88px; padding: 6px 8px; font-size: 10px; }
+  .onchain-wallet-controls { grid-template-columns: minmax(0,1fr); gap: 5px; margin-bottom: 8px; padding-bottom: 8px; }
+  .onchain-wallet-actions { grid-column: 1; grid-row: 2; }
+  .onchain-wallet-actions button { padding: 8px 10px; }
+  .onchain-wallet-note { font-size: 10px; }
   .practice-hud { position: sticky; top: 0; z-index: 45; display: grid; grid-template-columns: 1.15fr .9fr .8fr 1.3fr 1fr; margin: 0 0 8px; border: 1px solid #40364b; border-radius: 12px; box-shadow: 0 6px 18px #0007; }
   .practice-hud-primary { display: contents; }
   .practice-hud-primary > div { min-width: 0; min-height: 48px; padding: 5px 3px 4px; border-right: 1px solid #3c3545; }
