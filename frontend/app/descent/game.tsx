@@ -12,6 +12,7 @@ import { GameLogo } from "../game-logo";
 import { DungeonScene, ENEMY_ART, type SceneCue } from "../dungeon/scene";
 import { ROOMS, createDescent, enemyIntent, phase, roomNumber, transition, type Descent, type DescentAction, type PendingLoot } from "./model";
 import { DESCENT_SAVE_KEY, loadDescent, saveDescent } from "./storage";
+import { exclusiveSave } from "./save-lock";
 import { DescentCombatPanel, DescentEnemyStatus } from "./combat-panel";
 import "./game.css";
 import "./combat-panel.css";
@@ -25,11 +26,6 @@ const range = ([min,max]: [number,number]) => min === max ? String(min) : `${min
 function lootSummary(loot: PendingLoot) {
   return [loot.gold ? `${loot.gold} gold` : "",loot.potions ? `${loot.potions} potion` : "",loot.weapon ? "weapon +1" : "",loot.armor ? "armor +1" : ""].filter(Boolean).join(" · ");
 }
-async function exclusiveSave(write: () => "saved" | "conflict" | "unavailable") {
-  try { return navigator.locks ? await navigator.locks.request(DESCENT_SAVE_KEY,write) : write(); }
-  catch { return "unavailable" as const; }
-}
-
 export default function DescentGame() {
   const [run,setRun] = useState<Descent | null>(null);
   const current = useRef<Descent | null>(null);
@@ -52,7 +48,7 @@ export default function DescentGame() {
   useEffect(() => {
     const restore = () => {
       const result = loadDescent(storage);
-      if (result.status === "restored") { current.current = result.run; setRun(result.run); setInvalidSave(false); }
+      if (result.status === "restored") { current.current = result.run; setRun(result.run); setInvalidSave(false); setSaveBlocked(false); }
       if (result.status === "invalid") { setInvalidSave(true); setSaveNotice("This saved descent cannot be read. It is preserved until you choose to replace it."); }
       if (result.status === "legacy") { setInvalidSave(false); setSaveNotice("Your earlier First Descent save is preserved. Start a new run when you are ready to use the restored rules."); }
       if (result.status === "unavailable") { sessionOnly.current = true; setSaveNotice("Saving is unavailable. You can play, but this run will end when you leave."); }
@@ -64,8 +60,8 @@ export default function DescentGame() {
       if (timer.current) clearTimeout(timer.current);
       lock.current = false; setBusy(false); setCue(null);
       const result = loadDescent(storage);
-      if (result.status === "restored") { current.current=result.run; setRun(result.run); setSaveNotice("Updated to the run saved in your other tab."); }
-      else { setSaveNotice("The save changed in another tab. Reload before continuing."); setSaveBlocked(true); lock.current=true; }
+      if (result.status === "restored") { current.current=result.run; setRun(result.run); setInvalidSave(false); setSaveNotice("Updated to the run saved in your other tab."); setSaveBlocked(false); }
+      else { setSaveNotice("The save changed in another tab. Reload before continuing."); setSaveBlocked(true); setBusy(true); lock.current=true; }
     };
     window.addEventListener("storage",changed);
     return () => { if (timer.current) clearTimeout(timer.current); window.removeEventListener("storage",changed); };
@@ -90,7 +86,9 @@ export default function DescentGame() {
     audio.playAction("click");
     const write = () => sessionOnly.current ? "unavailable" : saveDescent(storage,next,current.current,replace);
     const saved = await exclusiveSave(write);
+    if (saved === "busy") { setSaveNotice("Another tab is saving. Try starting again."); setSaveBlocked(false); lock.current=false; return; }
     if (saved === "conflict") { setSaveNotice("A newer run exists. Reload to resume it before starting another."); setSaveBlocked(true); lock.current=false; return; }
+    setSaveBlocked(false);
     if (saved === "unavailable") { sessionOnly.current=true; setSaveNotice("Saving is unavailable. This run lasts for this visit only."); }
     else setSaveNotice("");
     current.current = next; setRun(next); setInvalidSave(false); setConfirmRestart(false); setFeedback(null); setCue(null); lock.current=false;
@@ -111,8 +109,11 @@ export default function DescentGame() {
     else if (action !== "engage" && action !== "enter") audio.playAction("click");
     const write = () => sessionOnly.current ? "unavailable" : saveDescent(storage,next,before);
     const saved = await exclusiveSave(write);
-    if (saved === "conflict") { setSaveNotice("A newer or unreadable save was found. Reload to continue safely."); setSaveBlocked(true); setBusy(false); return; }
+    if (saved === "busy") { setSaveNotice("Another tab is saving. Try that action again."); setSaveBlocked(false); lock.current=false; setBusy(false); return; }
+    if (saved === "conflict") { setSaveNotice("A newer or unreadable save was found. Reload to continue safely."); setSaveBlocked(true); setBusy(true); return; }
+    setSaveBlocked(false);
     if (saved === "unavailable") { sessionOnly.current=true; setSaveNotice("Saving is unavailable. This run lasts for this visit only."); }
+    else setSaveNotice("");
     current.current=next; setRun(next);
     if (combat) {
       setCue(next.game.relicReviveUsed && !before.game.relicReviveUsed ? "revive" : next.game.lastCritical ? "critical" : action);
@@ -159,7 +160,7 @@ export default function DescentGame() {
   if (!run || confirmRestart) return <main className="descent-shell">{header}<section className="descent-entrance">
     <div className="descent-entrance-intro"><p className="descent-kicker">TEN ROOMS · NO WALLET NEEDED</p><h1>Management<br />is expecting you.</h1><p>Walk into the dungeon. Attack for a reliable hit, risk a Storm, or use a potion when you need it.</p></div>
     {(saveNotice || confirmRestart) && <p className="descent-notice" role="status">{confirmRestart ? "Starting again replaces your current First Descent. Your other modes are kept." : saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
-    <div className="descent-start-card"><div><p className="descent-kicker">YOUR STARTING KIT</p><h2>100 HP · 3 potions · no relic</h2><p>Gold and upgrades stay on the floor until you walk over and pick them up.</p></div><button onClick={() => void start(invalidSave || confirmRestart)}>{invalidSave ? "Replace saved run & start" : confirmRestart ? "Start a new run" : "Start run"} <span>↗</span></button></div>
+    <div className="descent-start-card"><div><p className="descent-kicker">YOUR STARTING KIT</p><h2>100 HP · 3 potions · no relic</h2><p>Gold and upgrades stay on the floor until you walk over and pick them up.</p></div><button disabled={saveBlocked} onClick={() => void start(invalidSave || confirmRestart)}>{invalidSave ? "Replace saved run & start" : confirmRestart ? "Start a new run" : "Start run"} <span>↗</span></button></div>
     <p className="descent-subtle">Saved in this browser when available. No payment, account or onchain rewards.</p>
     <div className="descent-entrance-links">{confirmRestart && <button onClick={() => setConfirmRestart(false)}>Keep playing</button>}<Link href="/practice">Classic endless Practice</Link><Link href="/">All modes</Link></div>
   </section></main>;
@@ -186,12 +187,14 @@ export default function DescentGame() {
   const feedbackTitle=feedback?.title ?? (p === "loot" ? "Loot is waiting." : roomInfo.note);
   const feedbackDetail=feedback?.detail ?? (p === "explore" ? "Tap the floor or use the arrow keys to walk. Approach the enemy to begin." : p === "loot" ? "Walk to the drop before using the door." : "Your health, inventory and room progress have been restored.");
   const renderReport=(mobile=false) => <div className={`descent-report ${mobile ? "descent-mobile-report" : ""}`} role="status" aria-live="polite" aria-atomic="true" data-tone={feedback?.tone} data-phase={p}><strong>{feedbackTitle}</strong><p>{feedbackDetail}</p>{p !== "loot" && <button className="descent-report-log" onClick={() => logDialog.current?.showModal()} aria-label="Open dungeon log">Log ›</button>}</div>;
+  const renderSaveRecovery=() => saveNotice ? <p className="descent-notice" role="status">{saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p> : null;
   const renderMerchant=(mobile=false) => hasMerchant ? <section className={`descent-merchant ${mobile ? "descent-mobile-sheet-card" : ""}`} ref={mobile ? undefined : merchantArea} tabIndex={-1} aria-label="Kevin's shop">
     {mobile && <button className="descent-mobile-sheet-close" onClick={() => setShopOpen(false)} aria-label="Close Kevin's shop">Close</button>}
+    {mobile && renderSaveRecovery()}
     <Image className="descent-kevin" src="/characters/merchant-quartermaster-kevin.webp" alt="Quartermaster Kevin" width={400} height={240} /><p className="descent-kicker">{room === 9 ? "LAST CAMP BEFORE MANAGEMENT" : "SUPPLY ALCOVE"}</p><h2>Kevin has receipts.</h2><p>{room === 9 ? "Rest, stock up, or invest in the boss fight." : "Recovery now, or gold for later?"}</p><div>{shop.map(item => <button key={item.action} disabled={busy || item.disabled || g.gold < item.cost} onClick={() => void act(item.action)}><strong>{item.title}<span>{item.cost} gold</span></strong><small>{item.detail}</small></button>)}</div>
   </section> : null;
-  const renderReward=(mobile=false) => rewardRelic?.imageSrc ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} aria-label="Boss relic reward"><p className="descent-kicker">MANAGEMENT DEFEATED</p><h2>The org chart has a vacancy.</h2><Image src={rewardRelic.imageSrc} alt="" width={105} height={105} /><h3>{rewardRelic.name}</h3><p>{rewardRelic.effect}</p><p className="descent-subtle">The relic is yours. Choose whether to equip it.</p><div className={`descent-result-actions ${mobile ? "descent-mobile-result-actions" : ""}`}><button disabled={busy} onClick={() => void act("claim")}>Keep relic</button><button disabled={busy} onClick={() => void act("claim-equip")}>Equip relic & finish</button></div></section> : null;
-  const renderTerminal=(mobile=false) => terminal ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`}><p className="descent-kicker">{p === "won" ? "DESCENT COMPLETE" : "EXIT INTERVIEW"}</p><h2>{p === "won" ? "You survived management." : "A short career. A useful lesson."}</h2>{mobile && <div className="descent-result-actions descent-mobile-result-actions"><button onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<dl><div><dt>Rooms cleared</dt><dd>{g.roomsCleared} / 10</dd></div><div><dt>Turns</dt><dd>{run.turns}</dd></div><div><dt>Damage dealt</dt><dd>{run.damageDealt}</dd></div><div><dt>Potions used</dt><dd>{run.potionsUsed}</dd></div></dl><p>{p === "lost" ? `Your last reply cost ${g.lastMonsterDamage} HP. Watch your remaining HP and use potions before the next exchange.` : "The next run starts at 100 HP with three potions and no relic."}</p>{!mobile && <><button onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></>}</section> : null;
+  const renderReward=(mobile=false) => rewardRelic?.imageSrc ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} aria-label="Boss relic reward"><p className="descent-kicker">MANAGEMENT DEFEATED</p><h2>The org chart has a vacancy.</h2>{mobile && renderSaveRecovery()}<Image src={rewardRelic.imageSrc} alt="" width={105} height={105} /><h3>{rewardRelic.name}</h3><p>{rewardRelic.effect}</p><p className="descent-subtle">The relic is yours. Choose whether to equip it.</p><div className={`descent-result-actions ${mobile ? "descent-mobile-result-actions" : ""}`}><button disabled={busy} onClick={() => void act("claim")}>Keep relic</button><button disabled={busy} onClick={() => void act("claim-equip")}>Equip relic & finish</button></div></section> : null;
+  const renderTerminal=(mobile=false) => terminal ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`}><p className="descent-kicker">{p === "won" ? "DESCENT COMPLETE" : "EXIT INTERVIEW"}</p><h2>{p === "won" ? "You survived management." : "A short career. A useful lesson."}</h2>{mobile && renderSaveRecovery()}{mobile && <div className="descent-result-actions descent-mobile-result-actions"><button onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<dl><div><dt>Rooms cleared</dt><dd>{g.roomsCleared} / 10</dd></div><div><dt>Turns</dt><dd>{run.turns}</dd></div><div><dt>Damage dealt</dt><dd>{run.damageDealt}</dd></div><div><dt>Potions used</dt><dd>{run.potionsUsed}</dd></div></dl><p>{p === "lost" ? `Your last reply cost ${g.lastMonsterDamage} HP. Watch your remaining HP and use potions before the next exchange.` : "The next run starts at 100 HP with three potions and no relic."}</p>{!mobile && <><button onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></>}</section> : null;
   const mobileTopOverlay=<div className="descent-mobile-top">
     <div className="descent-mobile-topbar">
       <details className="descent-mobile-menu"><summary aria-label="Open game menu">☰ <span>Menu</span></summary><div className="descent-mobile-menu-panel">

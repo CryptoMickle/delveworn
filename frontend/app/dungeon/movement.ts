@@ -5,23 +5,65 @@ export function movementFacing(from: Point, to: Point, previous: Facing): Facing
   return Math.abs(to.x - from.x) < 1 ? previous : to.x < from.x ? "left" : "right";
 }
 
-type Frames = { request: (callback: (time: number) => void) => number; cancel: (id: number) => void };
+export type RoomFrames = {
+  now: () => number;
+  request: (callback: (time: number) => void) => number;
+  cancel: (id: number) => void;
+};
+export type RoomFrameHost = RoomFrames & { delay: (callback: () => void, ms: number) => number; clear: (id: number) => void };
 
-/** One clock owns both visible movement and arrival. Cancelling keeps the last
- * displayed point, so a new destination never starts at the old destination. */
+export function isRoomPoint(point: Point): boolean {
+  return Number.isFinite(point.x) && Number.isFinite(point.y);
+}
+
+/** RAF provides smooth frames; a slow fallback keeps walking usable when RAF
+ * stops arriving. Both use one monotonic clock, and only one can win each step. */
+export function createRoomFrameClock(host: RoomFrameHost = {
+  now: () => performance.now(),
+  request: callback => window.requestAnimationFrame(callback),
+  cancel: id => window.cancelAnimationFrame(id),
+  delay: (callback, ms) => window.setTimeout(callback, ms),
+  clear: id => window.clearTimeout(id),
+}): RoomFrames {
+  let sequence = 0;
+  const pending = new Map<number, { frame: number | null; timer: number | null }>();
+  const cancel = (id: number) => {
+    const job = pending.get(id);
+    if (!job) return;
+    pending.delete(id);
+    if (job.frame !== null) host.cancel(job.frame);
+    if (job.timer !== null) host.clear(job.timer);
+  };
+  return {
+    now: () => host.now(),
+    request(callback) {
+      const id = ++sequence, job = { frame: null as number | null, timer: null as number | null };
+      pending.set(id, job);
+      const deliver = () => {
+        if (!pending.has(id)) return;
+        cancel(id);
+        callback(host.now());
+      };
+      job.timer = host.delay(deliver, 80);
+      try { job.frame = host.request(deliver); }
+      catch { /* The timer also covers an unavailable animation scheduler. */ }
+      return id;
+    },
+    cancel,
+  };
+}
+
+/** Movement starts at input time, so retargeting cannot repeatedly spend the
+ * first frame standing still. Cancellation keeps the last displayed point. */
 export function startRoomWalk(from: Point, to: Point, step: (point: Point) => boolean | void, arrive: () => void,
-  frames: Frames = {
-    // Native animation methods require Window as their receiver. Copying them
-    // onto `frames` makes frames.request() throw before the first movement frame.
-    request: callback => window.requestAnimationFrame(callback),
-    cancel: id => window.cancelAnimationFrame(id),
-  }) {
+  frames: RoomFrames = createRoomFrameClock()) {
+  if (!isRoomPoint(from) || !isRoomPoint(to)) throw new RangeError("Invalid room position");
   const duration = Math.hypot(to.x - from.x, to.y - from.y) / .24;
-  let start: number | undefined, frame = 0, stopped = false;
+  const start = frames.now();
+  let frame = 0, stopped = false;
   const tick = (time: number) => {
     if (stopped) return;
-    start ??= time;
-    const fraction = duration === 0 ? 1 : Math.min(1, (time - start) / duration);
+    const fraction = duration === 0 ? 1 : Math.max(0, Math.min(1, (time - start) / duration));
     const point = { x: from.x + (to.x - from.x) * fraction, y: from.y + (to.y - from.y) * fraction };
     if (step(point) === false) { stopped = true; return; }
     if (fraction === 1) { stopped = true; arrive(); }

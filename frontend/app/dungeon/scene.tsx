@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
-import { movementFacing, roomLootPoint, startRoomWalk, type Facing, type Point } from "./movement";
+import { isRoomPoint, movementFacing, roomLootPoint, startRoomWalk, type Facing, type Point } from "./movement";
 
 export type { Point } from "./movement";
 export type SceneCue = "attack" | "storm" | "potion" | "critical" | "revive" | null;
@@ -16,6 +16,7 @@ export type RoomView = {
   loot?: RoomLoot;
   pending: boolean; cue: SceneCue; cueId: number; damage: number; incoming: number;
 };
+type WalkGoal = { target: Point; destination?: "enemy" | "door" | "merchant" | "loot" };
 export type RoomActions = { approach: () => void; enter: () => void; collect?: () => void; merchant?: () => void; interact?: () => void };
 export const ENEMY_ART = [
   { name: "Grave Belle", role: "Zombie", src: "/monsters/zombie-1-grave-belle.webp", width: 1672, height: 941, roomHeight: 120,
@@ -94,6 +95,8 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
   const [walking, setWalking] = useState(false);
   const [facing, setFacing] = useState<Facing>("right");
   const point = useRef(position), stopWalk = useRef<(() => void) | null>(null);
+  const walkGoal = useRef<WalkGoal | null>(null);
+  const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
   const latest = useRef({ view, actions });
   useEffect(() => { latest.current = { view, actions }; }, [view, actions]);
   const svg = useRef<SVGSVGElement>(null), pointer = useRef<Point | null>(null);
@@ -121,15 +124,19 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
     const update=() => {
       const rect=element.getBoundingClientRect();
       const next=portrait.matches ? portraitRoomCamera(rect.width,rect.height) : {actorScale:1,minX:170,maxX:733};
-      if (previousCamera && (previousCamera.actorScale !== next.actorScale || previousCamera.minX !== next.minX || previousCamera.maxX !== next.maxX)) {
-        // A real viewport resize can move the visible drop. Stop at the current
-        // point; the next input must target the newly displayed floor location.
-        stopWalk.current?.(); stopWalk.current=null; setWalking(false);
-      }
+      const changed = previousCamera && (previousCamera.actorScale !== next.actorScale || previousCamera.minX !== next.minX || previousCamera.maxX !== next.maxX);
       previousCamera=next;
       setCamera(previous => previous.actorScale === next.actorScale && previous.minX === next.minX && previous.maxX === next.maxX ? previous : next);
       const x=Math.max(next.minX,Math.min(next.maxX,point.current.x));
-      if (x !== point.current.x) { stopWalk.current?.(); stopWalk.current=null; setWalking(false); point.current={...point.current,x}; setPosition(point.current); }
+      if (changed || x !== point.current.x) {
+        const goal=walkGoal.current;
+        stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false);
+        if (x !== point.current.x) { point.current={...point.current,x}; setPosition(point.current); }
+        // Browser chrome can resize the floor while walking. Continue toward
+        // the same intent using the new camera, including the moved loot drop.
+        currentLootPoint.current=roomLootPoint(latest.current.view.seed ?? 0,latest.current.view.room,next);
+        if (goal) continueWalk.current?.(goal,next);
+      }
     };
     const observer=new ResizeObserver(update);
     observer.observe(element); portrait.addEventListener("change",update);
@@ -137,27 +144,30 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
   },[hasRoomHud]);
 
   useEffect(() => {
-    const stop = () => { stopWalk.current?.(); stopWalk.current=null; setWalking(false); };
+    const stop = () => { stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false); };
     window.addEventListener("blur",stop);
+    window.addEventListener("pagehide",stop);
     document.addEventListener("visibilitychange",stop);
-    return () => { stopWalk.current?.(); window.removeEventListener("blur",stop); document.removeEventListener("visibilitychange",stop); };
+    return () => { stopWalk.current?.(); window.removeEventListener("blur",stop); window.removeEventListener("pagehide",stop); document.removeEventListener("visibilitychange",stop); };
   }, []);
 
-  function moveTo(target: Point, destination?: "enemy" | "door" | "merchant" | "loot") {
-    if (view.pending || !["explore","loot","recovery"].includes(view.phase)) return;
-    actions.interact?.();
+  function moveTo(target: Point, destination?: WalkGoal["destination"], interact = true, bounds = camera) {
+    const {view: currentView,actions: currentActions}=latest.current;
+    if (currentView.pending || !["explore","loot","recovery"].includes(currentView.phase) || !isRoomPoint(target)) return;
+    if (interact) currentActions.interact?.();
     stopWalk.current?.();
-    const next = clampRoomPoint({...target,x:Math.max(camera.minX,Math.min(camera.maxX,target.x))},cleared);
+    const next = clampRoomPoint({...target,x:Math.max(bounds.minX,Math.min(bounds.maxX,target.x))},currentView.enemyHp === 0);
+    walkGoal.current={target,destination};
     setFacing(previous => movementFacing(point.current,next,previous)); setWalking(true);
     stopWalk.current=startRoomWalk(point.current,next,step => {
       const current=latest.current;
-      if (current.view.pending || !["explore","loot","recovery"].includes(current.view.phase)) { stopWalk.current=null; setWalking(false); return false; }
+      if (current.view.pending || !["explore","loot","recovery"].includes(current.view.phase)) { stopWalk.current=null; walkGoal.current=null; setWalking(false); return false; }
       point.current=step; setPosition(step);
       if (current.view.phase === "loot" && current.view.loot && nearRoomLoot(step,currentLootPoint.current)) {
-        stopWalk.current=null; setWalking(false); current.actions.collect?.(); return false;
+        stopWalk.current=null; walkGoal.current=null; setWalking(false); current.actions.collect?.(); return false;
       }
     },() => {
-      stopWalk.current = null; setWalking(false);
+      stopWalk.current = null; walkGoal.current=null; setWalking(false);
       const current = latest.current;
       if (current.view.pending) return;
       if (current.view.phase === "explore" && (destination === "enemy" || Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125)) {
@@ -168,10 +178,17 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
     });
   }
 
+  useEffect(() => {
+    continueWalk.current=(goal,bounds) => {
+      const current=latest.current.view;
+      moveTo(goal.destination === "loot" ? roomLootPoint(current.seed ?? 0,current.room,bounds) : goal.target,goal.destination,false,bounds);
+    };
+  });
+
   function enterRoom() {
     if (view.pending || view.phase !== "recovery") return;
     actions.interact?.();
-    stopWalk.current?.(); stopWalk.current=null; setWalking(false);
+    stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false);
     // Explicit progression must not wait for cosmetic animation frames. Floor
     // taps still walk to the door; the model still requires collected loot.
     actions.enter();
@@ -190,7 +207,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer }: { 
     const start = pointer.current; pointer.current = null;
     if (!start || Math.hypot(event.clientX-start.x,event.clientY-start.y) > 12) return;
     const matrix = svg.current?.getScreenCTM(); if (!matrix) return;
-    const p = new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());
+    // A browser viewport change can temporarily yield a singular SVG matrix.
+    // Reject it before it can poison the avatar position and all later walks.
+    let p: DOMPoint;
+    try { p = new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse()); }
+    catch { return; }
+    if (!isRoomPoint(p)) return;
     svg.current?.focus({preventScroll:true});
     const target = roomFloorTarget(p,cleared,view.enemy,loot ? lootPoint : undefined);
     moveTo(target.point,target.destination);

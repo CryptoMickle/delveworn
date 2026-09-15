@@ -63,8 +63,11 @@ The boss relic offer is rolled by the engine at victory, and claimed after picku
 A new run receives a local random seed. Seed and PRNG state are saved. Animation,
 walking, audio and loot collection do not draw new combat randomness. Floor
 placement uses a separate seed/room hash, fitted to reachable camera bounds.
-Changing portrait camera bounds or leaving the page stops walking at its current
-position; the next input uses the newly displayed floor. Local saves
+Changing portrait camera bounds retargets an active walk from its displayed
+position to the same reachable destination (including relocated loot). Leaving
+the page cancels the walk; the next input starts at the displayed point. Movement
+uses one monotonic clock, with a timer fallback when animation frames stall.
+Invalid floor coordinates are ignored before they can affect movement. Local saves
 are editable by their owner; validation rejects inconsistent/malformed data, not
 all cheating. This is local gameplay, not a competitive or onchain proof.
 
@@ -85,8 +88,10 @@ their starter relics are not imported into the corrected rules.
   a safe avatar position. It cannot grant rewards twice.
 - Unknown/newer saves stay untouched until explicit replacement is chosen.
 - Denied storage allows clearly labeled session-only play.
-- Revision checks and Web Locks prevent stale writes where supported. Without
-  Web Locks, compare-before-write is best-effort. There is no server/cross-device save.
+- Revision checks and Web Locks prevent stale writes where supported. A lock held
+  by another tab produces a retry message instead of waiting indefinitely; the
+  attempted write is not applied. Conflicts expose **Resume saved run**, including
+  inside mobile reward panels. Without Web Locks, compare-before-write is best-effort. There is no server/cross-device save.
 - Start again confirms replacement of the active run. Other modes' saves remain.
 
 No new names, emails, wallet identifiers or analytics identities are collected.
@@ -141,16 +146,18 @@ Storage problems remain visible in the HUD. No new wallet or chain integration.
 
 Use the latest owner-authorized preview link. Observe:
 
-The latest phone screenshots show collected loot and a responsive room, with
-the exit disabled by walking state. **Enter room** now progresses directly
-after loot, even if a walking animation stalls. Floor-door walking remains
-available. This correction still needs confirmation on the affected phone.
+The latest correction covers free walking before Approach, rapid retargeting,
+missing animation frames, invalid floor points, viewport changes and held save
+locks. **Enter room** still progresses directly after loot. The movement and
+full progression checks are recorded in the verification document; this review
+build still needs confirmation on the affected phone.
 If a separate error screen appears, use **Copy error report** and share the text with
 the developer. **Resume saved run** reloads the last committed state without
 starting a new run. This report stays local until manually shared. A full
 browser process crash/reload cannot be caught by the in-game error screen.
 
-- Starting immediately without a relic choice.
+- Starting immediately without a relic choice; walking in several directions
+  before Approach, then reaching combat without reloading.
 - Finding both enemy and player HP; Attack on the right and Potion below/in the
   middle; readable damage and potion reasons without hunting or scrolling.
 - Reading retaliation and understanding Storm misses and Potion healing.

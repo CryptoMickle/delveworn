@@ -265,7 +265,6 @@ test("entering a cleared room remains available when walking animation stalls",a
     document.querySelector("svg.dungeon-scene")!.dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowUp",bubbles:true}));
   });
   try {
-    await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
     expect(await saved(page)).toEqual(run);
     await expect(exit).toBeEnabled();
     // Native clicks avoid making the test runner's actionability clock part of
@@ -288,6 +287,50 @@ test("entering a cleared room remains available when walking animation stalls",a
   }
   await page.reload();
   expect(await saved(page)).toEqual(transition(run,"enter"));
+});
+
+test("free movement, retargeting, approach and loot still finish without animation frames",async({page})=>{
+  await seed(page,createDescent(777,"fallback-walk"));
+  const initial=await saved(page);
+  await page.evaluate(()=>{
+    // Keep timers running; simulate a browser that accepts RAF but never paints.
+    let frame=0;
+    window.requestAnimationFrame=()=>++frame;
+    window.cancelAnimationFrame=()=>{};
+  });
+  const floor=page.getByRole("group",{name:/Room 1 floor/});
+  const press=async(key:string)=>floor.evaluate((element,key)=>{
+    element.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true}));
+  },key);
+  await press("ArrowLeft");
+  await expect.poll(async()=>(await avatarPoint(page)).x).toBeLessThan(420);
+  await press("ArrowRight");
+  await expect(page.locator("[data-avatar-facing]")).toHaveAttribute("data-avatar-facing","right");
+  await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+  expect(await saved(page)).toEqual(initial);
+  await page.getByRole("button",{name:/Approach/}).evaluate((element:HTMLButtonElement)=>element.click());
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","combat");
+  for(let hits=0;hits<12 && phase(await saved(page)) === "combat";hits++) {
+    const attack=page.getByRole("button",{name:/ATTACK/i});
+    await expect(attack).toBeEnabled();
+    const before=await saved(page);
+    await attack.evaluate((element:HTMLButtonElement)=>element.click());
+    await expect.poll(async()=>(await saved(page)).revision).toBe(before.revision+1);
+  }
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","loot");
+  const killed=await saved(page);
+  await expect(page.getByRole("button",{name:/Pick up loot/})).toBeEnabled();
+  await page.getByRole("button",{name:/Pick up loot/}).evaluate((element:HTMLButtonElement)=>element.click());
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+  expect(await saved(page)).toEqual(transition(killed,"collect"));
+  const enter=page.getByRole("button",{name:/Enter room 2/});
+  await expect(enter).toBeEnabled();
+  await enter.evaluate((element:HTMLButtonElement)=>element.click());
+  await expect(page.getByRole("group",{name:/Room 2 floor/})).toBeVisible();
+  // Reload restores the native frame scheduler and exact committed progress.
+  const entered=await saved(page);
+  await page.reload();
+  expect(await saved(page)).toEqual(entered);
 });
 
 test("responsive room keeps compact combat controls inside the scene",async({page,isMobile},testInfo)=>{

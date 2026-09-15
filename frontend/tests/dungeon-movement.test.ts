@@ -1,49 +1,150 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { movementFacing, roomLootPoint, startRoomWalk, type Point } from "../app/dungeon/movement";
+import {
+  createRoomFrameClock,
+  movementFacing,
+  roomLootPoint,
+  startRoomWalk,
+  type Point,
+  type RoomFrameHost,
+} from "../app/dungeon/movement";
 import { clampRoomPoint, nearRoomLoot, portraitRoomCamera } from "../app/dungeon/scene";
 
-function clock() {
-  let id=0;
-  const callbacks=new Map<number,(time:number)=>void>();
+function controlledHost(initialTime=0,{rejectFrames=false}={}) {
+  let time=initialTime,id=0;
+  const frameCallbacks=new Map<number,(time:number)=>void>();
+  const timerCallbacks=new Map<number,{callback:()=>void,delay:number}>();
+  const everyFrame=new Map<number,(time:number)=>void>();
+  const everyTimer=new Map<number,()=>void>();
+  const calls={now:0,request:0,cancel:0,delay:0,clear:0};
+  const host:RoomFrameHost={
+    now() { calls.now++; return time; },
+    request(callback) {
+      calls.request++;
+      if(rejectFrames) throw new Error("animation frames unavailable");
+      const key=++id;
+      frameCallbacks.set(key,callback); everyFrame.set(key,callback);
+      return key;
+    },
+    cancel(key) { calls.cancel++; frameCallbacks.delete(key); },
+    delay(callback,delay) {
+      calls.delay++;
+      const key=++id;
+      timerCallbacks.set(key,{callback,delay}); everyTimer.set(key,callback);
+      return key;
+    },
+    clear(key) { calls.clear++; timerCallbacks.delete(key); },
+  };
+  const firstKey=<T>(callbacks:Map<number,T>,kind:string) => {
+    const key=callbacks.keys().next().value;
+    assert.notEqual(key,undefined,`expected a pending ${kind}`);
+    return key as number;
+  };
   return {
-    frames: { request(callback:(time:number)=>void) { callbacks.set(++id,callback); return id; }, cancel(key:number) { callbacks.delete(key); } },
-    tick(time:number) { const pending=[...callbacks.values()]; callbacks.clear(); pending.forEach(callback=>callback(time)); },
-    pending() { return callbacks.size; },
+    host,
+    frames:createRoomFrameClock(host),
+    calls,
+    setTime(next:number) { time=next; },
+    advance(ms:number) { time+=ms; },
+    fireFrame(reportedTime=time) {
+      const key=firstKey(frameCallbacks,"animation frame"),callback=frameCallbacks.get(key)!;
+      frameCallbacks.delete(key); callback(reportedTime);
+      return key;
+    },
+    fireTimer() {
+      const key=firstKey(timerCallbacks,"fallback timer"),callback=timerCallbacks.get(key)!.callback;
+      timerCallbacks.delete(key); callback();
+      return key;
+    },
+    invokeFrame(key:number,reportedTime=time) {
+      const callback=everyFrame.get(key);
+      assert.ok(callback,"expected a recorded animation frame");
+      callback(reportedTime);
+    },
+    invokeTimer(key:number) {
+      const callback=everyTimer.get(key);
+      assert.ok(callback,"expected a recorded fallback timer");
+      callback();
+    },
+    frameKeys() { return [...frameCallbacks.keys()]; },
+    timerKeys() { return [...timerCallbacks.keys()]; },
+    delays() { return [...timerCallbacks.values()].map(timer=>timer.delay); },
+    pending() { return {frames:frameCallbacks.size,timers:timerCallbacks.size}; },
   };
 }
 
-test("the default animation clock keeps the browser Window receiver for starting and cancelling walks",()=>{
-  const scheduler=clock();
+test("the room clock races animation frames against an 80ms fallback and ignores stale losers",()=>{
+  const scheduler=controlledHost(),delivered:number[]=[];
+  scheduler.frames.request(time=>{delivered.push(time);});
+  const staleTimer=scheduler.timerKeys()[0];
+  assert.deepEqual(scheduler.pending(),{frames:1,timers:1});
+  assert.deepEqual(scheduler.delays(),[80]);
+  scheduler.setTime(25); scheduler.fireFrame(-10_000);
+  assert.deepEqual(delivered,[25],"delivery uses the shared monotonic clock, not the RAF timestamp");
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  scheduler.invokeTimer(staleTimer);
+  assert.deepEqual(delivered,[25],"a cancelled fallback cannot deliver twice");
+
+  scheduler.frames.request(time=>{delivered.push(time);});
+  const staleFrame=scheduler.frameKeys()[0];
+  scheduler.setTime(105); scheduler.fireTimer();
+  assert.deepEqual(delivered,[25,105]);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  scheduler.invokeFrame(staleFrame,999_999);
+  assert.deepEqual(delivered,[25,105],"a cancelled RAF cannot deliver after its timer wins");
+
+  const cancelled=scheduler.frames.request(time=>{delivered.push(time);});
+  const cancelledFrame=scheduler.frameKeys()[0],cancelledTimer=scheduler.timerKeys()[0];
+  scheduler.frames.cancel(cancelled);
+  scheduler.invokeFrame(cancelledFrame); scheduler.invokeTimer(cancelledTimer);
+  assert.deepEqual(delivered,[25,105]);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+});
+
+test("the default animation clock keeps browser method receivers for starting and cancelling walks",()=>{
+  const scheduler=controlledHost();
+  const browserPerformance={
+    now(this:unknown) {
+      assert.equal(this,browserPerformance,"performance.now requires its Performance receiver");
+      return scheduler.host.now();
+    },
+  };
   const browserWindow={
     requestAnimationFrame(this:unknown,callback:(time:number)=>void) {
       assert.equal(this,browserWindow,"requestAnimationFrame requires its Window receiver");
-      return scheduler.frames.request(callback);
+      return scheduler.host.request(callback);
     },
     cancelAnimationFrame(this:unknown,id:number) {
       assert.equal(this,browserWindow,"cancelAnimationFrame requires its Window receiver");
-      scheduler.frames.cancel(id);
+      scheduler.host.cancel(id);
+    },
+    setTimeout(this:unknown,callback:()=>void,ms:number) {
+      assert.equal(this,browserWindow,"setTimeout requires its Window receiver");
+      return scheduler.host.delay(callback,ms);
+    },
+    clearTimeout(this:unknown,id:number) {
+      assert.equal(this,browserWindow,"clearTimeout requires its Window receiver");
+      scheduler.host.clear(id);
     },
   };
-  const keys=["window","requestAnimationFrame","cancelAnimationFrame"] as const;
+  const keys=["window","performance"] as const;
   const originals=keys.map(key=>Object.getOwnPropertyDescriptor(globalThis,key));
   Object.defineProperties(globalThis,{
     window:{configurable:true,value:browserWindow},
-    requestAnimationFrame:{configurable:true,value:browserWindow.requestAnimationFrame},
-    cancelAnimationFrame:{configurable:true,value:browserWindow.cancelAnimationFrame},
+    performance:{configurable:true,value:browserPerformance},
   });
   try {
     let visible={x:420,y:496},arrivals=0;
     const stop=startRoomWalk(visible,{x:400,y:391},point=>{visible=point;},()=>{arrivals++;});
-    scheduler.tick(0); scheduler.tick(100);
+    scheduler.setTime(100); scheduler.fireFrame(-1);
     assert.ok(visible.y<496 && visible.y>391,"the default clock must actually move the avatar");
     const paused={...visible};
-    stop(); scheduler.tick(1000);
+    stop(); scheduler.setTime(1000);
     assert.deepEqual(visible,paused); assert.equal(arrivals,0);
     startRoomWalk(visible,{x:400,y:391},point=>{visible=point;},()=>{arrivals++;});
-    scheduler.tick(1100); scheduler.tick(2100);
+    scheduler.setTime(2100); scheduler.fireFrame(-1);
     assert.deepEqual(visible,{x:400,y:391}); assert.equal(arrivals,1);
-    assert.equal(scheduler.pending(),0);
+    assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
   } finally {
     keys.forEach((key,index)=>{
       if(originals[index]) Object.defineProperty(globalThis,key,originals[index]!);
@@ -52,48 +153,102 @@ test("the default animation clock keeps the browser Window receiver for starting
   }
 });
 
-test("approach moves continuously on one clock and arrives at its displayed destination once",()=>{
-  const scheduler=clock(), from={x:420,y:496}, to={x:400,y:391}, positions:Point[]=[];
+test("static RAF timestamps still move continuously from input time and arrive once",()=>{
+  const scheduler=controlledHost(1_000),from={x:420,y:496},to={x:400,y:391},positions:Point[]=[];
   let arrivals=0;
   startRoomWalk(from,to,point=>{positions.push(point);},()=>{arrivals++;},scheduler.frames);
-  for(let ms=0;ms<=600;ms+=16) scheduler.tick(ms);
-  assert.deepEqual(positions[0],from);
+  let staleFinalTimer=0;
+  for(let frame=0;frame<100 && arrivals===0;frame++) {
+    scheduler.advance(16);
+    staleFinalTimer=scheduler.timerKeys()[0];
+    scheduler.fireFrame(0);
+  }
+  assert.notDeepEqual(positions[0],from,"the first frame advances from the request-time start");
   assert.deepEqual(positions.at(-1),to);
   assert.equal(arrivals,1);
-  assert.equal(scheduler.pending(),0);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
   assert.ok(positions.length>20);
+  assert.ok(Math.hypot(positions[0].x-from.x,positions[0].y-from.y)<=.24*16+.00001,"the first frame does not teleport");
   for(let i=1;i<positions.length;i++) {
     assert.ok(Math.hypot(positions[i].x-positions[i-1].x,positions[i].y-positions[i-1].y)<=.24*16+.00001,"no frame teleports");
     assert.ok(positions[i].y<=positions[i-1].y);
   }
+  scheduler.invokeTimer(staleFinalTimer);
+  assert.equal(arrivals,1,"the losing timer from the arrival frame stays stale");
 });
 
-test("interrupting and retargeting uses the visible point; cancelled arrival cannot engage or collect",()=>{
-  const scheduler=clock(); let visible={x:420,y:496}, oldArrivals=0,newArrivals=0;
+test("fallback timers move gradually and finish when RAF stalls or is unavailable",()=>{
+  for(const rejectFrames of [false,true]) {
+    const scheduler=controlledHost(0,{rejectFrames}),from={x:420,y:496},to={x:500,y:300},positions:Point[]=[];
+    let arrivals=0;
+    startRoomWalk(from,to,point=>{positions.push(point);},()=>{arrivals++;},scheduler.frames);
+    for(let fallback=0;fallback<30 && arrivals===0;fallback++) {
+      scheduler.advance(80); scheduler.fireTimer();
+    }
+    assert.deepEqual(positions.at(-1),to,rejectFrames ? "missing RAF completes" : "stalled RAF completes");
+    assert.equal(arrivals,1);
+    assert.ok(positions.length>4,"fallback movement remains visibly gradual");
+    assert.ok(Math.hypot(positions[0].x-from.x,positions[0].y-from.y)<=.24*80+.00001);
+    for(let i=1;i<positions.length;i++)
+      assert.ok(Math.hypot(positions[i].x-positions[i-1].x,positions[i].y-positions[i-1].y)<=.24*80+.00001);
+    assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  }
+});
+
+test("interrupting and retargeting cancels both schedulers and stale callbacks cannot engage or collect",()=>{
+  const scheduler=controlledHost(); let visible={x:420,y:496},oldArrivals=0,newArrivals=0;
   const stop=startRoomWalk(visible,{x:400,y:391},point=>{visible=point;},()=>{oldArrivals++;},scheduler.frames);
-  scheduler.tick(0); scheduler.tick(100); stop();
+  scheduler.advance(100); scheduler.fireFrame(0);
   const interrupted={...visible};
-  scheduler.tick(1000);
+  const staleFrame=scheduler.frameKeys()[0],staleTimer=scheduler.timerKeys()[0];
+  stop();
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  scheduler.setTime(1000); scheduler.invokeFrame(staleFrame); scheduler.invokeTimer(staleTimer);
   assert.deepEqual(visible,interrupted);
   assert.equal(oldArrivals,0);
   startRoomWalk(visible,{x:510,y:440},point=>{visible=point;},()=>{newArrivals++;},scheduler.frames);
-  scheduler.tick(1100);
-  assert.deepEqual(visible,interrupted,"retarget does not jump to the previous requested destination");
-  scheduler.tick(2100);
+  scheduler.advance(16); scheduler.fireFrame(0);
+  assert.notDeepEqual(visible,interrupted,"retargeting makes progress on its first frame");
+  assert.ok(Math.hypot(visible.x-interrupted.x,visible.y-interrupted.y)<=.24*16+.00001,"retarget does not teleport");
+  scheduler.advance(1000); scheduler.fireFrame(0);
   assert.deepEqual(visible,{x:510,y:440});
   assert.equal(newArrivals,1); assert.equal(oldArrivals,0);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
 });
 
 test("entering loot pickup distance automatically stops a walk and collects once",()=>{
-  const scheduler=clock(), loot={x:500,y:300}; let collections=0,arrivals=0,visible={x:500,y:430};
+  const scheduler=controlledHost(),loot={x:500,y:300}; let collections=0,arrivals=0,visible={x:500,y:430},staleTimer=0;
   startRoomWalk(visible,{x:500,y:265},point=>{
     visible=point;
     if(nearRoomLoot(point,loot)) { collections++; return false; }
   },()=>{arrivals++;},scheduler.frames);
-  for(let ms=0;ms<=1200;ms+=16) scheduler.tick(ms);
+  for(let frame=0;frame<100 && collections===0;frame++) {
+    scheduler.advance(16); staleTimer=scheduler.timerKeys()[0]; scheduler.fireFrame(0);
+  }
   assert.equal(collections,1); assert.equal(arrivals,0);
   assert.ok(nearRoomLoot(visible,loot));
-  assert.equal(scheduler.pending(),0);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  scheduler.invokeTimer(staleTimer);
+  assert.equal(collections,1,"a stale fallback cannot collect the same loot twice");
+});
+
+test("invalid movement points fail before consulting the scheduler",()=>{
+  let schedulerCalls=0,steps=0,arrivals=0;
+  const frames={
+    now() { schedulerCalls++; return 0; },
+    request() { schedulerCalls++; return 1; },
+    cancel() { schedulerCalls++; },
+  };
+  const invalidWalks:[Point,Point][]=[
+    [{x:Number.NaN,y:0},{x:1,y:1}],
+    [{x:0,y:Number.POSITIVE_INFINITY},{x:1,y:1}],
+    [{x:0,y:0},{x:Number.NEGATIVE_INFINITY,y:1}],
+    [{x:0,y:0},{x:1,y:Number.NaN}],
+  ];
+  for(const [from,to] of invalidWalks)
+    assert.throws(()=>startRoomWalk(from,to,()=>{steps++;},()=>{arrivals++;},frames),RangeError);
+  assert.equal(schedulerCalls,0);
+  assert.equal(steps,0); assert.equal(arrivals,0);
 });
 
 test("avatar turns with horizontal travel and preserves facing on vertical travel",()=>{

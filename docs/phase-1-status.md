@@ -26,22 +26,22 @@ and the androgynous adventurer remain unchanged.
 
 ## Current checkpoint — stable room, continuous walking and automatic floor loot
 
-**Phone exit correction:** screenshots show a responsive recovery phase with loot
-collected and the exit disabled by walking state. The explicit **Enter room**
-action now cancels walking and advances through the existing guarded transition;
-floor-door walking remains available. Movement shortcuts can be retried while
-walking. The paused-frame case is reproducible; confirmation on the affected
-phone remains open. The previous local error-report screen is retained.
+**Current phone stability correction:** the earlier direct-exit change did not
+cover free movement. The movement clock now starts at input time and races each
+animation frame with a timer fallback, using one monotonic timestamp. Rapid
+retargeting makes progress; missing/constant-timestamp animation callbacks do not
+strand Approach or pickup. Invalid SVG coordinates are rejected. Viewport changes
+continue the same walking intent to its new reachable destination. Hidden/blurred
+pages still cancel walks, and the next gesture can restart them.
 
-Phone review reported camera pumping and hopping during Approach. The mobile
-scene now has phase-independent, viewport-based HUD/floor/control tracks.
-Walking uses one animation clock for both the visible position and arrival;
-retargeting starts at the displayed point. The avatar mirrors horizontal travel.
-Loot uses independent seed/room presentation randomness on the reachable floor
-and is collected automatically when navigation enters pickup range. A true
-viewport resize cancels walking, and the next input targets the current floor.
-Original combat/RNG/save rules and artwork remain intact. Verification and the
-current preview are recorded in `docs/phase-1-evidence/verification.md`.
+The save gate no longer queues behind another tab's held lock: it returns a
+visible retry state without applying the action. True save conflicts show
+recovery controls, including mobile reward panels. Original rules, art, loot
+pickup, camera tracks and chain boundaries remain unchanged.
+
+The approved Browser still cannot complete its required admin-policy check;
+actual phone confirmation remains open. Current automated evidence and preview
+are recorded in `docs/phase-1-evidence/verification.md`.
 
 ### Previous checkpoint — Practice controls inside the mobile room
 

@@ -1,6 +1,73 @@
 # First Descent verification — 2026-09-15
 
-## Current correction — exit blocked after collecting loot
+## Current correction — movement and progression stall audit
+
+The next phone report showed that the direct-exit fix was too narrow: free
+movement before Approach could still stop progression. This audit covers start,
+free movement, Approach, combat, physical loot pickup, recovery/entry, supply
+shop, camp, boss relic choice, terminal result and restart.
+
+| Stop path | Reproduction / change |
+| --- | --- |
+| First frame repeatedly starts at zero elapsed time | Legacy code made zero progress under eight retargets immediately before successive frames. Movement now starts at input time; the same test moves 20.73 room units. |
+| Missing frames or unchanging frame timestamps | Legacy Approach never reached combat. Each frame now races an 80ms timer, with a shared monotonic clock. One winner updates the visible position; the losing callback is canceled. |
+| Invalid SVG floor coordinates | Legacy NaN positions propagated into all later walks and queued frames forever. Singular/non-finite pointer conversions are ignored and the movement API rejects invalid points before scheduling. |
+| Camera changes during walking | The old resize handler canceled the requested arrival. It now resumes the same intent from the displayed point using current reachable bounds and loot location. |
+| Another tab holds the save lock | The old request could wait indefinitely with actions locked. Non-queuing acquisition now returns a retry message without writing or switching to session-only play. |
+| Save conflict behind a mobile panel | Blocked controls now reflect the actual lock. Save notices/recovery are also inside shop, reward and terminal panels; a valid restored save clears stale blocked state. |
+
+Hidden/blurred pages still cancel walking deliberately. A new foreground input
+restarts it; stale frame/timer callbacks cannot arrive, collect or enter twice.
+**Enter room** remains direct after collected loot. Combat/RNG/reward rules,
+transparent loot art, original monster/player artwork, viewport tracks, save
+format and the Somnia/chain boundary are unchanged.
+
+### Actual verification
+
+- **120 unit/integration tests passed, 0 failed.** New scheduler tests cover
+  missing/throwing RAF, stale/constant timestamps, fallback cancellation, first
+  frame progress, retargeting, invalid coordinates and once-only pickup. Six
+  save-lock tests cover acquisition, held locks, retry, fallback and conflict
+  preservation. Existing Practice/Weekly golden traces pass.
+- TypeScript and Somnia standard production build passed.
+- Full ESLint: **0 errors, 14 pre-existing warnings**.
+- Temporary no-DOM React 19.2.8 harness exercised actual DescentGame and
+  DungeonScene callbacks with normal, constant-timestamp and absent RAF modes:
+  free walk → retarget → Approach reached combat in all three modes; invalid/null
+  pointer matrices did not poison later movement; resize continued the intent;
+  blur/visibility cancellation allowed a fresh Approach afterwards.
+- Full actual-component run with RAF never delivered: seed 1 completed all ten
+  rooms, with **51 turns, 68 HP, won**, and 30 expected phase transitions. The
+  run bought Bandage/Potion after room 5 and Rest/Potion/Weapon after room 9;
+  resized during room-3 Approach and room-5/9 loot walks; and picked up each
+  reward physically through fallback movement. Zero movement frames remained
+  at victory. Restart returned a fresh explore state, revision 0 / cleared 0,
+  without needing the cosmetic focus frame.
+- Browser test discovery: **167 cases**, including 32 Descent device cases. A
+  new persisted scenario covers free walking → retarget → Approach → kill →
+  pickup → room 2 with RAF disabled; the explicit-exit regression remains.
+  These browser scenarios are **unexecuted**. Approved Browser navigation was
+  retried; its mandatory admin-policy verification remains unavailable. No
+  alternate browser was used to bypass it. Node/component checks do not verify
+  actual iPhone rendering or responsiveness.
+
+Temporary component harness: `/tmp/delveworn-rtr-19-2-8/client-repro.tsx`, compiled
+as `client-repro-full.cjs`. It is not a repository dependency. No new production
+or test package, account, wallet, RPC, telemetry service or transaction was added.
+
+Changed code: `app/dungeon/{movement.ts,scene.tsx}`,
+`app/descent/{game.tsx,save-lock.ts}`, `tests/dungeon-movement.test.ts`,
+`tests/descent-save-lock.test.ts`, `tests/e2e/descent.spec.ts`; documentation:
+`FIRST_DESCENT.md`, `phase-1-status.md` and this record.
+
+Status: **review build; not production-ready until actual phone verification**.
+First external check: walk left/right and retarget several times before using
+Approach, collect loot, then continue through the shop/camp and boss. Open/close
+the phone browser's chrome during a walk and resume after backgrounding once.
+These corrections remove reproducible code paths; the exact phone trigger has
+not been directly observed in an automated browser.
+
+## Previous correction — exit blocked after collecting loot
 
 The supplied phone screenshots distinguish this case from an exception: room 1
 is cleared, Grave Belle is at 0 HP, loot is collected, the log still opens and
