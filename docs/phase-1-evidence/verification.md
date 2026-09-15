@@ -2,6 +2,22 @@
 
 ## Current correction — swap Potion and Relics; remove the exploration drone
 
+### Current phone preview
+
+- Source `eec95c6e4099a9b564e56e9f7b95c2d25380b357`; Vercel deployment
+  `dpl_Dt9DT2h4iaBsfSS3odPAkMJoMvcT`: **READY**, preview target.
+- <https://delveworn-o0vsgcqdk-crypto-mickle.vercel.app/practice>
+  (the deployment-specific seven-day phone access link is delivered in the
+  conversation; its token is not committed).
+- `/practice`, `/play` and `/onchain` returned **HTTP 200** with expected titles.
+  Kevin, tier-4 Meatwall and transparent potion artwork returned **HTTP 200**,
+  `image/webp`. These are delivery checks only.
+- Exported tracked frontend files only; Somnia standard with session keys
+  disabled. No production release, remote Git push/merge, domain/configuration
+  change, account creation or live contract transaction.
+
+### Correction
+
 Between rooms, Potion moves into the former Relics position: below the report
 on mobile, in the recovery sidebar on desktop. Relics opens from the top
 inventory/HUD slot during recovery. Existing safe healing remains available
@@ -20,6 +36,9 @@ boss music, mute and explicit resume retain their existing behavior.
   and mute/re-enable introduces no sustained sources or ordinary-room timers.
 - TypeScript passed; ESLint **0 errors, 14 existing warnings**; whitespace
   checks passed. Browser discovery: **189 scenarios in 10 files**, not executed.
+- All three existing frontend CI build configurations passed locally: RISE
+  compatibility, Somnia standard and Somnia session keys. Remote GitHub CI was
+  not triggered for these unpublished commits.
 - Actual Practice page callbacks in a no-DOM component harness confirm one
   safe potion control in each responsive footer/sidebar presentation, no
   healing action in the top inventory, and Relics at the top during recovery.
