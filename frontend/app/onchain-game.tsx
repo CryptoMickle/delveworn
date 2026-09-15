@@ -143,6 +143,7 @@ const SUPPLY_POTION_STOCK = 2;
 
 const NORMAL_COMBAT_POTION_LIMIT = 2;
 const BOSS_COMBAT_POTION_LIMIT = 3;
+const SAFE_POTION_HEAL = 25;
 
 const CAMP_ARRIVAL_HEAL = 15;
 const CAMP_REST_HEAL = 30;
@@ -8814,6 +8815,21 @@ function DelvewornGame() {
   const roomLootActive =
     scenePhase === "loot";
 
+  const safePotionPhase =
+    scenePhase === "loot" ||
+    scenePhase === "recovery";
+
+  const safePotionDisabledReason =
+    !canPlay
+      ? "Connect a supported wallet to use a potion."
+      : busy
+        ? "Wait for the current onchain action to finish."
+        : player.potions === 0
+          ? "No potions available."
+          : player.hp >= player.maxHp
+            ? "HP is already full."
+            : null;
+
   const sceneRoomTurns =
     activeEncounterPresentation?.roomTurns ??
     (
@@ -8827,6 +8843,7 @@ function DelvewornGame() {
   const bossRelicPending =
     player.relicOfferAvailable;
   const presentationPlayer = player;
+  const presentationAddress = connectedAddress;
 
   function acknowledgeRoomLoot(skipped: boolean) {
     if (!canUseOnchainPresentationAction(
@@ -8890,6 +8907,30 @@ function DelvewornGame() {
     if (decision === "enter-next-room") {
       void runGameTransaction("enterNextRoom");
     }
+  }
+
+  function useSafePotion() {
+    if (
+      !isPlayerViewCurrent(selectedWalletView, presentationAddress) ||
+      interactionLock.current ||
+      !canPlay ||
+      !actionReady ||
+      canonicalSyncing ||
+      presentationPlayer.pendingRequestId > BigInt(0) ||
+      presentationPlayer.potions === 0 ||
+      presentationPlayer.hp >= presentationPlayer.maxHp ||
+      !canUseOnchainPresentationAction(
+        onchainPresentation,
+        presentationScope,
+        presentationPlayer,
+        busy,
+        "safe-potion"
+      )
+    ) {
+      return;
+    }
+
+    void runGameTransaction("usePotion");
   }
 
   const inCombat =
@@ -9954,6 +9995,11 @@ function DelvewornGame() {
         incoming={`${player.monsterDamageMin}–${player.monsterDamageMax}`}
         combatActions={combatActions}
         healAction={recoveryHealAction}
+        safePotion={safePotionPhase ? {
+          onUse: useSafePotion,
+          disabledReason: safePotionDisabledReason,
+          healAmount: Math.min(SAFE_POTION_HEAL, player.maxHp - player.hp),
+        } : undefined}
         shop={recoveryShop}
         relics={recoveryRelics}
         reward={activeRoomReward}

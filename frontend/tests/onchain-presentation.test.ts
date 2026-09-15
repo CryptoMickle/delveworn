@@ -40,6 +40,35 @@ test("confirmed kills expose optional floor loot without changing credited resou
   assert.equal(onchainPresentationPhase(acknowledged, scope, credited), "recovery");
 });
 
+test("safe potion use is limited to confirmed cleared-room phases and preserves pending loot", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const beforeKill = fight({ monsterHp: 3, gold: 10 });
+  const cleared = fight({ monsterHp: 0, roomsCleared: 1, gold: 22, lastLootType: 2, lastLootAmount: 4 });
+  const loot = applyConfirmedOnchainPresentation(createOnchainPresentationState(), scope, "attack", beforeKill, cleared);
+
+  assert.equal(canUseOnchainPresentationAction(loot, scope, cleared, false, "safe-potion"), true);
+  assert.equal(canUseOnchainPresentationAction(loot, scope, cleared, true, "safe-potion"), false);
+  assert.equal(canUseOnchainPresentationAction(loot, scope, fight(), false, "safe-potion"), false);
+
+  const healed = applyConfirmedOnchainPresentation(loot, scope, "usePotion", cleared, cleared);
+  assert.deepEqual(healed.loot, loot.loot);
+  assert.equal(onchainPresentationPhase(healed, scope, cleared), "loot");
+
+  const acknowledged = acknowledgeOnchainLoot(healed, scope, 1);
+  assert.equal(canUseOnchainPresentationAction(acknowledged, scope, cleared, false, "safe-potion"), true);
+  assert.equal(
+    canUseOnchainPresentationAction(
+      acknowledged,
+      scope,
+      { ...cleared, relicOfferAvailable: true },
+      false,
+      "safe-potion"
+    ),
+    false
+  );
+});
+
 test("a door pass enters after ordinary floor loot only when the transition confirms", () => {
   const guard = createWalletViewGuard();
   const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));

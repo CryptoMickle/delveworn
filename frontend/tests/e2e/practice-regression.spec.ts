@@ -1,17 +1,17 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { EMPTY_GAME, type PracticeGame } from "../../app/practice/engine";
-import type { PracticeGridState } from "../../app/practice/grid-state";
+import { createPracticeGrid, type PracticeGridState } from "../../app/practice/grid-state";
 import { isStoredPracticeGame, PRACTICE_RUN_STORAGE_KEY } from "../../app/practice/storage";
 
-async function seed(page: Page, overrides: Partial<PracticeGame>) {
+async function seed(page: Page, overrides: Partial<PracticeGame>, grid?: PracticeGridState) {
   const game: PracticeGame = { ...EMPTY_GAME, hasStarted: true, active: true, hp: 60, monsterHp: 30, monsterMaxHp: 30, gold: 100, ...overrides };
   expect(isStoredPracticeGame(game)).toBe(true);
-  await page.addInitScript(({ key, game }) => {
+  await page.addInitScript(({ key, game, grid }) => {
     if (!sessionStorage.getItem("practice-regression-fixture")) {
-      localStorage.setItem(key, JSON.stringify({ version: 1, game }));
+      localStorage.setItem(key, JSON.stringify({ version: 1, game, ...(grid ? { grid } : {}) }));
       sessionStorage.setItem("practice-regression-fixture", "1");
     }
-  }, { key: PRACTICE_RUN_STORAGE_KEY, game });
+  }, { key: PRACTICE_RUN_STORAGE_KEY, game, grid });
   await page.goto("/practice");
   await expect(page.locator(".endless-room, .practice-result-view").first()).toBeVisible();
   const restored = page.locator(".practice-storage-banner:visible").filter({ hasText: /Local run restored/ });
@@ -180,6 +180,43 @@ test("own potion heals safely between rooms, commits immediately and survives re
   expect(full.potions).toBe(1);
   expect(full.lastMonsterDamage).toBe(0);
   await expect(heal).toBeDisabled();
+});
+
+test("the inventory potion heals before and after collecting held loot", async ({ page }) => {
+  const pendingLoot = { gold: 17, potions: 1, weapon: 0, armor: 0 } as const;
+  const grid = { ...createPracticeGrid(0x5afe), pendingLoot, roomTurns: 3 };
+  await seed(page, {
+    roomsCleared: 1,
+    monsterHp: 0,
+    hp: 60,
+    potions: 2,
+    lastLootType: 1,
+    lastLootAmount: 1,
+  }, grid);
+  await waitForPhase(page, "loot");
+
+  const inventory = page.viewportSize()!.width < 768
+    ? page.locator(".descent-mobile-inventory")
+    : page.locator(".descent-hud");
+  let potion = inventory.getByRole("button", { name: /Use potion/ });
+  await expect(potion).toBeEnabled();
+  const healedWithLootHeld = await clickAndRead(potion);
+  expect(healedWithLootHeld.hp).toBe(85);
+  expect(healedWithLootHeld.potions).toBe(1);
+  expect(healedWithLootHeld.lastMonsterDamage).toBe(0);
+  expect(healedWithLootHeld.combatPotionsUsed).toBe(0);
+  expect(await savedGrid(page)).toEqual(grid);
+
+  await collectFloorLoot(page, "recovery");
+  expect((await savedGrid(page)).pendingLoot).toBeNull();
+  expect((await savedGame(page)).potions).toBe(2);
+
+  potion = inventory.getByRole("button", { name: /Use potion/ });
+  const healedAfterCollection = await clickAndRead(potion);
+  expect(healedAfterCollection.hp).toBe(100);
+  expect(healedAfterCollection.potions).toBe(1);
+  expect(healedAfterCollection.lastMonsterDamage).toBe(0);
+  await expect(potion).toBeDisabled();
 });
 
 test("same-tick shop dispatch charges once and the door advances only on arrival", async ({ page }) => {

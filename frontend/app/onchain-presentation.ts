@@ -149,7 +149,7 @@ export function canUseOnchainPresentationAction(
   scope: string | null,
   snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable">,
   pending: boolean,
-  action: "approach" | "combat" | "acknowledge-loot"
+  action: "approach" | "combat" | "safe-potion" | "acknowledge-loot"
 ) {
   if (pending) return false;
   const phase = onchainPresentationPhase(state, scope, snapshot);
@@ -157,6 +157,8 @@ export function canUseOnchainPresentationAction(
     ? phase === "explore"
     : action === "combat"
       ? phase === "combat"
+      : action === "safe-potion"
+        ? phase === "loot" || phase === "recovery"
       : phase === "loot";
 }
 

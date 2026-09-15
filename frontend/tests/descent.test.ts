@@ -90,6 +90,65 @@ test("walking to the door leaves loot and enters atomically without credit or du
   assert.ok(isDescent(JSON.parse(JSON.stringify(entered))));
 });
 
+test("safe potions preserve pending loot and its collect-or-leave balance without turns or randomness", () => {
+  const combat = transition(createDescent(99, "loot-potion"), "engage");
+  const killed = transition({ ...combat, game: { ...combat.game, hp: 40, monsterHp: 1 } }, "attack");
+  assert.equal(phase(killed), "loot");
+  assert.ok(killed.pendingLoot);
+
+  const healed = transition(killed, "potion");
+  assert.equal(phase(healed), "loot");
+  assert.equal(healed.game.hp, 65);
+  assert.equal(healed.game.potions, killed.game.potions - 1);
+  assert.equal(healed.game.combatPotionsUsed, killed.game.combatPotionsUsed);
+  assert.equal(healed.game.lastMonsterDamage, 0);
+  assert.strictEqual(healed.pendingLoot, killed.pendingLoot);
+  assert.equal(healed.rngState, killed.rngState);
+  assert.equal(healed.turns, killed.turns);
+  assert.equal(healed.roomTurns, killed.roomTurns);
+  assert.equal(healed.damageDealt, killed.damageDealt);
+  assert.equal(healed.damageTaken, killed.damageTaken);
+  assert.equal(healed.potionsUsed, killed.potionsUsed + 1);
+  assert.equal(healed.revision, killed.revision + 1);
+  assert.ok(isDescent(healed));
+
+  const collected = transition(healed, "collect");
+  assert.equal(collected.pendingLoot, null);
+  assert.equal(collected.game.gold, healed.game.gold + killed.pendingLoot.gold);
+  assert.equal(collected.game.potions, healed.game.potions + killed.pendingLoot.potions);
+  assert.equal(collected.game.weaponLevel, healed.game.weaponLevel + killed.pendingLoot.weapon);
+  assert.equal(collected.game.armorLevel, healed.game.armorLevel + killed.pendingLoot.armor);
+  assert.ok(isDescent(collected));
+
+  const entered = transition(healed, "enter");
+  const skipped = transition(healed, "skip-loot");
+  const enteredAfterSkip = transition(skipped, "enter");
+  assert.equal(phase(entered), "explore");
+  assert.equal(entered.pendingLoot, null);
+  assert.equal(entered.game.gold, enteredAfterSkip.game.gold);
+  assert.equal(entered.game.potions, enteredAfterSkip.game.potions);
+  assert.equal(entered.game.weaponLevel, enteredAfterSkip.game.weaponLevel);
+  assert.equal(entered.game.armorLevel, enteredAfterSkip.game.armorLevel);
+  assert.equal(entered.rngState, enteredAfterSkip.rngState);
+  assert.equal(entered.revision, healed.revision + 1);
+  assert.ok(isDescent(entered));
+});
+
+test("safe potion guards reject stale, full-health, empty-stock and unsafe-phase actions", () => {
+  const combat = transition(createDescent(99, "potion-guards"), "engage");
+  const killed = transition({ ...combat, game: { ...combat.game, hp: 50, monsterHp: 1, potions: 1 } }, "attack");
+  const healed = transition(killed, "potion");
+  assert.equal(healed.game.hp, 75);
+  assert.equal(healed.game.potions, 0);
+  assert.equal(transition(healed, "potion"), healed, "empty stock cannot heal again");
+  assert.equal(transition(healed, "potion", killed.revision), healed, "a replay cannot spend another potion");
+
+  const full = { ...killed, game: { ...killed.game, hp: killed.game.maxHp } };
+  assert.equal(transition(full, "potion"), full, "full health does not spend stock");
+  const exploring = createDescent(99, "unsafe-potion");
+  assert.equal(transition(exploring, "potion"), exploring, "an uncleared room is not a safe healing phase");
+});
+
 test("enemy descriptions never alter Practice damage or replies", () => {
   for (const type of [0, 1, 2, 3] as const) {
     for (let turn = 0; turn < 8; turn++) {
@@ -204,7 +263,7 @@ test("every engine loot result waits for collection, survives reload, and applie
     if (loaded.status !== "restored") throw new Error("pending loot did not reload");
     assert.deepEqual(loaded.run, killed);
 
-    for (const action of ["engage", "attack", "storm", "potion", "claim", "claim-equip", "supply-bandage", "camp-rest"] as const) {
+    for (const action of ["engage", "attack", "storm", "claim", "claim-equip", "supply-bandage", "camp-rest"] as const) {
       assert.equal(transition(loaded.run, action), loaded.run, `${action} progressed before pickup`);
     }
     assert.equal(transition(loaded.run, "collect", loaded.run.revision - 1), loaded.run);
@@ -227,6 +286,7 @@ test("boss loot is collected before the original keep or equip relic choice", ()
     ...ready,
     game: {
       ...ready.game,
+      hp: 50,
       roomsCleared: 9,
       monsterType: 3,
       monsterHp: 1,
@@ -243,22 +303,30 @@ test("boss loot is collected before the original keep or equip relic choice", ()
   assert.equal(killed.game.equippedRelic, 0);
   assert.equal(transition(killed, "claim"), killed);
 
-  const door = transition(killed, "enter");
+  const healed = transition(killed, "potion");
+  assert.equal(phase(healed), "loot", "boss supplies stay on the floor while healing");
+  assert.strictEqual(healed.pendingLoot, killed.pendingLoot);
+  assert.equal(healed.game.hp, 75);
+  assert.equal(healed.game.potions, killed.game.potions - 1);
+  assert.equal(healed.game.relicOfferId, killed.game.relicOfferId);
+  assert.equal(healed.rngState, killed.rngState);
+
+  const door = transition(healed, "enter");
   assert.equal(phase(door), "reward", "the exit preserves the required boss relic choice");
-  assert.deepEqual(door.game, killed.game);
+  assert.deepEqual(door.game, healed.game);
   assert.equal(door.pendingLoot, null);
-  assert.equal(door.rngState, killed.rngState);
-  assert.equal(door.revision, killed.revision + 1);
+  assert.equal(door.rngState, healed.rngState);
+  assert.equal(door.revision, healed.revision + 1);
   assert.equal(transition(door, "enter"), door);
 
-  const left = transition(killed, "skip-loot");
+  const left = transition(healed, "skip-loot");
   assert.equal(phase(left), "reward", "leaving supplies still allows the existing boss relic decision");
-  assert.deepEqual(left.game, killed.game);
-  assert.equal(left.rngState, killed.rngState);
+  assert.deepEqual(left.game, healed.game);
+  assert.equal(left.rngState, healed.rngState);
   assert.equal(phase(transition(left, "claim")), "won");
   assert.ok(isDescent(transition(left, "claim")));
 
-  const reward = transition(killed, "collect");
+  const reward = transition(healed, "collect");
   assert.equal(phase(reward), "reward");
   assert.ok(isDescent(reward));
   assert.deepEqual(reward.game.ownedRelics, []);

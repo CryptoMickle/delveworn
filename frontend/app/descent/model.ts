@@ -149,7 +149,8 @@ export function transition(run: Descent, action: DescentAction, expectedRevision
     game = (action === "attack" ? attack : stormAttack)(before, rng.nextInt);
     combatTurn = true;
   } else if (action === "potion") {
-    if ((current !== "combat" && current !== "recovery") || before.hp >= before.maxHp || before.potions === 0
+    const safeToHeal = current === "loot" || current === "recovery";
+    if ((current !== "combat" && !safeToHeal) || before.hp >= before.maxHp || before.potions === 0
       || (current === "combat" && before.combatPotionsUsed >= (before.monsterType === 3 ? 3 : 2))) return run;
     game = drinkPotion(before, rng.nextInt);
     combatTurn = current === "combat";

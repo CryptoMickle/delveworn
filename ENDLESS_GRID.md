@@ -20,9 +20,12 @@ boss cadence, relic rules and respective randomness authorities.
   on door arrival; canceling/retargeting the walk preserves it. Failed room entry
   preserves the previous state and pending loot for retry.
 - **Enter room** walks to the north doorway and advances only on arrival.
-- The separate between-room Potion button is removed from the floor. Safe
-  healing remains in **Menu** (desktop `/play`: **Supplies**). Combat keeps its
-  existing Attack/Storm/Potion controls and placement.
+- After a kill, tap the existing **Potion +25 HP** inventory counter to use one
+  potion safely, before or after collecting loot. The same slot is used on
+  desktop and mobile; no extra floor button is added. Full HP, empty inventory
+  and pending actions disable it. Healing preserves floor loot and room turns.
+  **Menu** (desktop `/play`: **Supplies**) also retains recovery healing.
+  Combat keeps its existing Attack/Storm/Potion controls and placement.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. Difficulty continues to

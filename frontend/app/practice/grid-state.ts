@@ -25,6 +25,8 @@ export type PracticeGridPhase =
   | "reward"
   | "lost";
 
+export type PracticeLocalAction = "attack" | "storm" | "potion" | "encounter";
+
 const UINT32_MAX = 0xffff_ffff;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,6 +101,25 @@ export function practiceGridPhase(game: PracticeGame, grid: PracticeGridState): 
   if (game.relicOfferAvailable) return "reward";
   if (game.monsterHp === 0) return "recovery";
   return grid.engaged ? "combat" : "explore";
+}
+
+export function canRunPracticeLocalAction(
+  game: PracticeGame,
+  grid: PracticeGridState,
+  action: PracticeLocalAction,
+): boolean {
+  if (!game.active) return false;
+
+  const safePotion = action === "potion" && game.monsterHp === 0
+    && (!game.relicOfferAvailable || grid.pendingLoot !== null);
+  if (!safePotion && (game.relicOfferAvailable || grid.pendingLoot !== null)) return false;
+  if (action === "encounter") return game.monsterHp === 0;
+  if (action !== "potion") return game.monsterHp > 0;
+  if (game.potions <= 0 || game.hp >= game.maxHp) return false;
+  if (safePotion) return true;
+
+  const combatPotionLimit = game.monsterType === 3 ? 3 : 2;
+  return game.combatPotionsUsed < combatPotionLimit;
 }
 
 export function engagePracticeGrid(grid: PracticeGridState): PracticeGridState {

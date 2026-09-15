@@ -272,6 +272,59 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await expect(page.getByRole("button",{name:/Enter room 2/})).toBeVisible();
 });
 
+test("the inventory potion heals safely with loot waiting and the door can still leave that loot",async({page,isMobile})=>{
+  await page.emulateMedia({reducedMotion:"reduce"});
+  const combat=transition(createDescent(99,"loot-inventory-potion"),"engage");
+  const run=transition({...combat,game:{...combat.game,hp:40,monsterHp:1}},"attack");
+  expect(phase(run)).toBe("loot");
+  expect(run.pendingLoot).not.toBeNull();
+  await seed(page,run);
+
+  const inventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
+  const potion=inventory.getByRole("button",{name:/Use potion/});
+  await expect(potion).toBeVisible();
+  await expect(potion).toContainText("Potion +25 HP");
+  await expect(potion).toContainText(`${run.game.potions} / 5`);
+
+  await potion.click();
+  const healed=transition(run,"potion");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(healed.revision);
+  expect(await saved(page)).toEqual(healed);
+  expect(healed.pendingLoot).toEqual(run.pendingLoot);
+  expect(healed.rngState).toBe(run.rngState);
+  expect(healed.turns).toBe(run.turns);
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","loot");
+  await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
+  await expect(potion).toBeEnabled();
+
+  const floor=page.getByRole("group",{name:/Room 1 floor/});
+  await floor.focus();
+  await floor.press("e");
+  const entered=transition(healed,"enter");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(entered.revision);
+  expect(await saved(page)).toEqual(entered);
+  expect(entered.game.gold).toBe(healed.game.gold);
+  expect(entered.game.potions).toBe(healed.game.potions);
+  expect(entered.game.weaponLevel).toBe(healed.game.weaponLevel);
+  expect(entered.game.armorLevel).toBe(healed.game.armorLevel);
+});
+
+test("the safe inventory potion stays discoverable but disabled at full health",async({page,isMobile})=>{
+  const combat=transition(createDescent(99,"full-inventory-potion"),"engage");
+  const run=transition({...combat,game:{...combat.game,monsterHp:1}},"attack");
+  expect(phase(run)).toBe("loot");
+  expect(run.game.hp).toBe(run.game.maxHp);
+  await seed(page,run);
+
+  const inventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
+  const potion=inventory.getByRole("button",{name:/HP is already full/});
+  await expect(potion).toBeVisible();
+  await expect(potion).toBeDisabled();
+  await expect(potion).toContainText("Potion +25 HP");
+  expect(await saved(page)).toEqual(run);
+  await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
+});
+
 test("Kevin is a reachable room figure in both merchant recoveries and opens the shop only on arrival",async({page,isMobile})=>{
   const rooms=[5,9];
   for(const [index,room] of rooms.entries()) {

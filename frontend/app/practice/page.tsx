@@ -49,6 +49,7 @@ import { DungeonRunEnd } from "../run-end";
 import { GameAutoScroll } from "../game-auto-scroll";
 import { cryptoRandomInt } from "./random";
 import {
+  canRunPracticeLocalAction,
   collectPracticeLoot,
   countPracticeTurn,
   createPracticeGrid,
@@ -60,6 +61,7 @@ import {
   practiceGridPhase,
   practiceLootSummary,
   skipPracticeLoot,
+  type PracticeLocalAction,
   type PracticeGridState,
 } from "./grid-state";
 import { EndlessRoom } from "../dungeon/endless-room";
@@ -105,8 +107,6 @@ const MONSTER_PERSONAS: Record<MonsterType, readonly MonsterPersona[]> = {
     { name: "The Chairman Below", species: "Boss", rank: "Board Level", image: "/monsters/boss-4-chairman-below.webp?v=art-20260825-v2", flavor: "The final authority. There is no escalation path above him.", chance: "BOSS" },
   ],
 };
-
-type LocalAction = "attack" | "storm" | "potion" | "encounter";
 
 function getRegularTier(room: number): number {
   if (room <= 9) return 0;
@@ -413,13 +413,11 @@ export default function PracticePage() {
   };
 
   const runLocalAction = (
-    kind: LocalAction,
+    kind: PracticeLocalAction,
     action: (current: PracticeGame) => PracticeGame,
   ) => {
     const before = gameRef.current;
-    if (!before.active || before.relicOfferAvailable || gridRef.current.pendingLoot) return;
-    if (kind === "encounter" ? before.monsterHp > 0 : kind !== "potion" && before.monsterHp === 0) return;
-    if (kind === "potion" && (before.potions === 0 || before.hp >= before.maxHp || (before.monsterHp > 0 && before.combatPotionsUsed >= (before.monsterType === 3 ? 3 : 2)))) return;
+    if (!canRunPracticeLocalAction(before, gridRef.current, kind)) return;
     resolveLocalAction(kind, action);
   };
 
@@ -576,6 +574,11 @@ export default function PracticePage() {
       {roomHealDisabledReason && <small>{roomHealDisabledReason}</small>}
     </button>
   );
+  const safePotion = phase === "loot" || phase === "recovery" ? {
+    onUse: () => runLocalAction("potion", usePotion),
+    disabledReason: roomHealDisabledReason,
+    healAmount: 25,
+  } : undefined;
   const recoveryShop = (
     <>
         {supplyAvailable(game) && !bossRewardActive && (
@@ -785,7 +788,8 @@ export default function PracticePage() {
         roomTurns={grid.roomTurns}
         incoming={`${incoming[0]}–${incoming[1]}`}
         combatActions={combatActions}
-        healAction={recoveryActive ? recoveryHealAction : undefined}
+        healAction={phase === "loot" || phase === "recovery" ? recoveryHealAction : undefined}
+        safePotion={safePotion}
         shop={merchantVisit && recoveryActive ? recoveryShop : undefined}
         relics={recoveryActive ? relicPanels : undefined}
         reward={reward}

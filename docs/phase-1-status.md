@@ -24,7 +24,18 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — direct door bypass and removal of the extra Potion control
+## Current checkpoint — safe potions before and after collecting loot
+
+The inventory potion counter is now the between-room healing control on both
+mobile and desktop. After a kill, tapping **Potion +25 HP** invokes the original
+potion action, even while loot remains on the floor. Healing consumes one potion
+without retaliation, a combat turn or a local random draw, and preserves held
+loot and the door-bypass choice. Full HP, empty stock and pending actions block
+use. Boss loot can be followed by safe healing; the separate relic reward modal
+still requires its choice before further recovery actions. Combat controls keep
+their established positions, and no extra floor button is introduced.
+
+## Previous checkpoint — direct door bypass and removal of the extra Potion control
 
 The user clarified that bypass means **tapping the actual doorway instead of the
 loot in the grid**. The earlier separate Leave loot button failed that intent:

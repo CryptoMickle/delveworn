@@ -1,8 +1,44 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — tap the doorway to bypass loot
+## Current correction — safe healing from the existing potion inventory
 
-### Current phone preview
+The previous preview hid recovery healing in Menu and blocked it entirely while
+loot was pending. The existing potion inventory slot now becomes **Potion +25
+HP** after a kill, on both desktop and mobile. Tapping it invokes the original
+potion action during loot or recovery, with no extra floor button. Healing keeps
+pending loot, pickup and doorway bypass intact. Boss floor loot allows healing;
+the separate relic reward choice still precedes further recovery actions.
+
+### Actual checks
+
+- **156 automated tests passed, 0 failed, 0 skipped.** Coverage includes safe
+  healing with pending loot, collection/bypass balances, save restore, HP caps,
+  empty inventory, stale actions, boss loot and onchain presentation guards.
+- TypeScript passed. ESLint: **0 errors, 14 existing warnings**. Whitespace
+  checks passed. Browser discovery lists **189 scenarios in 10 files**, including
+  new inventory-healing regressions; these browser scenarios were not executed.
+- Actual Practice page callbacks in a no-DOM component harness: start, approach,
+  defeat enemy, tap inventory potion with loot pending, check capped HP increase
+  and one potion consumed, then bypass through the door. Pending loot and room
+  turns stay identical through healing; no random call or retaliation occurs.
+  Full-HP and stale callbacks cannot consume another potion. Reload/collect/
+  recovery-heal and empty inventory also pass, as does legacy combat restore.
+- No live onchain transaction was sent. Somnia healing uses the existing
+  transaction and confirmed-snapshot path; its credited loot is preserved.
+- The approved Browser was rejected by automatic approval review because of
+  the existing administration policy. No alternate browser was used. Actual
+  desktop/mobile rendering and live Somnia remain unverified.
+
+Phone check: defeat an enemy while below full HP, leave loot on the floor, and
+tap the potion count in the inventory row. Confirm HP rises by up to 25, stock
+falls by one and loot remains. Then tap the door to bypass it. Repeat healing
+after collecting a later drop. Full HP or no potions should disable the control.
+
+**Review preview; native gameplay checks are still required for production.**
+
+## Previous correction — tap the doorway to bypass loot
+
+### Previous phone preview
 
 - Source `4cd97612ca08b68cfd14e5dfacd0415b75d8ed60`; Vercel deployment
   `dpl_5ihowAG5JyEYudGYXS3uD4F75gPc`: **READY**, preview target.

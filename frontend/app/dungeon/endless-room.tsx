@@ -8,6 +8,7 @@ import { DescentEnemyStatus } from "../descent/combat-panel";
 import { MonsterReveal } from "../descent/monster-reveal";
 import { DungeonScene, getEnemyArt, type RoomActions, type RoomView } from "./scene";
 import { ShopKeeper, ShopVitals } from "./shop-vitals";
+import { InventoryPotions, type SafePotionAction } from "./inventory-potions";
 import "../descent/game.css";
 import "../descent/combat-panel.css";
 import "../descent/monster-reveal.css";
@@ -26,6 +27,7 @@ export type EndlessRoomProps = {
   incoming: string;
   combatActions: ReactNode;
   healAction?: ReactNode;
+  safePotion?: SafePotionAction;
   shop?: ReactNode;
   relics?: ReactNode;
   reward?: ReactNode;
@@ -38,18 +40,21 @@ export type EndlessRoomProps = {
 
 /** Only presentation and local walking. Every gameplay action belongs to its caller. */
 export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, potions, roomTurns,
-  incoming, combatActions, healAction, shop, relics, reward, notices, menu, feedback, log, sound }: EndlessRoomProps) {
+  incoming, combatActions, healAction, safePotion, shop, relics, reward, notices, menu, feedback, log, sound }: EndlessRoomProps) {
   const [panel, setPanel] = useState<{ room: number; kind: "menu" | "shop" | "relics" | "log" | "status" } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null), rewardDialog = useRef<HTMLDialogElement>(null);
   const art = getEnemyArt(view.enemy, view.room);
   const combat = view.phase === "combat", recovery = view.phase === "recovery";
+  const safeHealing = view.enemyHp === 0 && (view.phase === "loot" || recovery);
+  const inventoryPotion = <InventoryPotions potions={potions} {...(safeHealing ? safePotion : undefined)}
+    disabledReason={view.pending ? "Finish the current action first." : safePotion?.disabledReason ?? (view.hp >= maxHp ? "HP is already full." : null)} />;
   const activePanel = panel?.room === view.room && (panel.kind !== "shop" || recovery) ? panel.kind : null;
   const open = (kind: NonNullable<typeof panel>["kind"]) => setPanel({ room: view.room, kind });
   const soundLabel = !sound.available ? "Sound unavailable" : sound.paused && sound.enabled ? "Resume sound" : sound.enabled ? "Mute sound" : "Enable sound";
   const title = view.phase === "explore" ? `Approach ${view.enemyName}` : view.phase === "loot" ? "Loot on the floor" : recovery ? "Room secured" : view.phase === "reward" ? "Boss defeated" : "Your turn";
   const detail = view.phase === "explore" ? "Tap the floor to walk. Reach the monster to begin combat."
     : view.phase === "loot" ? mode === "onchain" ? "Rewards are already credited onchain. Tap the loot, or tap the door to continue." : "Tap the loot to collect it, or tap the door to leave it behind."
-    : recovery ? "Heal, change your relic, or walk to the next room." : "Attack is steady. Storm can miss. Potions heal before a reduced reply.";
+    : recovery ? "Tap your potion count to heal, change your relic, or walk to the next room." : "Attack is steady. Storm can miss. Potions heal before a reduced reply.";
   const report = feedback ?? { title, detail };
   const tier = Math.ceil(view.room / 10), inTier = (view.room - 1) % 10 + 1;
   const health = <div className="descent-meter" role="progressbar" aria-label="Your health" aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={view.hp}><span style={{ width: `${Math.max(0, Math.min(100, view.hp / maxHp * 100))}%` }} /></div>;
@@ -71,7 +76,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
   const renderReport = (mobile = false) => <div className={`descent-report ${mobile ? "descent-mobile-report" : ""}`} role="status" aria-live="polite">
     <strong>{report.title}</strong><p>{report.detail}</p><button className="descent-report-log" onClick={() => open("log")} aria-label="Open dungeon log">Log ›</button>
   </div>;
-  const inventory = <div className="descent-mobile-inventory" role="group" aria-label="Inventory"><span><small>Gold</small><strong>{gold}</strong></span><span><small>Weapon</small><strong>+{view.weapon}</strong></span><span><small>Armor</small><strong>+{view.armor}</strong></span><span><small>Potions</small><strong>{potions} / 5</strong></span></div>;
+  const inventory = <div className="descent-mobile-inventory" role="group" aria-label="Inventory"><span><small>Gold</small><strong>{gold}</strong></span><span><small>Weapon</small><strong>+{view.weapon}</strong></span><span><small>Armor</small><strong>+{view.armor}</strong></span>{inventoryPotion}</div>;
   const top = <div className="descent-mobile-top">
     <div className="descent-mobile-topbar"><button className="endless-room-menu-button" onClick={() => open("menu")} aria-label="Open game menu">☰ Menu</button><div className="descent-mobile-room"><strong>Room {view.room}</strong><span>Tier {tier} · {view.phase === "loot" ? "LOOT DROPPED" : view.enemyHp === 0 ? "CLEARED" : view.enemyName}</span></div>{soundButton}</div>
     <div className="descent-mobile-progress" role="progressbar" aria-label={`Progress to boss room ${tier * 10}`} aria-valuemin={0} aria-valuemax={10} aria-valuenow={inTier}><span style={{ width: `${inTier * 10}%` }} /></div>
@@ -87,7 +92,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
 
   return <section className="descent-shell endless-room" data-descent-phase={view.phase} data-game-mode={mode} data-room={view.room}>
     <header className="descent-header"><GameLogo /><span className="descent-edition">{mode === "practice" ? "ENDLESS PRACTICE" : "ONCHAIN DUNGEON"}</span><button onClick={() => open("menu")}>Menu</button>{soundButton}</header>
-    <div className="descent-hud"><div className="descent-vitality"><span>VITALITY <strong>{view.hp} / {maxHp}</strong></span>{health}</div><div><span>GOLD</span><strong>{gold}</strong></div><div><span>WEAPON</span><strong>{view.weapon}</strong></div><div><span>ARMOR</span><strong>{view.armor}</strong></div><div><span>POTIONS</span><strong>{potions} / 5</strong></div></div>
+    <div className="descent-hud"><div className="descent-vitality"><span>VITALITY <strong>{view.hp} / {maxHp}</strong></span>{health}</div><div><span>GOLD</span><strong>{gold}</strong></div><div><span>WEAPON</span><strong>{view.weapon}</strong></div><div><span>ARMOR</span><strong>{view.armor}</strong></div><div>{inventoryPotion}</div></div>
     <div className="descent-room-heading"><div><p className="descent-kicker">{mode === "practice" ? "PRACTICE" : "ONCHAIN"} · TIER {tier}</p><h1>Room {view.room} · {view.enemyName}</h1></div><span>Next boss: room {tier * 10}</span></div>
     <div className="descent-layout"><div className="descent-world">
       <DungeonScene key={`${view.seed ?? 0}:${view.room}`} view={view}
@@ -104,7 +109,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, maxHp, gold, poti
     </aside></div>
     <dialog ref={dialog} className="descent-log-dialog endless-room-dialog" aria-label={activePanel ? titleByPanel[activePanel] : "Dungeon panel"} onClose={() => setPanel(null)} onCancel={() => setPanel(null)}>
       <header><h2>{activePanel ? titleByPanel[activePanel] : "Dungeon panel"}</h2><button autoFocus onClick={() => setPanel(null)} aria-label={activePanel ? `Close ${titleByPanel[activePanel]}` : "Close panel"}>Close</button></header>
-      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use arrows to walk. Approach the monster, then use Attack, Storm or Potion. Tap loot to collect it, or tap the door to leave it behind and continue.</p>{recovery && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
+      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use arrows to walk. Approach the monster, then use Attack, Storm or Potion. After combat, tap your potion count to heal. Tap loot to collect it, or tap the door to leave it behind and continue.</p>{safeHealing && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
       {activePanel === "shop" && <div><ShopVitals hp={view.hp} maxHp={maxHp} gold={gold} potions={potions} weapon={view.weapon} armor={view.armor} /><ShopKeeper camp={view.room % 10 === 9} />{notices}{shop}</div>}
       {activePanel === "relics" && <div>{notices}{relics}</div>}
       {activePanel === "status" && notices}

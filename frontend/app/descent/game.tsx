@@ -16,6 +16,7 @@ import { exclusiveSave } from "./save-lock";
 import { DescentCombatPanel, DescentEnemyStatus } from "./combat-panel";
 import { MonsterReveal } from "./monster-reveal";
 import { ShopKeeper, ShopVitals } from "../dungeon/shop-vitals";
+import { InventoryPotions } from "../dungeon/inventory-potions";
 import "./game.css";
 import "./combat-panel.css";
 import "./monster-reveal.css";
@@ -105,10 +106,11 @@ export default function DescentGame() {
     try {
     const next = transition(before,action,before.revision);
     if (next === before) { lock.current=false; setBusy(false); return; }
-    const combat = action === "attack" || action === "storm" || action === "potion";
+    const combatAction = action === "attack" || action === "storm" || (action === "potion" && phase(before) === "combat");
+    const playerAction = combatAction || action === "potion";
     // Unlock/acknowledge in the actual gesture, before waiting on a save lock.
     // Door/approach timers already received their gesture at the floor control.
-    if (combat) audio.playAction(action);
+    if (playerAction) audio.playAction(action);
     else if (action !== "engage" && action !== "enter") audio.playAction("click");
     const write = () => sessionOnly.current ? "unavailable" : saveDescent(storage,next,before);
     const saved = await exclusiveSave(write);
@@ -118,7 +120,7 @@ export default function DescentGame() {
     if (saved === "unavailable") { sessionOnly.current=true; setSaveNotice("Saving is unavailable. This run lasts for this visit only."); }
     else setSaveNotice("");
     current.current=next; setRun(next);
-    if (combat) {
+    if (combatAction) {
       setCue(next.game.relicReviveUsed && !before.game.relicReviveUsed ? "revive" : next.game.lastCritical ? "critical" : action);
       setFeedback(next.pendingLoot
         ? {title:`${action === "storm" ? "Storm" : next.game.lastCritical ? "Critical attack" : "Attack"} · ${next.game.lastPlayerDamage} damage`,detail:`Room ${next.game.roomsCleared} cleared. Tap the loot to collect it, or tap the door to leave it.${next.game.hp !== before.game.hp ? ` HP ${before.game.hp} → ${next.game.hp}.` : ""}`,tone:"good"}
@@ -131,11 +133,11 @@ export default function DescentGame() {
       else if (action === "engage") setFeedback({title:"Your turn.",detail:"A killing blow prevents the enemy's reply.",tone:"neutral"});
       else if (action === "skip-loot") setFeedback({title:"Loot left behind.",detail:phase(next) === "reward" ? "The floor supplies were not added. Choose what to do with your boss relic." : "The floor reward was not added. Heal, visit Kevin, or walk to the next room.",tone:"neutral"});
       else if (action === "collect" && before.pendingLoot) setFeedback({title:"Loot collected.",detail:lootSummary(before.pendingLoot),tone:"good"});
-      else setFeedback(describePracticeAction(before.game,next.game,action === "claim" || action === "claim-equip" ? "relic" : "shop"));
+      else setFeedback(describePracticeAction(before.game,next.game,action === "potion" ? "potion" : action === "claim" || action === "claim-equip" ? "relic" : "shop"));
       if (action === "collect") audio.playOutcome(next.game.roomsCleared === 10 ? "victory" : "loot");
       if (action === "claim" || action === "claim-equip") audio.playOutcome("relic");
     }
-    timer.current=setTimeout(() => { lock.current=false; setBusy(false); setCue(null); timer.current=null; },combat ? 280 : 160);
+    timer.current=setTimeout(() => { lock.current=false; setBusy(false); setCue(null); timer.current=null; },combatAction ? 280 : 160);
     } catch (error) {
       // Route error boundaries do not catch rejected event-handler promises.
       // Surface the failure on render; resuming reads the last committed save
@@ -176,6 +178,14 @@ export default function DescentGame() {
   const combat=p === "combat", recovery=p === "recovery", terminal=p === "won" || p === "lost";
   const hasMerchant=recovery && (room === 5 || room === 9);
   const potionDisabled=busy || (!combat && !recovery) || g.potions === 0 || g.hp >= g.maxHp || (combat && g.combatPotionsUsed >= (g.monsterType === 3 ? 3 : 2));
+  const safePotionPhase=p === "loot" || recovery;
+  const safePotionDisabledReason=busy ? "Another action is in progress."
+    : g.potions === 0 ? "No potions left."
+    : g.hp >= g.maxHp ? "HP is already full."
+    : null;
+  const inventoryPotions=<InventoryPotions potions={g.potions}
+    onUse={safePotionPhase ? () => void act("potion") : undefined}
+    disabledReason={safePotionPhase ? safePotionDisabledReason : null} />;
   const shop: { action: ShopAction; title: string; cost: number; detail: string; disabled: boolean }[] = room === 5 ? [
     {action:"supply-bandage",title:"Bandage",cost:20,detail:"Recover 25 HP · once",disabled:g.supplyBandageUsed || g.hp === g.maxHp},
     {action:"supply-potion",title:"Potion",cost:25,detail:`Take it with you · ${2-g.supplyPotionsBought} left`,disabled:g.supplyPotionsBought >= 2 || g.potions >= 5},
@@ -213,7 +223,7 @@ export default function DescentGame() {
       <button className="descent-mobile-sound" onClick={audio.toggleSound} disabled={!audio.available} aria-label={soundLabel} aria-pressed={audio.enabled}>{audio.enabled ? "♫" : "♪"}<span>{audio.paused && audio.enabled ? "Resume" : audio.enabled ? "On" : "Off"}</span></button>
     </div>
     <div className="descent-mobile-progress" role="progressbar" aria-label={`Dungeon progress, room ${room} of 10`} aria-valuemin={1} aria-valuemax={10} aria-valuenow={room}><span style={{width:`${room*10}%`}} /></div>
-    <div className="descent-mobile-inventory" role="group" aria-label="Inventory"><span><small>Gold</small><strong>{g.gold}</strong></span><span><small>Weapon</small><strong>+{g.weaponLevel}</strong></span><span><small>Armor</small><strong>+{g.armorLevel}</strong></span><span><small>Potions</small><strong>{g.potions} / 5</strong></span></div>
+    <div className="descent-mobile-inventory" role="group" aria-label="Inventory"><span><small>Gold</small><strong>{g.gold}</strong></span><span><small>Weapon</small><strong>+{g.weaponLevel}</strong></span><span><small>Armor</small><strong>+{g.armorLevel}</strong></span>{inventoryPotions}</div>
     {!terminal && p !== "reward" && <DescentEnemyStatus name={art.name} hp={g.monsterHp} maxHp={g.monsterMaxHp} incoming={range(reply)} isBoss={g.monsterType === 3} />}
     {saveNotice && <div className="descent-mobile-notice" role="status"><span>{saveNotice}</span>{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</div>}
     {hasMerchant && <dialog ref={shopDialog} className="descent-mobile-shop" onClose={() => setShopOpen(false)} onCancel={() => setShopOpen(false)}>{renderMerchant(true)}</dialog>}
@@ -225,7 +235,7 @@ export default function DescentGame() {
     {renderReport(true)}
   </div>;
   return <main className="descent-shell" onKeyDown={keyboard} data-descent-phase={p} data-descent-revision={run.revision}>{header}
-    <div className="descent-hud"><div className="descent-vitality"><span>VITALITY <strong>{g.hp} / {g.maxHp}</strong></span><Meter label="Your health" value={g.hp} max={g.maxHp} /></div><div><span>GOLD</span><strong>{g.gold}</strong></div><div><span>WEAPON</span><strong>{g.weaponLevel}</strong></div><div><span>ARMOR</span><strong>{g.armorLevel}</strong></div><div><span>POTIONS</span><strong>{g.potions} / 5</strong></div></div>
+    <div className="descent-hud"><div className="descent-vitality"><span>VITALITY <strong>{g.hp} / {g.maxHp}</strong></span><Meter label="Your health" value={g.hp} max={g.maxHp} /></div><div><span>GOLD</span><strong>{g.gold}</strong></div><div><span>WEAPON</span><strong>{g.weaponLevel}</strong></div><div><span>ARMOR</span><strong>{g.armorLevel}</strong></div><div>{inventoryPotions}</div></div>
     {saveNotice && <p className="descent-notice" role="status">{saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
     <div className="descent-room-heading"><div><p className="descent-kicker">ROOM {room} / 10 · {roomStatus}</p><h1>{roomInfo.title}</h1></div>
       <ol className="descent-map" aria-label="Dungeon progress">{ROOMS.map((r,i) => <li key={r.title} className={i < g.roomsCleared ? "cleared" : i+1 === room ? "current" : "unseen"} aria-label={`Room ${i+1}: ${i < g.roomsCleared ? "cleared" : i+1 === room ? "current" : "unexplored"}`} aria-current={i+1 === room ? "step" : undefined}><span>{i < g.roomsCleared ? "✓" : i+1 === room ? i+1 : "·"}</span></li>)}</ol>

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EMPTY_GAME, attack, buy, claimRelic, enterNextRoom, startRun, stormAttack, usePotion, type PracticeGame } from "./engine";
 import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText } from "./feedback";
-import { collectPracticeLoot, countPracticeTurn, createPracticeGrid, engagePracticeGrid, enterPracticeRoom, holdPracticeLoot, legacyPracticeGrid, passPracticeLootAtDoor, practiceGridPhase, skipPracticeLoot } from "./grid-state";
+import { canRunPracticeLocalAction, collectPracticeLoot, countPracticeTurn, createPracticeGrid, engagePracticeGrid, enterPracticeRoom, holdPracticeLoot, legacyPracticeGrid, passPracticeLootAtDoor, practiceGridPhase, skipPracticeLoot } from "./grid-state";
 import { inspectPracticeRun, isStoredPracticeGame, loadPracticeRun, PRACTICE_RUN_STORAGE_KEY, savePracticeRun } from "./storage";
 
 function memoryStorage(raw: string | null = null) {
@@ -87,6 +87,102 @@ test("new rooms start with an approach and the grid phase follows loot, reward a
   );
   assert.equal(practiceGridPhase(bossLoot.game, bossLoot.grid), "loot");
   assert.equal(practiceGridPhase(bossLoot.game, skipPracticeLoot(bossLoot.grid)), "reward");
+});
+
+test("a safe potion preserves held loot, its save and either loot resolution path", () => {
+  const before = combat({
+    hp: 60,
+    potions: 2,
+    roomsCleared: 1,
+    monsterHp: 0,
+    lastLootType: 1,
+    lastLootAmount: 1,
+  });
+  const pendingLoot = { gold: 17, potions: 1, weapon: 0, armor: 0 } as const;
+  const grid = { ...createPracticeGrid(0x5afe), pendingLoot, roomTurns: 3 };
+  let randomCalls = 0;
+
+  assert.equal(canRunPracticeLocalAction(before, grid, "potion"), true);
+  assert.equal(canRunPracticeLocalAction(before, grid, "attack"), false);
+  assert.equal(canRunPracticeLocalAction(before, grid, "encounter"), false);
+
+  const after = usePotion(before, () => {
+    randomCalls += 1;
+    throw new Error("Safe healing must not draw randomness");
+  });
+  const settled = holdPracticeLoot(before, after, grid);
+
+  assert.equal(randomCalls, 0);
+  assert.equal(settled.game.hp, 85);
+  assert.equal(settled.game.potions, 1);
+  assert.equal(settled.game.combatPotionsUsed, before.combatPotionsUsed);
+  assert.equal(settled.game.lastMonsterDamage, 0);
+  assert.equal(settled.grid, grid);
+  assert.equal(settled.grid.pendingLoot, pendingLoot);
+  assert.equal(settled.grid.roomTurns, 3);
+  assert.equal(practiceGridPhase(settled.game, settled.grid), "loot");
+
+  const saved = memoryStorage();
+  assert.equal(savePracticeRun(saved, settled.game, settled.grid), "saved");
+  assert.deepEqual(inspectPracticeRun(saved), { status: "restored", game: settled.game, grid: settled.grid, legacy: false });
+
+  const collected = collectPracticeLoot(settled.game, settled.grid);
+  assert.equal(collected.game.hp, 85);
+  assert.equal(collected.game.potions, 2);
+  assert.equal(collected.game.gold, 17);
+  assert.equal(collected.grid.pendingLoot, null);
+
+  const bypassed = passPracticeLootAtDoor(settled.game, settled.grid, current => ({
+    ...current,
+    monsterHp: 30,
+    monsterMaxHp: 30,
+  }));
+  assert.ok(bypassed);
+  assert.equal(bypassed.game.hp, 85);
+  assert.equal(bypassed.game.potions, 1);
+  assert.equal(bypassed.game.gold, 0);
+  assert.equal(bypassed.grid.pendingLoot, null);
+  assert.equal(bypassed.grid.roomTurns, 0);
+});
+
+test("safe potion eligibility covers recovery but keeps the resolved boss reward choice blocking", () => {
+  const grid = createPracticeGrid(0x600d);
+  const recovery = combat({ hp: 90, potions: 1, roomsCleared: 1, monsterHp: 0 });
+  assert.equal(canRunPracticeLocalAction(recovery, grid, "potion"), true);
+
+  const capped = usePotion(recovery, () => { throw new Error("Safe healing must not draw randomness"); });
+  assert.equal(capped.hp, capped.maxHp);
+  assert.equal(capped.potions, 0);
+  assert.equal(canRunPracticeLocalAction(capped, grid, "potion"), false);
+  const rejected = usePotion(capped);
+  assert.equal(rejected.hp, capped.maxHp);
+  assert.equal(rejected.potions, 0);
+
+  const reward = combat({
+    hp: 50,
+    potions: 1,
+    roomsCleared: 10,
+    monsterType: 3,
+    monsterHp: 0,
+    monsterMaxHp: 122,
+    relicOfferAvailable: true,
+    relicOfferRarity: 1,
+    relicOfferId: 1,
+  });
+  assert.equal(practiceGridPhase(reward, grid), "reward");
+  assert.equal(canRunPracticeLocalAction(reward, grid, "potion"), false);
+  assert.equal(canRunPracticeLocalAction(reward, grid, "encounter"), false);
+
+  const bossLoot = {
+    ...grid,
+    pendingLoot: { gold: 30, potions: 0, weapon: 0, armor: 0 },
+  };
+  assert.equal(practiceGridPhase(reward, bossLoot), "loot");
+  assert.equal(canRunPracticeLocalAction(reward, bossLoot, "potion"), true);
+
+  const livingEnemy = combat({ hp: 50, potions: 1 });
+  assert.equal(canRunPracticeLocalAction(livingEnemy, grid, "potion"), true);
+  assert.equal(canRunPracticeLocalAction({ ...livingEnemy, combatPotionsUsed: 2 }, grid, "potion"), false);
 });
 
 test("walking past ordinary loot discards it and enters exactly once", (context) => {
