@@ -140,6 +140,12 @@ Storage problems remain visible in the HUD. No new wallet or chain integration.
 
 Use the latest owner-authorized preview link. Observe:
 
+The latest phone crash after defeating a monster is still under investigation.
+If the error screen appears, use **Copy error report** and share the text with
+the developer. **Resume saved run** reloads the last committed state without
+starting a new run. This report stays local until manually shared. A full
+browser process crash/reload cannot be caught by the in-game error screen.
+
 - Starting immediately without a relic choice.
 - Finding both enemy and player HP; Attack on the right and Potion below/in the
   middle; readable damage and potion reasons without hunting or scrolling.

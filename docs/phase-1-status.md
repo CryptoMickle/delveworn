@@ -26,6 +26,10 @@ and the androgynous adventurer remain unchanged.
 
 ## Current checkpoint — stable room, continuous walking and automatic floor loot
 
+**Open phone blocker:** a crash after defeating the monster remains unreproduced.
+The current diagnostic preview adds a resumable error screen and copyable local
+report. Passing model/component tests do not close this blocker; see verification.
+
 Phone review reported camera pumping and hopping during Approach. The mobile
 scene now has phase-independent, viewport-based HUD/floor/control tracks.
 Walking uses one animation clock for both the visible position and arrival;

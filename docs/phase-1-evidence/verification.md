@@ -1,6 +1,47 @@
 # First Descent verification — 2026-09-15
 
-## Current hotfix — avatar turns but walking never starts
+## Current investigation — phone crash after defeating a monster (unresolved)
+
+The user reports another crash after a lethal attack on the walking-hotfix
+preview. This crash has **not been reproduced or declared fixed**. The next
+preview adds recovery and a copyable error report to obtain the missing phone
+exception without developer tools or new telemetry.
+
+Investigation evidence:
+
+- 5,000 actual first-kill snapshots rendered without exceptions, covering all
+  four generated loot kinds; separate SSR checks cover post-kill cues and boss
+  loot. No model/loot-index exception was found.
+- A temporary no-DOM React 19.2.8 test-renderer harness exercised the actual
+  DescentGame/DungeonScene callbacks: 50 lethal attacks and 10 full kill → collect
+  → enter flows, including 30 Strict Mode runs. No exception or remaining
+  timer/frame/listener was observed. This is not browser or GPU verification.
+- Injecting an audio exception after the lethal save verified the new async
+  failure path: the event promise was handled, the error reached a render
+  boundary, retry restored the exact saved loot state, and collection applied
+  it once. No replay/reward duplication or saved-state rewrite occurred.
+- **110 unit/integration tests passed; 0 failed.** TypeScript, targeted ESLint
+  and Somnia standard production build passed. Browser execution remains
+  unavailable because of the admin-policy check; phone confirmation is pending.
+
+Implementation: `/play` now has an error boundary with **Resume saved run** and
+**Copy error report**. Async action failures enter that boundary instead of
+leaving an unhandled rejection and a locked action state. The report contains
+only error text and saved room/phase/revision; run IDs/seeds/inventory are omitted,
+preview access tokens are removed, and nothing is sent automatically. Rendering
+or copying the report does not replace saved progress. A browser process crash
+or full page reload cannot be caught by this React boundary.
+
+Changed files: `app/play/error.tsx`, `app/descent/{game.tsx,failure.ts}`,
+`tests/descent-failure.test.ts`, and documentation. The temporary diagnostic
+harness and test-renderer dependency are under `/tmp/delveworn-rtr-19-2-8/`;
+no new production or test dependency was added to the repository.
+
+Status: **diagnostic review build; not production-ready**. Need the actual
+phone error report or a description distinguishing an error page, frozen room
+and full browser reload before claiming a root-cause fix.
+
+## Previous hotfix — avatar turns but walking never starts
 
 The phone review of `e10f0ac` exposed a browser-specific error missed by the
 injected test clock: native `requestAnimationFrame`/`cancelAnimationFrame` were

@@ -41,6 +41,7 @@ export default function DescentGame() {
   const [busy,setBusy] = useState(false), lock = useRef(false);
   const [cue,setCue] = useState<SceneCue>(null);
   const [feedback,setFeedback] = useState<PracticeFeedback | null>(null);
+  const [runtimeError,setRuntimeError] = useState<Error | null>(null);
   const [confirmRestart,setConfirmRestart] = useState(false);
   const [shopOpen,setShopOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,6 +101,7 @@ export default function DescentGame() {
     const before = current.current;
     if (!before || lock.current) return;
     lock.current=true; setBusy(true);
+    try {
     const next = transition(before,action,before.revision);
     if (next === before) { lock.current=false; setBusy(false); return; }
     const combat = action === "attack" || action === "storm" || action === "potion";
@@ -129,6 +131,13 @@ export default function DescentGame() {
       if (action === "claim" || action === "claim-equip") audio.playOutcome("relic");
     }
     timer.current=setTimeout(() => { lock.current=false; setBusy(false); setCue(null); timer.current=null; },combat ? 280 : 160);
+    } catch (error) {
+      // Route error boundaries do not catch rejected event-handler promises.
+      // Surface the failure on render; resuming reads the last committed save
+      // instead of automatically replaying an action or crediting loot twice.
+      lock.current=false; setBusy(false);
+      setRuntimeError(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   function keyboard(event: KeyboardEvent<HTMLElement>) {
@@ -144,6 +153,7 @@ export default function DescentGame() {
   }
 
   const soundLabel = !audio.available ? "Sound unavailable" : audio.paused && audio.enabled ? "Resume sound" : audio.enabled ? "Mute sound" : "Enable sound";
+  if (runtimeError) throw runtimeError;
   const header = <header className="descent-header"><GameLogo /><span className="descent-edition">THE FIRST DESCENT</span><button onClick={audio.toggleSound} disabled={!audio.available} aria-label={soundLabel} aria-pressed={audio.enabled}>{audio.enabled ? "♫" : "♪"} <span>{audio.paused && audio.enabled ? "Resume" : audio.enabled ? "Sound on" : "Sound off"}</span></button></header>;
   if (!loaded) return <main className="descent-shell">{header}<p className="descent-loading" role="status">Opening the dungeon…</p></main>;
   if (!run || confirmRestart) return <main className="descent-shell">{header}<section className="descent-entrance">
