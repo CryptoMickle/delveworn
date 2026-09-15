@@ -106,6 +106,8 @@ adapter correctness, wallet flow or VRF health is asserted by local tests.
   Failures: boss-death audio cancellation on desktop; iPhone SE visual test
   reports only 125.67px of unobscured monster art (requires 150px). These were
   found before prototype code. Do not claim an all-green baseline.
+  Targeted retry (desktop + WebKit boss-death/visual cases): **2 passed,
+  2 failed**; both original failures reproduced.
 - Reviewed actual test-captured desktop/Android combat and desktop camp images,
   plus iPhone SE combat. Desktop has clear portrait/action separation; mobile
   stacks large portraits above actions. On the smallest screen the sticky dock
@@ -113,22 +115,74 @@ adapter correctness, wallet flow or VRF health is asserted by local tests.
   Tracked examples: `phase-1-evidence/before-desktop.png`, `before-mobile.png`.
   This is artifact-based visual review and automated interaction coverage, not
   an interactive in-app browser walkthrough or a physical-phone check.
-- In-app Browser navigation was denied twice because its admin-policy check
+- In-app Browser navigation was denied three times because its admin-policy check
   was unavailable. No alternative interactive browser was used to bypass it.
 
-## Milestone B
+## Milestone B — prepared for visual review; approval pending
 
-Plan and one-room concept pending. No complete asset set or dungeon integration.
+Specification: `docs/phase-1-vertical-slice.md`. Review/test instructions:
+`docs/phase-1-review.md`. Audit commit: `c96cee1`.
+
+### Delivered
+
+- Ten-combat-room plan matching existing boss/supply/camp cadence, with entrance
+  and recovery spaces. First 10–15 minutes, three builds, enemy/boss behavior,
+  controls, mobile/desktop layout, presentation, architecture and boundaries.
+- Recommended **painted dark fantasy** art direction. One ImageGen target image
+  saved at `docs/phase-1-evidence/art-direction-target.png`; exact prompt/tool
+  provenance adjacent. This is a mockup, not a game screenshot or an asset pack.
+- Local development-only `/concept`: one room, visible avatar, Gary, floating
+  Stormglass, HUD, intent, Attack/Storm/Potion, damage/healing feedback, walking,
+  approach/door states, optional existing sound and explicit restart.
+- Reuses the actual Practice transitions with a repeatable training fixture.
+  No normal Practice save read/write, no wallet/RPC calls, no earned ownership.
+- Code-drawn temporary scene/characters demonstrate layering and controls;
+  they deliberately have lower texture/detail fidelity than the painted target.
+  Static scene illustrations are exported from that source for inspection.
+- Scoped styles, reduced-motion support, keyboard/floor-tap handlers and mobile
+  layout are implemented. Their browser behavior is **not verified** yet.
+- Nothing from milestones C–F, a full asset pack or a contract change has been
+  integrated. Existing Practice/onchain/Weekly code remains intact.
+
+### Verification after the concept
+
+- Existing frontend unit/regression suite: **81 passed, 0 failed**.
+- Lint: **0 errors, 14 existing warnings**, none in new files.
+- Explicit TypeScript check: **passed**.
+- Somnia standard production build: **passed**. Local compiled
+  `.next/server/app/concept.meta` has **status 404** as required by the dev-only
+  gate. No production server/network request was needed to inspect that artifact.
+- Both static SVG scene exports rendered successfully and were visually reviewed.
+  Fixed floating-damage/name overlap and ensured the exported relic image appears.
+- These illustration exports do not verify HTML layout or interaction. In-app
+  Browser policy verification remains unavailable. No claim of tested keyboard,
+  touch, responsive browser layout or real-device performance for `/concept`.
+- The existing baseline Playwright failures remain open; no new browser tests
+  have been added/run for the concept. Contract source is unchanged; 143 baseline
+  Foundry tests pass. The full CI build matrix is for the later F checkpoint;
+  only default/Somnia standard builds were rerun in this work.
+
+### Current local state
+
+The local dev server was left running at `http://127.0.0.1:3100/concept` for
+the user's review on this Mac. Restart instructions are in the review guide.
+All work is local. No push, merge, production deploy or onchain transaction.
+**Not production-ready or blind-test-ready.** Await approval before full assets
+and dungeon integration. Browser QA still needs resolution even if approved.
 
 ## Resume checklist
 
-1. Record the targeted retry of the two baseline failures; carry confirmed
-   issues into milestone F. Milestone A is an audit, not a gameplay rewrite.
-2. Complete the specification and isolated one-room visual concept.
-3. Record tests/screenshots, commit B, present the concept and request the user's
-   visual approval at the explicit gate.
-4. Only after approval: C dungeon/state integration; D gameplay; E presentation;
-   F full verification and blind-test build. Update this file at every milestone.
+1. Read this file, the specification and review guide; inspect Git status and
+   preserve both prior Weekly commits and all newer remote work.
+2. Obtain/record the user's **visual approval** of the painted target and room
+   layout, or revise the concept in response. Do not treat silence as approval.
+3. When Browser policy checking is available again, verify the actual `/concept`
+   layout and controls with the Browser skill. Do not bypass the restriction.
+4. After approval: C dungeon/state integration; D versioned local training
+   mechanics; E coherent small painted asset set; F full verification, fix the
+   two baseline regressions, and prepare a 5–10-person blind test.
+5. Preserve actual onchain rules; Somnia stays behind its existing boundary.
+   No transaction/deployment. Update this file after every milestone.
 
 ## Explicit exclusions
 
