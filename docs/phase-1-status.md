@@ -24,7 +24,25 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — stable room, continuous walking and automatic floor loot
+## Current checkpoint — physical doors, Kevin and detailed monster reveals
+
+The user's latest direction keeps travel visible: **Enter room** now uses the
+resilient walk and commits entry only at the doorway. Kevin appears as a person
+in recovery rooms 5 and 9, clipped from the original merchant illustration;
+clicking him walks beside him before opening trade. He uses the outer left
+visible floor bound in room 5 and outer right bound in room 9, mirrors to face
+inward, and is approached from inside the room. The potion/camp placeholder
+has been removed from the grid.
+
+Combat starts with a short large view of the original monster artwork over only
+the floor. It lasts two seconds after image load and can close immediately via
+its button or a combat action. A small **View monster** button reopens it. The
+reveals never hold the game lock or cover HP/actions, and do not enlarge tier-1
+room sprites or animate the room camera. Original rules and save format remain.
+
+Preview and exact checks are in `docs/phase-1-evidence/verification.md`.
+
+## Previous checkpoint — stable room, continuous walking and automatic floor loot
 
 **Current phone stability correction:** the earlier direct-exit change did not
 cover free movement. The movement clock now starts at input time and races each

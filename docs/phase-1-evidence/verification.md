@@ -1,6 +1,68 @@
 # First Descent verification — 2026-09-15
 
-## Current correction — movement and progression stall audit
+## Current correction — visible door travel, inward-facing Kevin and original monster close-ups
+
+**Enter room** now uses the resilient movement clock and commits entry only
+after reaching the doorway. Retargeting cancels the old arrival; fallback timers
+still complete the walk when animation callbacks are absent. Loot collection
+continues to gate entry.
+
+Kevin is a clipped figure from the existing merchant illustration in recovery
+rooms 5 and 9. Room 5 uses the outer left visible floor bound; room 9 uses the
+outer right bound. His painting mirrors on the left so he always faces inward.
+The trade approach is 48 room units inward and 36 down, keeping the player inside
+the room. Clicking his figure or **Visit Kevin** walks there before opening the
+mobile shop or focusing the existing desktop shop. Resize retargets that same
+merchant intent using the new visible bounds. No original asset file was edited.
+
+Fresh combat shows the original detailed monster artwork over the room floor.
+It closes two seconds after image load/error, immediately on combat input, or
+with **Continue fight**. **View monster** reopens a view that stays until closed
+or the next action. The view owns no gameplay lock, covers no HP/action controls,
+and changes neither room size nor tier-1 floor sprite scale. Mid-fight reload
+starts collapsed. Original Practice rules, combat RNG, loot, saves and Somnia
+boundaries are unchanged.
+
+### Actual verification
+
+- **130 unit/integration tests passed, 0 failed.** Coverage includes both Kevin
+  edges and inward approaches across desktop/portrait bounds, original art and
+  mirroring, loot gating, monster reveal state, image-load timer, manual reopening
+  and immediate combat-action dismissal. Existing Practice/Weekly traces pass.
+- TypeScript and the Somnia standard production build passed. Full ESLint:
+  **0 errors, 14 pre-existing warnings**.
+- Actual no-DOM React callbacks: clicking **Enter room** keeps recovery revision
+  5 while walking, then reaches explore revision 6 once through fallback timers.
+  Canceling and retargeting leaves recovery revision 5; stale callbacks cannot
+  enter. A complete ten-room run with no delivered animation frames still won
+  in **51 combat turns**, leaving zero movement handles.
+- Fresh source component probes at a 320×440 floor: room 5 Kevin was at
+  `(326.18,320)`, the avatar arrived at `(374.18,356)`; room 9 Kevin was at
+  `(573.82,320)`, the avatar arrived at `(525.82,356)`. Kevin faced right/left,
+  the avatar faced left/right toward him. Each opened trade once with no saved
+  progression change; zero app timers, frames or listeners remained on unmount.
+- Browser suite discovery: **175 cases**, including **40 Descent device cases**.
+  New scenarios cover walking before entry, cancellation, and reaching Kevin
+  on both sides before trade opens. These scenarios remain **unexecuted**.
+
+Static React/SVG exports of Kevin on both sides were visually inspected: the
+original clipped figure fits the floor, faces inward and retains an unmirrored
+label. These are illustration checks, not browser screenshots. The approved
+Browser was retried and remains blocked by its required admin-policy check;
+actual browser/phone interaction is still unverified. No alternate browser was
+used to bypass the restriction.
+
+Changed files: `app/dungeon/{scene.tsx,scene.css}`,
+`app/descent/{game.tsx,monster-reveal.tsx,monster-reveal.css}`,
+`tests/{dungeon-scene.test.ts,monster-reveal.test.tsx,e2e/descent.spec.ts}`,
+`FIRST_DESCENT.md`, `docs/phase-1-status.md` and this evidence record.
+
+Status: **review build; not production-ready until phone/browser checks pass**.
+First phone check: approach and immediately attack during the monster close-up;
+collect loot and watch **Enter room** finish walking; meet Kevin at the left edge
+after room 5 and right edge after room 9, then tap him to walk over and trade.
+
+## Previous correction — movement and progression stall audit
 
 The next phone report showed that the direct-exit fix was too narrow: free
 movement before Approach could still stop progression. This audit covers start,

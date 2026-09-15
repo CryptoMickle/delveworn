@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { clampRoomPoint, DungeonScene, ENEMY_ART, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, type RoomView } from "../app/dungeon/scene";
+import { clampRoomPoint, DungeonScene, ENEMY_ART, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
 import { roomLootPoint } from "../app/dungeon/movement";
 
 test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
@@ -66,6 +66,44 @@ test("door and loot taps lead to reachable loot before allowing the next room", 
   assert.equal(nearRoomLoot({ x: 420, y: 496 },droppedItem), false, "reload at entry cannot collect remotely");
   assert.equal(roomFloorTarget(door, true, 0).destination, "door");
   assert.deepEqual(roomFloorTarget({ x: 300, y: 435 }, true, 0, droppedItem), { point: { x: 300, y: 435 } });
+});
+
+test("Kevin taps approach the figure inside every visible room and loose loot stays the first stop", () => {
+  const cameras=[{actorScale:1,minX:170,maxX:733},...[
+    [320,440],[320,650],[375,650],[430,800],
+  ].map(([width,height])=>portraitRoomCamera(width,height))];
+  for(const bounds of cameras) {
+    for(const room of [5,9]) {
+      const merchant=roomMerchantPoint(bounds,room), approach=roomMerchantApproach(merchant);
+      assert.deepEqual(merchant,{x:room === 5 ? bounds.minX : bounds.maxX,y:320},"Kevin uses the room's outer walkable edge");
+      assert.deepEqual(approach,{x:merchant.x+(room === 5 ? 48 : -48),y:merchant.y+36},"the avatar approaches from inside the room");
+      assert.ok(approach.x >= bounds.minX && approach.x <= bounds.maxX,"the approach remains inside the mobile camera");
+      assert.ok(Math.hypot(approach.x-merchant.x,approach.y-merchant.y) <= 64,"the shop opens from beside Kevin");
+      const figureCenter={x:merchant.x,y:merchant.y-75};
+      assert.deepEqual(roomFloorTarget(figureCenter,true,0,undefined,merchant),{point:approach,destination:"merchant"});
+
+      const loot={x:Math.min(bounds.maxX,550),y:275};
+      assert.deepEqual(roomFloorTarget(figureCenter,true,0,loot,merchant),{point:loot,destination:"loot"},"uncollected loot gates Kevin");
+      assert.deepEqual(roomFloorTarget({x:450,y:435},true,0,undefined,merchant),{point:{x:450,y:435}},"ordinary floor remains walkable");
+    }
+  }
+});
+
+test("the original Kevin figure belongs only to cleared supply and camp rooms", () => {
+  const base:RoomView={room:5,enemy:0,enemyName:"Grave Belle",enemyHp:0,hp:85,
+    relic:0,weapon:0,armor:0,phase:"recovery",pending:false,cue:null,cueId:0,damage:0,incoming:0};
+  const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
+    view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{},collect:()=>{},merchant:()=>{}},
+  }));
+  for(const [room,position,facing,mirror] of [[5,"170,320","right","-1"],[9,"733,320","left","1"]] as const) {
+    const markup=render({room});
+    assert.match(markup,new RegExp(`data-merchant-facing="${facing}" data-merchant-position="${position}"`));
+    assert.match(markup,new RegExp(`data-merchant-position="${position}"[\\s\\S]*?<g transform="scale\\(${mirror} 1\\)">`),"the painting faces into the room");
+    assert.match(markup,/role="img" aria-label="Quartermaster Kevin\. Walk here to trade\."/);
+    assert.match(markup,/\/characters\/merchant-quartermaster-kevin\.webp/);
+  }
+  for(const room of [1,4,6,8,10]) assert.doesNotMatch(render({room}),/data-merchant-position/);
+  assert.doesNotMatch(render({room:5,phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}),/data-merchant-position/);
 });
 
 test("floor reward labels distinguish actual loot and boss pickup from an equipped relic", () => {

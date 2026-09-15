@@ -14,8 +14,10 @@ import { ROOMS, createDescent, enemyIntent, phase, roomNumber, transition, type 
 import { DESCENT_SAVE_KEY, loadDescent, saveDescent } from "./storage";
 import { exclusiveSave } from "./save-lock";
 import { DescentCombatPanel, DescentEnemyStatus } from "./combat-panel";
+import { MonsterReveal } from "./monster-reveal";
 import "./game.css";
 import "./combat-panel.css";
+import "./monster-reveal.css";
 import "../dungeon/scene.css";
 
 function Meter({ label, value, max, enemy = false }: { label: string; value: number; max: number; enemy?: boolean }) {
@@ -227,7 +229,8 @@ export default function DescentGame() {
     <div className="descent-layout"><div className="descent-world" ref={sceneArea}>
       <DungeonScene key={`${run.runId}:${room}`} view={{room,seed:run.seed,enemy:g.monsterType,enemyName:art.name,enemyHp:g.monsterHp,hp:g.hp,relic:g.equippedRelic,weapon:g.weaponLevel,armor:g.armorLevel,phase:p!,loot:sceneLoot,pending:busy,cue,cueId:run.revision,damage:g.lastPlayerDamage,incoming:g.lastMonsterDamage}}
         actions={{approach:() => void act("engage"),enter:() => void act("enter"),collect:() => void act("collect"),interact:() => audio.playAction("click"),merchant:hasMerchant ? () => { if (window.matchMedia("(max-width: 760px)").matches) setShopOpen(true); else { merchantArea.current?.scrollIntoView({behavior:"auto",block:"nearest"}); merchantArea.current?.focus({preventScroll:true}); } } : undefined}}
-        topOverlay={mobileTopOverlay} footer={mobileFooter}>
+        topOverlay={mobileTopOverlay} footer={mobileFooter}
+        presentationOverlay={combat ? <MonsterReveal enemy={g.monsterType} name={art.name} role={art.role} hp={g.monsterHp} maxHp={g.monsterMaxHp} phase={p} roomTurns={run.roomTurns} cueId={run.revision} pending={busy} /> : undefined}>
         {combatDock}
       </DungeonScene>
       {recovery && <div className="descent-recovery-potion"><div className="descent-action-health"><span>HP <strong>{g.hp} / {g.maxHp}</strong></span><Meter label="Your health between rooms" value={g.hp} max={g.maxHp} /></div><button disabled={potionDisabled} onClick={() => void act("potion")} aria-label={`Potion, heal 25 HP safely, ${g.potions} remaining`}><Image src="/dungeon/loot/potion.webp" alt="" width={24} height={24} /><strong>Potion</strong><span>+25 HP · {g.potions} left</span></button></div>}

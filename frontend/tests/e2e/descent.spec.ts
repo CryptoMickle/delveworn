@@ -61,6 +61,17 @@ async function stableRenderedLootPoint(page:Page):Promise<RoomPoint> {
   return roomPoint(previous);
 }
 
+function recoveryAtRoom(room:number):Descent {
+  let run=createDescent(0,`kevin-room-${room}`);
+  for(let action=0;action<250;action++) {
+    if(phase(run) === "recovery" && run.game.roomsCleared === room) return run;
+    const next=transition(run,informedPolicy(run));
+    if(next === run) throw new Error(`Could not advance the Kevin fixture from ${phase(run)} in room ${run.game.roomsCleared}`);
+    run=next;
+  }
+  throw new Error(`Could not reach recovery in room ${room}`);
+}
+
 async function walkToLootWithKeyboard(page:Page,floor:Locator,target:RoomPoint) {
   await floor.focus();
   for (let step=0;step<32 && await page.locator("[data-descent-phase='loot']").count();step++) {
@@ -241,6 +252,59 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await expect(page.getByRole("button",{name:/Enter room 2/})).toBeVisible();
 });
 
+test("Kevin is a reachable room figure in both merchant recoveries and opens the shop only on arrival",async({page,isMobile})=>{
+  const rooms=[5,9];
+  for(const [index,room] of rooms.entries()) {
+    const run=recoveryAtRoom(room);
+    if(index === 0) await seed(page,run);
+    else {
+      await page.evaluate(({key,run})=>localStorage.setItem(key,JSON.stringify(run)),{key:DESCENT_SAVE_KEY,run});
+      await page.reload();
+      await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+    }
+    const floor=page.getByRole("group",{name:new RegExp(`Room ${room} floor`)});
+    const kevin=page.getByRole("img",{name:"Quartermaster Kevin. Walk here to trade."});
+    await expect(kevin).toBeVisible();
+    await expect(kevin.locator("image")).toHaveAttribute("href","/characters/merchant-quartermaster-kevin.webp");
+    const merchant=roomPoint(await kevin.getAttribute("data-merchant-position"));
+    const merchantFacing=room === 5 ? "right" : "left", avatarFacing=room === 5 ? "left" : "right";
+    await expect(kevin).toHaveAttribute("data-merchant-facing",merchantFacing);
+    expect(room === 5 ? merchant.x < 450 : merchant.x >= 450,"Kevin stands on the room-specific outer side").toBe(true);
+    const [floorBox,kevinBox]=await Promise.all([floor.boundingBox(),kevin.boundingBox()]);
+    expect(kevinBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
+    expect(kevinBox!.x+kevinBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
+    expect(room === 5 ? kevinBox!.x+kevinBox!.width/2 < floorBox!.x+floorBox!.width/2 : kevinBox!.x+kevinBox!.width/2 > floorBox!.x+floorBox!.width/2).toBe(true);
+    const shop=isMobile
+      ? page.locator(".descent-mobile-shop").getByRole("region",{name:"Kevin's shop"})
+      : page.locator(".descent-sidebar").getByRole("region",{name:"Kevin's shop"});
+    if(isMobile) await expect(shop).not.toBeVisible();
+    else { await expect(shop).toBeVisible(); await expect(shop).not.toBeFocused(); }
+
+    await kevin.evaluate((element,target)=>{
+      const floor=element.closest("svg.dungeon-scene") as SVGSVGElement|null, matrix=floor?.getScreenCTM();
+      if(!matrix) throw new Error("Room floor has no screen transform");
+      const init={bubbles:true,clientX:matrix.a*target.x+matrix.c*target.y+matrix.e,clientY:matrix.b*target.x+matrix.d*target.y+matrix.f,pointerId:1,isPrimary:true};
+      element.dispatchEvent(new PointerEvent("pointerdown",init));
+      element.dispatchEvent(new PointerEvent("pointerup",init));
+    },{x:merchant.x,y:merchant.y-75});
+    expect(await saved(page),"walking to Kevin does not spend gold or advance the run").toEqual(run);
+    await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
+    if(isMobile) await expect(shop).not.toBeVisible();
+    else await expect(shop).not.toBeFocused();
+
+    await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+    const arrived=await avatarPoint(page);
+    expect(distance(arrived,merchant),"the avatar must stand beside the figure before trade opens").toBeLessThanOrEqual(64);
+    expect(room === 5 ? arrived.x > merchant.x : arrived.x < merchant.x,"the avatar approaches Kevin from inside the room").toBe(true);
+    await expect(page.locator("[data-avatar-facing]")).toHaveAttribute("data-avatar-facing",avatarFacing);
+    if(isMobile) {
+      await expect(shop).toBeVisible();
+      await page.getByRole("button",{name:"Close Kevin's shop"}).click();
+    } else await expect(shop).toBeFocused();
+    expect(await saved(page)).toEqual(run);
+  }
+});
+
 test("entering a cleared room remains available when walking animation stalls",async({page})=>{
   let run=transition(createDescent(777,"stalled-room-exit"),"engage");
   while (phase(run) === "combat") run=transition(run,"attack");
@@ -250,7 +314,8 @@ test("entering a cleared room remains available when walking animation stalls",a
   const exit=page.getByRole("button",{name:/Enter room 2/});
   await expect(exit).toBeEnabled();
 
-  // Reproduce a suspended cosmetic clock, without changing the game/save.
+  // Accept animation work without ever delivering a frame. The timer clock
+  // must still walk to the door and commit the arrival exactly once.
   await page.evaluate(()=>{
     const request=window.requestAnimationFrame, cancel=window.cancelAnimationFrame;
     let next=0;
@@ -262,7 +327,6 @@ test("entering a cleared room remains available when walking animation stalls",a
         window.requestAnimationFrame=request; window.cancelAnimationFrame=cancel;
       }},
     });
-    document.querySelector("svg.dungeon-scene")!.dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowUp",bubbles:true}));
   });
   try {
     expect(await saved(page)).toEqual(run);
@@ -270,12 +334,17 @@ test("entering a cleared room remains available when walking animation stalls",a
     // Native clicks avoid making the test runner's actionability clock part of
     // this stalled-RAF fixture; the ordinary full-run spec tests pointer input.
     await exit.evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
+    expect(await saved(page),"clicking the exit starts a walk without advancing the room").toEqual(run);
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+    await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
     const entered=transition(run,"enter");
     await expect.poll(async()=>(await saved(page)).revision).toBe(entered.revision);
     expect(await saved(page)).toEqual(entered);
     await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","explore");
     await expect(page.getByRole("group",{name:/Room 2 floor/})).toBeVisible();
     await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+    await page.waitForTimeout(400);
+    expect(await saved(page),"the canceled first click and stale clocks cannot enter twice").toEqual(entered);
     expect(await page.evaluate(()=>{
       return (window as Window & {__descentFrames?:{count:()=>number}}).__descentFrames?.count();
     })).toBe(0);
@@ -287,6 +356,52 @@ test("entering a cleared room remains available when walking animation stalls",a
   }
   await page.reload();
   expect(await saved(page)).toEqual(transition(run,"enter"));
+});
+
+test("retargeting a door walk to ordinary floor cannot advance the room",async({page})=>{
+  let run=transition(createDescent(777,"cancel-room-exit"),"engage");
+  while (phase(run) === "combat") run=transition(run,"attack");
+  run=transition(run,"collect");
+  expect(phase(run)).toBe("recovery");
+  await seed(page,run);
+  await page.evaluate(()=>{
+    const request=window.requestAnimationFrame, cancel=window.cancelAnimationFrame;
+    let next=0;
+    const live=new Map<number,FrameRequestCallback>(), canceled:FrameRequestCallback[]=[];
+    Object.assign(window,{
+      requestAnimationFrame:(callback:FrameRequestCallback)=>{ const id=++next; live.set(id,callback); return id; },
+      cancelAnimationFrame:(id:number)=>{ const callback=live.get(id); if(callback) canceled.push(callback); live.delete(id); },
+      __descentFrames:{restore:()=>{window.requestAnimationFrame=request;window.cancelAnimationFrame=cancel;},fireCanceled:()=>{
+        const callbacks=canceled.splice(0); for(const callback of callbacks) callback(performance.now()+10_000);
+      }},
+    });
+  });
+  try {
+    const floor=page.getByRole("group",{name:/Room 1 floor/});
+    await page.getByRole("button",{name:/Enter room 2/}).evaluate((button:HTMLButtonElement)=>button.click());
+    expect(await saved(page)).toEqual(run);
+    await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
+    await floor.evaluate((element,target)=>{
+      const matrix=(element as SVGSVGElement).getScreenCTM();
+      if(!matrix) throw new Error("Room floor has no screen transform");
+      const init={bubbles:true,clientX:matrix.a*target.x+matrix.c*target.y+matrix.e,clientY:matrix.b*target.x+matrix.d*target.y+matrix.f,pointerId:1,isPrimary:true};
+      element.dispatchEvent(new PointerEvent("pointerdown",init));
+      element.dispatchEvent(new PointerEvent("pointerup",init));
+    },{x:450,y:435});
+    await page.evaluate(()=>{
+      (window as Window & {__descentFrames?:{fireCanceled:()=>void}}).__descentFrames?.fireCanceled();
+    });
+    await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+    await expect(page.locator("[data-avatar-position]")).toHaveAttribute("data-avatar-position","450,435");
+    await page.waitForTimeout(1_400);
+    expect(await saved(page),"neither the canceled frame nor fallback timer may deliver the old door arrival").toEqual(run);
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+  } finally {
+    await page.evaluate(()=>{
+      const fixture=window as Window & {__descentFrames?:{restore:()=>void}};
+      fixture.__descentFrames?.restore(); delete fixture.__descentFrames;
+    });
+  }
 });
 
 test("free movement, retargeting, approach and loot still finish without animation frames",async({page})=>{
@@ -322,11 +437,16 @@ test("free movement, retargeting, approach and loot still finish without animati
   await expect(page.getByRole("button",{name:/Pick up loot/})).toBeEnabled();
   await page.getByRole("button",{name:/Pick up loot/}).evaluate((element:HTMLButtonElement)=>element.click());
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
-  expect(await saved(page)).toEqual(transition(killed,"collect"));
+  const recovered=transition(killed,"collect");
+  expect(await saved(page)).toEqual(recovered);
   const enter=page.getByRole("button",{name:/Enter room 2/});
   await expect(enter).toBeEnabled();
   await enter.evaluate((element:HTMLButtonElement)=>element.click());
+  expect(await saved(page),"the fallback door walk must arrive before it advances").toEqual(recovered);
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+  await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
   await expect(page.getByRole("group",{name:/Room 2 floor/})).toBeVisible();
+  expect(await saved(page)).toEqual(transition(recovered,"enter"));
   // Reload restores the native frame scheduler and exact committed progress.
   const entered=await saved(page);
   await page.reload();

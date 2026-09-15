@@ -18,7 +18,12 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 2. Tap the floor or use arrows/WASD to walk. The avatar turns left/right with
    travel and moves continuously to the monster guarding the north door.
    E/Enter interacts with the current enemy, loot or exit.
-3. Use **Storm (left) / Attack (right)** with **Potion below**. On short mobile
+3. Approaching starts a short close-up of the original monster illustration.
+   It fades away after two seconds of loaded artwork; **Continue fight** or any
+   combat action dismisses it immediately. **View monster** reopens a larger
+   view during combat. HP and action controls remain usable throughout, and
+   monsters retain their modest tier-1 scale on the room floor.
+   Use **Storm (left) / Attack (right)** with **Potion below**. On short mobile
    viewports, the row is **Storm / Potion / Attack**. Keys **1 / 2 / 3** remain
    Attack / Storm / Potion; **A / S / P** work during combat. Attack has the original
    steady damage and critical chance. Storm has its original range and can roll
@@ -29,9 +34,14 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    it automatically, without another button press. **Pick up loot**, E and the
    floor doorway remain walking shortcuts. Inventory changes once, on reaching the loot.
    Reload does not collect or reroll the reward or its layout for that viewport.
-5. Heal or buy supplies after pickup, then use **Enter room** or walk through
-   the north doorway.
-   Supplies follow room 5; the room-9 camp retains its original 15 HP arrival
+5. Heal or buy supplies after pickup. **Enter room** walks to the north doorway;
+   the room changes only after arrival. A floor tap or E uses the same walk.
+   Kevin appears in person after rooms 5 and 9: tap his figure, walk beside him,
+   or use **Visit Kevin** to approach and open trade. His original illustration
+   supplies the room sprite. He stands at the outer left in room 5 and outer
+   right in room 9, always facing inward, with the approach point inside the
+   room. Both positions follow the visible floor bounds on phones. The room-9
+   camp retains its original 15 HP arrival
    recovery and existing shop prices.
 6. Defeat the room-10 boss and pick up its loot. The earned relic can then be
    kept or equipped using the original relic rules. Review the recap or replay.
@@ -148,7 +158,8 @@ Use the latest owner-authorized preview link. Observe:
 
 The latest correction covers free walking before Approach, rapid retargeting,
 missing animation frames, invalid floor points, viewport changes and held save
-locks. **Enter room** still progresses directly after loot. The movement and
+locks. **Enter room** now walks to the doorway after loot, using the same resilient
+movement clock as floor navigation. The movement and
 full progression checks are recorded in the verification document; this review
 build still needs confirmation on the affected phone.
 If a separate error screen appears, use **Copy error report** and share the text with
@@ -161,7 +172,11 @@ browser process crash/reload cannot be caught by the in-game error screen.
 - Finding both enemy and player HP; Attack on the right and Potion below/in the
   middle; readable damage and potion reasons without hunting or scrolling.
 - Reading retaliation and understanding Storm misses and Potion healing.
-- Walking to loot; seeing the inventory update once; using the exit afterwards.
+- Walking to loot; seeing the inventory update once; walking to the exit afterwards.
+- Meeting Kevin at the left/right outer edge in rooms 5/9, facing into the room,
+  and walking to his figure to open trade.
+- Seeing the original monster close-up, attacking without waiting, and reopening
+  the artwork without changing HP or room layout.
 - A steady room during repeated attacks; smooth Approach; left/right facing;
   varied loot locations and automatic pickup using only floor taps or arrows.
 - Reload before and after pickup; recovery at supplies/camp and the boss relic.

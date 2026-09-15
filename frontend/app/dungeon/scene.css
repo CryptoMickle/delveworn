@@ -14,6 +14,8 @@
 .dungeon-enemy { animation:dungeon-breathe 4.3s ease-in-out infinite; }
 .dungeon-enemy.is-hit { animation:dungeon-enemy-hit .55s ease-out; }
 .dungeon-door-open text { fill:#edd2a4; font:600 12px var(--font-geist-sans),sans-serif; letter-spacing:2px; }
+.dungeon-merchant text { fill:#f5d38d; stroke:#100c12; stroke-width:3px; paint-order:stroke; font:700 15px var(--font-geist-sans),sans-serif; letter-spacing:1px; }
+.dungeon-scene-presentation { position:absolute; inset:0 0 auto; width:100%; aspect-ratio:3/2; z-index:2; pointer-events:none; }
 .dungeon-loot text { fill:#f5d38d; stroke:#100c12; stroke-width:3px; paint-order:stroke; font:600 18px var(--font-geist-sans),sans-serif; }
 .dungeon-scene-overlay { position:relative; z-index:3; }
 .dungeon-scene-bottom { display:contents; }
@@ -58,6 +60,7 @@
     border:0;
     background:#100d10 url('/dungeon/stone-room.webp') center/cover;
   }
+  .has-room-hud > .dungeon-scene-presentation { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); height:auto; aspect-ratio:auto; }
   .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; min-height:0; z-index:5; }
   .dungeon-scene-wrap.has-room-hud > .dungeon-scene { height:100%; min-height:0; grid-row:2; }
   .has-room-hud > .dungeon-scene-bottom { display:flex; flex-direction:column; justify-content:flex-end; position:relative; z-index:4; min-height:0; overflow:hidden; gap:0; padding-bottom:env(safe-area-inset-bottom); background:linear-gradient(transparent,#26182bf5 34%,#09090b 70%); }
