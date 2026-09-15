@@ -2,6 +2,20 @@
 
 ## Current correction — restore the original status bar and recovery buttons
 
+### Current phone preview
+
+- Source `fc1aaf81878393fe36c2dc3ba1a77aa92298d31e`; Vercel deployment
+  `dpl_A4rXj3qWCUMxt4RRGrnxamYpfjzY`: **READY**, preview target.
+- <https://delveworn-amn288ssn-crypto-mickle.vercel.app/practice>
+  (the deployment-specific seven-day phone access link is delivered in the
+  conversation; its token is not committed).
+- `/practice`, `/play` and `/onchain` returned **HTTP 200** with expected titles.
+  Kevin, tier-4 Meatwall and transparent potion artwork returned **HTTP 200**,
+  `image/webp`. These are delivery checks only.
+- Exported tracked frontend files only; Somnia standard with session keys
+  disabled. No production release, remote Git push/merge, domain/configuration
+  change, account creation or live contract transaction.
+
 ### Correction
 
 Practice, First Descent and the shared onchain room reuse the actual original
