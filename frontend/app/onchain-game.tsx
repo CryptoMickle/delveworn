@@ -8829,8 +8829,9 @@ function DelvewornGame() {
     rollingTitle =
       "PREPARING MOVE";
 
-    rollingText =
-      "Building the restricted session action and estimating its cost...";
+    rollingText = hasSomniaSession || isRiseWallet
+      ? "Building the restricted session action and estimating its cost..."
+      : "Check your wallet. Waiting for authorization; you may decline before sending.";
   }
 
   if (
@@ -9454,8 +9455,8 @@ function DelvewornGame() {
   const battleVisible = player.hasStarted && !endedActive && !recoveryActive &&
     !player.campOpen && !player.supplyOpen && !roomCleared;
 
-  const randomnessStatus = randomnessPending ? (
-    <div data-keyboard-action-scope="overlay" data-keyboard-actions className="onchain-action-pending rounded-xl border border-violet-700/60 bg-[#1b1426] p-4">
+  const actionStatus = randomnessPending ? (
+    <div role="status" data-keyboard-action-scope="overlay" data-keyboard-actions className="onchain-action-pending rounded-xl border border-violet-700/60 bg-[#1b1426] p-4">
 
       <div className="w-full">
 
@@ -9474,6 +9475,8 @@ function DelvewornGame() {
         <p className="clear-both pt-2 text-xs text-zinc-400">
           {rollingText}
         </p>
+
+        {walletMessage && <p role="status" className="mt-2 text-xs text-amber-200">{walletMessage}</p>}
 
         {!vrfDelayed &&
           !canonicalSyncing &&
@@ -9547,6 +9550,10 @@ function DelvewornGame() {
       </div>
 
     </div>
+  ) : busy || walletMessage ? (
+    <p role="status" className="onchain-action-pending rounded-xl border border-violet-700/60 bg-[#1b1426] p-4 text-sm text-zinc-300">
+      {combatStatus}
+    </p>
   ) : null;
 
   /*
@@ -10056,12 +10063,12 @@ function DelvewornGame() {
               enemy={{ name: monster.name, image: monster.image, hp: player.monsterHp, maxHp: player.monsterMaxHp, incoming: `${player.monsterDamageMin}–${player.monsterDamageMax}`, flavor: monster.flavor, isBoss }}
               dialogue={isBoss ? getBossDialogue(currentRoom) : undefined}
               log={combatLog}
-              logPreview={combatStatus}
-              actions={<>{randomnessStatus}{combatActions}</>}
+              logPreview={actionFeedback}
+              actions={<>{combatActions}{actionStatus}</>}
             />
           )}
 
-          {!battleVisible && randomnessStatus}
+          {!battleVisible && randomnessPending && actionStatus}
 
         </section>
 
