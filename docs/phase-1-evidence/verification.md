@@ -62,6 +62,15 @@ First phone check: approach and immediately attack during the monster close-up;
 collect loot and watch **Enter room** finish walking; meet Kevin at the left edge
 after room 5 and right edge after room 9, then tap him to walk over and trade.
 
+Current preview: source `be5ba23549e2731022e3423bb1ef6e312d8210f2`, deployment
+`dpl_8HsWzkE7TB9Rb8bxDfckKzQ822na`, **READY**.
+<https://delveworn-14qq8qy8o-crypto-mickle.vercel.app/play>
+
+Seven-day deployment-specific phone access is delivered in the conversation;
+the token is not committed. Delivery returned HTTP 200 with the expected
+`Delveworn · The First Descent` title. This confirms delivery, not phone gameplay.
+No production release, remote Git push or contract transaction was performed.
+
 ## Previous correction — movement and progression stall audit
 
 The next phone report showed that the direct-exit fix was too narrow: free

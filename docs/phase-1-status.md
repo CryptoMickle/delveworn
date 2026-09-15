@@ -124,13 +124,13 @@ review. Classic Practice, Weekly and existing Somnia onchain mode remain.
 
 ### Milestone F — verification and preview
 
-- Frontend tests: **102 passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
+- Earlier restored-core checkpoint: **102 tests passed, 0 failed**. TypeScript passed. ESLint: **0 errors,
   14 pre-existing warnings**. Alpha-channel and loot routing checks pass.
 - All three existing CI build configurations passed at the restored-core
   checkpoint; Somnia standard passed again after the fullscreen mobile layout. Development-only
   `/concept` remains a production 404. Current evidence is in
   `phase-1-evidence/verification.md`.
-  Current phone preview: source `ec3c502`, deployment
+  Earlier fullscreen preview: source `ec3c502`, deployment
   `dpl_6CaykjEikF8rTW2njLEcNb5iDyMa`, READY. `/play` returned HTTP 200 with the
   expected title; room, monster and potion assets also returned HTTP 200.
   Its seven-day access token is delivered only in the conversation. Earlier
