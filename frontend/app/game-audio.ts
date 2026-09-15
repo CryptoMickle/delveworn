@@ -37,8 +37,6 @@ export class GameAudioController {
   private engaged = false;
   private resuming = false;
   private bossActive = false;
-  private explorationActive = false;
-  private ambience: Array<{ source: OscillatorNode; gain: GainNode }> = [];
   private stormVariant = 0;
   private destroyed = false;
 
@@ -146,7 +144,6 @@ export class GameAudioController {
   /** Cancel both currently sounding and future scheduled sources on interruption. */
   pause = () => {
     this.active = false;
-    this.stopAmbience();
     this.stopBoss(true);
     this.stopSources("effect");
     if (this.engaged && this.snapshot.enabled) this.update({ paused: true });
@@ -177,39 +174,7 @@ export class GameAudioController {
     this.syncBoss();
   };
 
-  /** Optional room ambience; only a prior player gesture may make it audible. */
-  setExploration = (active: boolean) => {
-    this.explorationActive = active;
-    this.syncAmbience();
-  };
-
-  private stopAmbience() {
-    for (const {source,gain} of this.ambience) {
-      try { source.stop(); source.disconnect(); gain.disconnect(); } catch { /* Closed output. */ }
-    }
-    this.ambience = [];
-  }
-
-  private syncAmbience() {
-    if (!this.explorationActive || this.bossActive || !this.canPlay() || this.context?.state !== "running") {
-      this.stopAmbience(); return;
-    }
-    if (this.ambience.length || !this.context || !this.master) return;
-    try {
-      // Two quiet sustained tones. No timers, sample downloads or game RNG.
-      for (const frequency of [82.4,123.5]) {
-        const source = this.context.createOscillator(), gain = this.context.createGain();
-        source.type="sine"; source.frequency.setValueAtTime(frequency,this.context.currentTime);
-        gain.gain.setValueAtTime(0,this.context.currentTime);
-        gain.gain.linearRampToValueAtTime(.012,this.context.currentTime+.4);
-        source.connect(gain).connect(this.master);
-        this.ambience.push({source,gain}); source.start();
-      }
-    } catch { this.stopAmbience(); }
-  }
-
   private syncBoss() {
-    this.syncAmbience();
     if (!this.canPlay() || this.context?.state !== "running") {
       this.stopBoss(true);
       return;

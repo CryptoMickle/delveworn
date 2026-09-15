@@ -104,22 +104,36 @@ function fixture(overrides: Partial<GameAudioEnvironment> = {}) {
 
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 
-test("room ambience needs a gesture, stops at combat/blur, and owns no scheduler", () => {
+test("ordinary room activation and explicit resume create only short cues with no scheduler", async () => {
   const {controller,context,timers,creations} = fixture();
-  controller.setExploration(true);
-  assert.equal(creations(),0);
   controller.playAction("click");
-  const drones=context.sources.filter(s => [82.4,123.5].includes(s.frequency.value));
-  assert.equal(drones.length,2); assert.equal(timers.size,0);
-  controller.setExploration(true);
-  assert.equal(context.sources.filter(s => [82.4,123.5].includes(s.frequency.value)).length,2);
-  controller.setExploration(false);
-  assert.ok(drones.every(s => s.stops.length === 1 && s.connections.length === 0));
-  controller.setExploration(true);
-  const count=context.sources.length;
+  assert.equal(creations(),1);
+  assert.equal(timers.size,0);
+  assert.equal(context.sources.length,1);
+  assert.equal(context.sources[0].stops.length,1);
+
   controller.pause();
-  controller.setExploration(true);
-  assert.equal(context.sources.length,count);
+  controller.toggleSound();
+  await flush();
+  assert.equal(context.resumes,1);
+  assert.equal(context.sources.length,1,"resume does not create a sustained source");
+  assert.equal(timers.size,0,"ordinary-room resume does not start a polling loop");
+
+  controller.playCharacter("Gary");
+  controller.playOutcome("loot");
+  assert.ok(context.sources.length > 1,"character and loot feedback remain audible");
+  for (const source of context.sources.slice(1)) {
+    assert.equal(source.starts.length,1);
+    assert.equal(source.stops.length,1,"every ordinary-room source has a scheduled end");
+    assert.ok(source.stops[0] < context.currentTime + 1);
+  }
+  assert.ok(context.sources.every(source => source.stops.length > 0),"no source is left sustained");
+
+  controller.toggleSound();
+  controller.toggleSound();
+  await flush();
+  assert.equal(context.sources.every(source => source.stops.length > 0),true);
+  assert.equal(timers.size,0,"mute and re-enable do not start a polling loop");
   controller.destroy();
 });
 

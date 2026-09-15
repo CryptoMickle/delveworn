@@ -20,12 +20,14 @@ boss cadence, relic rules and respective randomness authorities.
   on door arrival; canceling/retargeting the walk preserves it. Failed room entry
   preserves the previous state and pending loot for retry.
 - **Enter room** walks to the north doorway and advances only on arrival.
-- After a kill, tap the existing **Potion +25 HP** inventory counter to use one
-  potion safely, before or after collecting loot. The same slot is used on
-  desktop and mobile; no extra floor button is added. Full HP, empty inventory
-  and pending actions disable it. Healing preserves floor loot and room turns.
-  **Menu** (desktop `/play`: **Supplies**) also retains recovery healing.
-  Combat keeps its existing Attack/Storm/Potion controls and placement.
+- After a kill, **Potion +25 HP** is below the room report on mobile (in the
+  recovery sidebar on desktop), replacing the former Relics control. It works
+  before or after collecting loot. **Relics** moves to the top inventory/HUD
+  slot during recovery and opens the existing collection. Full HP, empty stock
+  and pending actions disable healing; floor loot and room turns are preserved.
+  **Menu** also retains recovery healing. Combat controls keep their positions.
+- There is no sustained exploration drone. Short action/character/outcome
+  effects and the boss score retain their existing sound controls.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. Difficulty continues to

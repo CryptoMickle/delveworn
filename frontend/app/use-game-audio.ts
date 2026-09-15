@@ -80,16 +80,14 @@ const methods = {
   playOutcome: (outcome: GameAudioOutcome) => controller?.playOutcome(outcome),
   playCharacter: (name: string) => controller?.playCharacter(name),
   setBossBattle: (active: boolean) => controller?.setBossBattle(active),
-  setExploration: (active: boolean) => controller?.setExploration(active),
   toggleSound: () => getController()?.toggleSound(),
 };
 
 /** The header can use this without options; only the game should own boss state. */
-export function useGameAudio(options?: { bossActive?: boolean; exploring?: boolean; encounter?: string; encounterKey?: string | number }) {
+export function useGameAudio(options?: { bossActive?: boolean; encounter?: string; encounterKey?: string | number }) {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => { attachBrowserAudio(); return detachBrowserAudio; }, []);
   const bossActive = options?.bossActive;
-  const exploring = options?.exploring;
   const encounter = options?.encounter;
   const encounterKey = options?.encounterKey;
   useEffect(() => {
@@ -97,11 +95,6 @@ export function useGameAudio(options?: { bossActive?: boolean; exploring?: boole
     methods.setBossBattle(bossActive);
     return () => { methods.setBossBattle(false); };
   }, [bossActive]);
-  useEffect(() => {
-    if (exploring === undefined) return;
-    methods.setExploration(exploring);
-    return () => { methods.setExploration(false); };
-  }, [exploring]);
   useEffect(() => {
     if (encounter) methods.playCharacter(encounter);
   }, [encounter, encounterKey]);

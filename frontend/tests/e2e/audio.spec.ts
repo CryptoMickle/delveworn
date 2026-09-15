@@ -19,6 +19,7 @@ type AudioProbe = {
   activeScores: number;
   bossSources: number;
   futureBossSources: number;
+  unscheduledNonScoreSources: number;
   sourceCount: number;
   actionCues: Record<string, string[][]>;
   scoreVoices: ScoreVoice[];
@@ -192,6 +193,8 @@ async function installProbe(page: Page) {
         bossSources: bossSources.length,
         futureBossSources: bossSources.filter(source => !source.ended
           && (source.stop === null || source.stop > source.node.context.currentTime + 0.02)).length,
+        unscheduledNonScoreSources: sources.filter(source => !isScore(source.node)
+          && !source.ended && source.stop === null).length,
         sourceCount: sources.length, actionCues, scoreVoices, scoreOutputGains,
       };
     };
@@ -282,6 +285,13 @@ test("pointer and keyboard share each action cue without duplicates or a room dr
   expect(actionWithConfirmedOutcome(potion[0], "potion", potionResult)).toEqual(["tone:340", "tone:510", "tone:760"]);
   expect(actionWithConfirmedOutcome(potion[1], "potion", potionResult)).toEqual(["tone:340", "tone:510", "tone:760"]);
   expect((await probe(page)).bossSources).toBe(0);
+  expect((await probe(page)).unscheduledNonScoreSources).toBe(0);
+  const resumeCount = (await probe(page)).resumes;
+  await page.getByRole("button", { name: "Mute sound" }).click();
+  await expect(page.getByRole("button", { name: "Enable sound" })).toBeVisible();
+  await page.getByRole("button", { name: "Enable sound" }).click();
+  await expect.poll(async () => (await probe(page)).resumes).toBeGreaterThan(resumeCount);
+  expect((await probe(page)).unscheduledNonScoreSources).toBe(0);
   const before = (await probe(page)).sourceCount;
   await page.waitForTimeout(650);
   expect((await probe(page)).sourceCount).toBe(before);

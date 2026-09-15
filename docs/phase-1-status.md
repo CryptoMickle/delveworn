@@ -24,7 +24,19 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — safe potions before and after collecting loot
+## Current checkpoint — swap Potion and Relics; remove the sustained room tone
+
+Between rooms, Potion now occupies the former Relics control below the report
+on mobile and in the recovery sidebar on desktop. Relics opens from the former
+potion slot in the top inventory/HUD during recovery. Safe potion use before
+and after loot collection is preserved, as are the existing relic availability
+rules and combat controls. `/play` uses the same lower potion position while
+retaining its existing final boss relic decision.
+
+The two sustained exploration tones (82.4/123.5 Hz) and their unused audio API
+are removed. Short action/character/outcome effects and the boss score remain.
+
+## Previous checkpoint — safe potions before and after collecting loot
 
 The inventory potion counter is now the between-room healing control on both
 mobile and desktop. After a kill, tapping **Potion +25 HP** invokes the original

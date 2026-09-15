@@ -182,7 +182,7 @@ test("own potion heals safely between rooms, commits immediately and survives re
   await expect(heal).toBeDisabled();
 });
 
-test("the inventory potion heals before and after collecting held loot", async ({ page }) => {
+test("the safe potion below the room heals before and after collecting held loot", async ({ page }) => {
   const pendingLoot = { gold: 17, potions: 1, weapon: 0, armor: 0 } as const;
   const grid = { ...createPracticeGrid(0x5afe), pendingLoot, roomTurns: 3 };
   await seed(page, {
@@ -195,10 +195,15 @@ test("the inventory potion heals before and after collecting held loot", async (
   }, grid);
   await waitForPhase(page, "loot");
 
-  const inventory = page.viewportSize()!.width < 768
+  const mobile = page.viewportSize()!.width < 768;
+  const inventory = mobile
     ? page.locator(".descent-mobile-inventory")
     : page.locator(".descent-hud");
-  let potion = inventory.getByRole("button", { name: /Use potion/ });
+  const safeActions = page.locator(mobile ? ".descent-mobile-footer" : ".descent-sidebar");
+  await expect(inventory.getByRole("button", { name: /Use potion/ })).toHaveCount(0);
+  await expect(inventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
+  let potion = safeActions.locator(":scope > .dungeon-inventory-potions");
+  await expect(potion).toHaveAccessibleName(/Use potion/);
   await expect(potion).toBeEnabled();
   const healedWithLootHeld = await clickAndRead(potion);
   expect(healedWithLootHeld.hp).toBe(85);
@@ -211,7 +216,17 @@ test("the inventory potion heals before and after collecting held loot", async (
   expect((await savedGrid(page)).pendingLoot).toBeNull();
   expect((await savedGame(page)).potions).toBe(2);
 
-  potion = inventory.getByRole("button", { name: /Use potion/ });
+  await expect(inventory.getByRole("button", { name: /Use potion/ })).toHaveCount(0);
+  const relics = inventory.getByRole("button", { name: "Open relic collection" });
+  await expect(relics).toBeVisible();
+  await expect(relics).toContainText("Relics");
+  await relics.click();
+  const relicPanel = page.getByRole("dialog", { name: "Your relics" });
+  await expect(relicPanel).toBeVisible();
+  await relicPanel.getByRole("button", { name: "Close Your relics" }).click();
+  await expect(relicPanel).not.toBeVisible();
+
+  potion = safeActions.locator(":scope > .dungeon-inventory-potions");
   const healedAfterCollection = await clickAndRead(potion);
   expect(healedAfterCollection.hp).toBe(100);
   expect(healedAfterCollection.potions).toBe(1);

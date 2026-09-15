@@ -4,7 +4,7 @@ export type SafePotionAction = {
   healAmount?: number;
 };
 
-/** Reuses the inventory slot; combat retains its own potion control. */
+/** Compact stock display or safe-healing control; combat keeps its own control. */
 export function InventoryPotions({ potions, maxPotions = 5, onUse, disabledReason = null, healAmount = 25 }: {
   potions: number;
   maxPotions?: number;

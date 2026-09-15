@@ -225,7 +225,6 @@ export default function PracticePage() {
   const persona = getMonsterPersona(game);
   const audio = useGameAudio({
     bossActive: phase === "combat" && isBoss,
-    exploring: phase === "explore" || phase === "loot" || phase === "recovery",
     encounter: phase === "combat" ? persona.name : undefined,
     encounterKey: room,
   });

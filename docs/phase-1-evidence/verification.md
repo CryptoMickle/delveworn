@@ -1,8 +1,44 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — safe healing from the existing potion inventory
+## Current correction — swap Potion and Relics; remove the exploration drone
 
-### Current phone preview
+Between rooms, Potion moves into the former Relics position: below the report
+on mobile, in the recovery sidebar on desktop. Relics opens from the top
+inventory/HUD slot during recovery. Existing safe healing remains available
+with loot pending and after collection. Combat controls, relic availability,
+loot pickup and doorway bypass are unchanged. `/play` uses the lower potion
+position and retains its existing final boss relic decision.
+
+The sustained 82.4/123.5 Hz exploration tones are removed, along with the unused
+exploration audio option/effect. Short action, character and outcome sounds,
+boss music, mute and explicit resume retain their existing behavior.
+
+### Actual checks
+
+- **156 automated tests passed, 0 failed, 0 skipped.** Updated audio coverage
+  asserts that ordinary cues have scheduled endings, resume creates no drone,
+  and mute/re-enable introduces no sustained sources or ordinary-room timers.
+- TypeScript passed; ESLint **0 errors, 14 existing warnings**; whitespace
+  checks passed. Browser discovery: **189 scenarios in 10 files**, not executed.
+- Actual Practice page callbacks in a no-DOM component harness confirm one
+  safe potion control in each responsive footer/sidebar presentation, no
+  healing action in the top inventory, and Relics at the top during recovery.
+  The relic panel opens/closes. Healing before/after collection, full HP,
+  stale callbacks, empty stock, save restore and doorway bypass still pass.
+- Browser access remains blocked by the previously reported administration
+  policy. No browser retry or alternate browser workaround was attempted.
+  Actual mobile/desktop rendering and listening tests remain unverified.
+
+Phone check: after collecting loot, use **Relics** in the top row and
+**Potion +25 HP** below the room report. Repeat potion use with loot still
+pending. With sound enabled, ordinary rooms should have only short cues;
+there should be no continuous low tone. Boss music should still play.
+
+**Review preview; native gameplay checks remain required for production.**
+
+## Previous correction — safe healing from the existing potion inventory
+
+### Previous phone preview
 
 - Source `741ad2c3bbcfe9981ae4b9c7e31a6f6f7569834a`; Vercel deployment
   `dpl_H9oHD3bu5SC6aFaTPi5k7EnS5Q7X`: **READY**, preview target.

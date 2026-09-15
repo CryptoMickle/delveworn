@@ -270,9 +270,15 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   expect(await saved(page)).toEqual(collected);
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
   await expect(page.getByRole("button",{name:/Enter room 2/})).toBeVisible();
+  const recoveryInventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
+  await expect(recoveryInventory.getByRole("button",{name:"Open relic collection"})).toHaveCount(0);
+  await expect(recoveryInventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
+  const recoveryPotion=page.locator(isMobile ? ".descent-mobile-footer" : ".descent-sidebar")
+    .locator(":scope > .dungeon-inventory-potions");
+  await expect(recoveryPotion).toHaveAccessibleName(/Use potion/);
 });
 
-test("the inventory potion heals safely with loot waiting and the door can still leave that loot",async({page,isMobile})=>{
+test("the safe potion below the room heals with loot waiting and the door can still leave that loot",async({page,isMobile})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   const combat=transition(createDescent(99,"loot-inventory-potion"),"engage");
   const run=transition({...combat,game:{...combat.game,hp:40,monsterHp:1}},"attack");
@@ -281,7 +287,10 @@ test("the inventory potion heals safely with loot waiting and the door can still
   await seed(page,run);
 
   const inventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
-  const potion=inventory.getByRole("button",{name:/Use potion/});
+  await expect(inventory.getByRole("button",{name:/Use potion/})).toHaveCount(0);
+  await expect(inventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
+  const potion=page.locator(isMobile ? ".descent-mobile-footer" : ".descent-sidebar")
+    .locator(":scope > .dungeon-inventory-potions");
   await expect(potion).toBeVisible();
   await expect(potion).toContainText("Potion +25 HP");
   await expect(potion).toContainText(`${run.game.potions} / 5`);
@@ -309,7 +318,7 @@ test("the inventory potion heals safely with loot waiting and the door can still
   expect(entered.game.armorLevel).toBe(healed.game.armorLevel);
 });
 
-test("the safe inventory potion stays discoverable but disabled at full health",async({page,isMobile})=>{
+test("the safe potion below the room stays discoverable but disabled at full health",async({page,isMobile})=>{
   const combat=transition(createDescent(99,"full-inventory-potion"),"engage");
   const run=transition({...combat,game:{...combat.game,monsterHp:1}},"attack");
   expect(phase(run)).toBe("loot");
@@ -317,7 +326,11 @@ test("the safe inventory potion stays discoverable but disabled at full health",
   await seed(page,run);
 
   const inventory=page.locator(isMobile ? ".descent-mobile-inventory" : ".descent-hud");
-  const potion=inventory.getByRole("button",{name:/HP is already full/});
+  await expect(inventory.getByRole("button",{name:/Use potion/})).toHaveCount(0);
+  await expect(inventory.locator(".dungeon-inventory-potions")).toContainText("Potions");
+  const potion=page.locator(isMobile ? ".descent-mobile-footer" : ".descent-sidebar")
+    .locator(":scope > .dungeon-inventory-potions");
+  await expect(potion).toHaveAccessibleName(/HP is already full/);
   await expect(potion).toBeVisible();
   await expect(potion).toBeDisabled();
   await expect(potion).toContainText("Potion +25 HP");

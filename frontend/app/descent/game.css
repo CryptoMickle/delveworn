@@ -14,8 +14,11 @@
 .descent-hud > div:not(:first-child) { border-left:1px solid #70543688; padding-left:22px; display:flex; gap:14px; align-items:center; }
 .descent-hud span { color:var(--muted); font-size:11px; letter-spacing:1px; }
 .descent-hud strong { color:#f5deb6; font:20px Georgia,serif; letter-spacing:0; white-space:nowrap; }
-.dungeon-inventory-potions { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:44px; padding:3px 7px; border:1px solid transparent; border-radius:6px; }
-.dungeon-inventory-potions small { font-size:10px; white-space:nowrap; }
+.dungeon-inventory-potions,.dungeon-inventory-relics { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:44px; padding:3px 7px; border:1px solid transparent; border-radius:6px; }
+.dungeon-inventory-potions small,.dungeon-inventory-relics small { font-size:10px; white-space:nowrap; }
+button.dungeon-inventory-relics { background:#25182e; border-color:#91719f; color:#e3c9ef; }
+.dungeon-inventory-relics strong { font-size:13px; }
+.descent-sidebar > button.dungeon-inventory-potions { width:100%; flex-direction:row; gap:10px; }
 button.dungeon-inventory-potions { background:#173126; border-color:#729b7e; color:#bbefd0; cursor:pointer; }
 button.dungeon-inventory-potions:disabled { background:#18141d; border-color:#514653; color:#b1a4ac; cursor:default; }
 button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outline-offset:2px; }
@@ -73,9 +76,6 @@ button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outl
 .descent-recovery-potion button { display:flex; align-items:center; justify-content:center; gap:8px; min-width:190px; min-height:44px; padding:7px 10px; border:1px solid #a7f3d0; border-radius:8px; background:#d1fae5; color:#064e3b; }
 .descent-recovery-potion button span { font-size:10px; }
 .descent-merchant,.descent-result { padding:20px; }
-.descent-supplies-menu { padding:10px 14px; border:1px solid #735a35; background:#151017; color:#edd4a7; }
-.descent-supplies-menu summary { min-height:44px; display:flex; align-items:center; cursor:pointer; }
-.descent-supplies-menu button { width:100%; min-height:44px; padding:8px; border:1px solid #735a35; }
 .descent-kevin { width:100%; height:145px; object-fit:cover; margin-bottom:18px; border:1px solid #876942; }
 .descent-merchant h2,.descent-result h2 { font-size:27px; line-height:1.2; margin:0 0 10px; }
 .descent-merchant p,.descent-result p { font-size:12px; line-height:1.7; color:#ccbbab; }
@@ -214,14 +214,16 @@ button.dungeon-inventory-potions:focus-visible { outline:2px solid #efd394; outl
   .descent-mobile-inventory > span:first-child { border-left:0; }
   .descent-mobile-inventory small { overflow:hidden; color:#bcaa99; font-size:10px; text-overflow:ellipsis; }
   .descent-mobile-inventory strong { color:#f5deb6; font:15px Georgia,serif; white-space:nowrap; }
-  .descent-mobile-inventory > .dungeon-inventory-potions { flex-direction:column; align-items:center; gap:1px; min-height:44px; padding:2px; }
-  .descent-mobile-inventory > button.dungeon-inventory-potions small { color:inherit; font-size:9px; }
+  .descent-mobile-inventory > .dungeon-inventory-potions,.descent-mobile-inventory > .dungeon-inventory-relics { flex-direction:column; align-items:center; gap:1px; min-height:44px; padding:2px; }
+  .descent-mobile-inventory > .dungeon-inventory-relics small { color:inherit; }
+  .descent-mobile-inventory > .dungeon-inventory-relics strong { font-size:13px; }
   .descent-mobile-notice { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:7px; min-height:34px; padding:4px 8px; border-top:1px solid #896d43; background:#392c19f2; color:#ead4ad; font-size:11px; line-height:1.25; pointer-events:auto; }
   .descent-mobile-notice > span { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
   .descent-mobile-notice button { min-height:44px; padding:5px 8px; border:1px solid #9d7c4b; border-radius:7px; background:#161018; color:#f3d39a; font-size:11px; }
 
   .descent-mobile-footer { display:grid; width:100%; min-height:0; color:#eee1cf; background:#0b0910f2; pointer-events:none; }
   .descent-mobile-footer button { pointer-events:auto; }
+  .descent-mobile-footer > button.dungeon-inventory-potions { width:100%; flex-direction:row; gap:10px; min-height:44px; border-radius:0; }
   .descent-mobile-health { display:grid; grid-template-columns:minmax(0,1fr); align-items:center; gap:8px; min-height:42px; padding:4px 8px; border-top:1px solid #4f3b50; }
   .descent-mobile-health > div { display:grid; grid-template-columns:auto minmax(60px,1fr); align-items:center; gap:9px; min-width:0; }
   .descent-mobile-health > div > span { color:#c9bfc7; font-size:11px; white-space:nowrap; }
