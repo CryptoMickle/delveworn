@@ -8,7 +8,7 @@ import { useGameAudio } from "./use-game-audio";
 import { GameLogo } from "./game-logo";
 import { DesktopNavigation, KeyboardHint } from "./desktop-navigation";
 
-export type DelvewornMode = "practice" | "onchain";
+export type DelvewornMode = "practice" | "challenge" | "onchain";
 
 export function SmallStat({
   label,
@@ -427,12 +427,14 @@ export function BossRelicReward({
 export function GameHeader({
   mode,
   eyebrow,
+  title,
   subtitle,
   meta,
   children,
 }: {
   mode: DelvewornMode;
   eyebrow: string;
+  title?: string;
   subtitle: ReactNode;
   meta?: ReactNode;
   children?: ReactNode;
@@ -446,6 +448,7 @@ export function GameHeader({
       <div className="delveworn-navigation">
         <nav aria-label="Game modes" className="delveworn-modes">
           <Link href="/practice" aria-current={mode === "practice" ? "page" : undefined}>Practice</Link>
+          <Link href="/challenge" aria-current={mode === "challenge" ? "page" : undefined}>Weekly</Link>
           <Link href="/onchain" aria-current={mode === "onchain" ? "page" : undefined}>Onchain</Link>
         </nav>
         <GameLogo compact />
@@ -457,7 +460,9 @@ export function GameHeader({
         <span className="delveworn-mode-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
         {eyebrow}
       </p>
-      <h1 className="practice-header-title text-4xl font-black tracking-tight lg:text-5xl">{mode === "practice" ? "Practice Dungeon" : "Onchain Dungeon"}</h1>
+      <h1 className="practice-header-title text-4xl font-black tracking-tight lg:text-5xl">
+        {title ?? (mode === "practice" ? "Practice Dungeon" : mode === "challenge" ? "Weekly Challenge" : "Onchain Dungeon")}
+      </h1>
       <p className="practice-header-subtitle mt-2 text-zinc-400">{subtitle}</p>
       {meta && <p className="practice-header-meta mt-2 text-[10px] text-zinc-600">{meta}</p>}
       {children}
@@ -479,8 +484,15 @@ export function DungeonEntry({
   children: ReactNode;
 }) {
   const isPractice = mode === "practice";
-  const proofItems = isPractice
+  const isChallenge = mode === "challenge";
+  const proofItems = isChallenge
     ? [
+        "The challenge ID fixes one seed for every player this week.",
+        "A shared result contains only the action trace and an integrity digest.",
+        "The verifier replays every action locally before showing the score.",
+      ]
+    : isPractice
+      ? [
         "Web Crypto generates every roll in this browser.",
         "No wallet, signature, RPC, VRF request or transaction.",
         "Run progress is local and has no onchain value.",
@@ -505,19 +517,19 @@ export function DungeonEntry({
         />
         <div className="practice-entry-hero-fade absolute inset-0" />
         <div className="practice-entry-mode-stamp absolute left-4 top-4 rounded-full border px-3 py-1.5 text-[9px] font-black tracking-[0.18em] backdrop-blur-md">
-          {isPractice ? "LOCAL SIMULATION" : "LIVE TESTNET"}
+          {isChallenge ? "REPLAY VERIFIED" : isPractice ? "LOCAL SIMULATION" : "LIVE TESTNET"}
         </div>
       </div>
-      <div data-keyboard-actions={isPractice ? "" : undefined} className="practice-entry-copy flex flex-col items-center justify-center p-6 text-center lg:items-start lg:p-10 lg:text-left">
+      <div data-keyboard-actions={mode !== "onchain" ? "" : undefined} className="practice-entry-copy flex flex-col items-center justify-center p-6 text-center lg:items-start lg:p-10 lg:text-left">
         <p className="practice-entry-eyebrow text-[10px] font-black tracking-[0.25em]">{eyebrow}</p>
         <h2 className="mt-3 text-3xl font-black lg:text-4xl">The Dungeon Awaits</h2>
         <p className="mt-3 max-w-sm text-sm leading-relaxed text-zinc-400">{description}</p>
         <details className="practice-mode-proof mt-5 w-full rounded-xl border bg-black/30 p-3 text-left">
           <summary className="practice-proof-summary">
             <span className="practice-mode-proof-label">
-              {isPractice ? "Local simulation · saved in this browser" : "Contract state · verifiable randomness"}
+              {isChallenge ? "Deterministic run · verified by replay" : isPractice ? "Local simulation · saved in this browser" : "Contract state · verifiable randomness"}
             </span>
-            <span className="practice-proof-boundary">{isPractice ? "No wallet · no onchain value" : "Wallet authorization · live testnet"}</span>
+            <span className="practice-proof-boundary">{mode !== "onchain" ? "No wallet · no onchain value" : "Wallet authorization · live testnet"}</span>
             <span className="practice-proof-disclosure" aria-hidden="true">Details +</span>
           </summary>
           <div className="mt-3 space-y-2 border-t border-white/10 pt-3">

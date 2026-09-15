@@ -21,15 +21,17 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 }
 
-test("neutral home waits for a mode choice before routing into either dungeon", async ({ page }) => {
+test("neutral home waits for a mode choice before routing into a dungeon", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Your call. Your way in.", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Choose your way into the dungeon.", level: 2 })).toBeVisible();
   const modes = page.getByRole("group", { name: "Choose your dungeon" });
   const practice = modes.getByRole("button", { name: "Practice", exact: true });
+  const challenge = modes.getByRole("button", { name: "Weekly Challenge", exact: true });
   const onchain = modes.getByRole("button", { name: "Onchain", exact: true });
   await expect(practice).toHaveAttribute("aria-pressed", "false");
+  await expect(challenge).toHaveAttribute("aria-pressed", "false");
   await expect(onchain).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByRole("button", { name: "CHOOSE A MODE", exact: true })).toBeDisabled();
   await noOverflow(page);
@@ -39,6 +41,14 @@ test("neutral home waits for a mode choice before routing into either dungeon", 
   await expect(onchain).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
   await expect(page.getByRole("button", { name: /START LOCAL RUN/ })).toBeEnabled();
+  await page.getByRole("link", { name: "Delveworn home" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("button", { name: "CHOOSE A MODE", exact: true })).toBeDisabled();
+  await challenge.click();
+  await expect(challenge).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("WEEKLY · SAME SEED FOR EVERYONE", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
+  await expect(page.getByRole("button", { name: /START \d{4}-W\d{2}/ })).toBeEnabled();
   await page.getByRole("link", { name: "Delveworn home" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("button", { name: "CHOOSE A MODE", exact: true })).toBeDisabled();

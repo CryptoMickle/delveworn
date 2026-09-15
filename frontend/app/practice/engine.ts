@@ -15,6 +15,7 @@ import {
   pickFreshLogLine,
   pickLogLine,
 } from "./log-copy";
+import { cryptoRandomInt, type RandomInt } from "./random";
 
 export type MonsterType = 0 | 1 | 2 | 3;
 export type LootType = 0 | 1 | 2 | 3 | 4;
@@ -111,21 +112,6 @@ export const EMPTY_GAME: PracticeGame = {
   log: [],
 };
 
-function randomInt(maxExclusive: number): number {
-  if (maxExclusive <= 0) return 0;
-  const range = 0x1_0000_0000;
-  const limit = Math.floor(range / maxExclusive) * maxExclusive;
-  const buffer = new Uint32Array(1);
-  let value = range;
-
-  while (value >= limit) {
-    globalThis.crypto.getRandomValues(buffer);
-    value = buffer[0];
-  }
-
-  return value % maxExclusive;
-}
-
 function withLog(state: PracticeGame, ...messages: string[]): PracticeGame {
   return {
     ...state,
@@ -198,7 +184,10 @@ function applyArmor(armorLevel: number, damage: number): number {
   return Math.max(flatReduced, minimumDamage);
 }
 
-function rollMonsterDamage(state: PracticeGame): number {
+function rollMonsterDamage(
+  state: PracticeGame,
+  randomInt: RandomInt
+): number {
   const room = state.roomsCleared + 1;
   const raw = monsterDamage(state.monsterType, room) - 1 + randomInt(3);
   return scaleIncoming(
@@ -243,13 +232,19 @@ function equipRelic(
   };
 }
 
-function rollRelicOffer(rarity: RelicRarityId): number {
+function rollRelicOffer(
+  rarity: RelicRarityId,
+  randomInt: RandomInt
+): number {
   const relics = getOfferedRelics(rarity);
   if (relics.length === 0) return 0;
   return relics[randomInt(relics.length)].id;
 }
 
-function spawnMonster(state: PracticeGame): PracticeGame {
+function spawnMonster(
+  state: PracticeGame,
+  randomInt: RandomInt
+): PracticeGame {
   const room = state.roomsCleared + 1;
   let type: MonsterType;
 
@@ -265,12 +260,12 @@ function spawnMonster(state: PracticeGame): PracticeGame {
   const encounterMessages = type === 3
     ? [
         `🚪 You enter Room ${room}. Management has been notified.`,
-        `👑 ${persona.name}: ${pickLogLine(persona.encounters)}`,
+        `👑 ${persona.name}: ${pickLogLine(persona.encounters, randomInt)}`,
         getBossDialogue(room),
       ]
     : [
         `🚪 You enter Room ${room}. The safety inspection remains theoretical.`,
-        `👁️ ${persona.name}: ${pickLogLine(persona.encounters)}`,
+        `👁️ ${persona.name}: ${pickLogLine(persona.encounters, randomInt)}`,
       ];
 
   return withLog(
@@ -382,7 +377,8 @@ function defeatMonster(
   state: PracticeGame,
   lootRoll: number,
   amountRoll: number,
-  finisherMessage: string
+  finisherMessage: string,
+  randomInt: RandomInt
 ): PracticeGame {
   const room = state.roomsCleared + 1;
   const persona = getMonsterLogPersona(state.monsterType, room);
@@ -413,7 +409,7 @@ function defeatMonster(
     const relicOfferRarity = bossTier > 4
       ? rollRarityAfterTierFour(amountRoll)
       : rollRarity(amountRoll);
-    const relicOfferId = rollRelicOffer(relicOfferRarity);
+    const relicOfferId = rollRelicOffer(relicOfferRarity, randomInt);
     next = {
       ...next,
       relicOfferAvailable: relicOfferId !== 0,
@@ -444,7 +440,7 @@ function defeatMonster(
 
   const messages = [
     finisherMessage,
-    `☠️ ${pickLogLine(persona.killLines)}`,
+    `☠️ ${pickLogLine(persona.killLines, randomInt)}`,
     `🪙 Base reward: ${reward} gold. The dungeon reluctantly honors payroll.`,
     lootLogMessage(next),
   ];
@@ -457,7 +453,7 @@ function defeatMonster(
   return withLog(next, ...messages);
 }
 
-export function startRun(): PracticeGame {
+export function startRun(randomInt: RandomInt = cryptoRandomInt): PracticeGame {
   return spawnMonster({
     ...EMPTY_GAME,
     hasStarted: true,
@@ -467,10 +463,13 @@ export function startRun(): PracticeGame {
       `🧪 Starting supplies: ${EMPTY_GAME.potions} potions of disputed origin.`,
       "📝 No wallet. No VRF. No witnesses.",
     ],
-  });
+  }, randomInt);
 }
 
-export function attack(state: PracticeGame): PracticeGame {
+export function attack(
+  state: PracticeGame,
+  randomInt: RandomInt = cryptoRandomInt
+): PracticeGame {
   if (!state.active || state.monsterHp <= 0) return withLog(state, "There is nothing to attack.");
 
   const base = 10 + state.weaponLevel * 2;
@@ -485,8 +484,8 @@ export function attack(state: PracticeGame): PracticeGame {
     state.roomsCleared + 1
   );
   const attackMessage = critical
-    ? getCriticalLogLine(actual, state.log)
-    : getAttackLogLine(persona.name, actual, state.log);
+    ? getCriticalLogLine(actual, state.log, randomInt)
+    : getAttackLogLine(persona.name, actual, state.log, randomInt);
   let next = {
     ...state,
     lastPlayerDamage: actual,
@@ -499,27 +498,31 @@ export function attack(state: PracticeGame): PracticeGame {
       next,
       randomInt(100),
       randomInt(10_000),
-      attackMessage
+      attackMessage,
+      randomInt
     );
   }
 
   next = { ...next, monsterHp: state.monsterHp - rolled };
-  const incoming = rollMonsterDamage(next);
+  const incoming = rollMonsterDamage(next, randomInt);
   next = takeDamage({ ...next, lastMonsterDamage: incoming }, incoming);
   const revived = !state.relicReviveUsed && next.relicReviveUsed;
   next = withLog(
     next,
     attackMessage,
-    `💔 ${persona.name} hits you for ${incoming} DAMAGE. ${pickFreshLogLine(persona.hitLines, state.log)}`
+    `💔 ${persona.name} hits you for ${incoming} DAMAGE. ${pickFreshLogLine(persona.hitLines, state.log, randomInt)}`
   );
   if (revived) {
     const relicName = getRelicDefinition(next.equippedRelic).name;
     next = withLog(next, `🔥 ${relicName} revives you with ${next.hp} HP. Death has been asked to reschedule.`);
   }
-  return next.active ? next : withLog(next, getDeathLogLine());
+  return next.active ? next : withLog(next, getDeathLogLine(false, randomInt));
 }
 
-export function stormAttack(state: PracticeGame): PracticeGame {
+export function stormAttack(
+  state: PracticeGame,
+  randomInt: RandomInt = cryptoRandomInt
+): PracticeGame {
   if (!state.active || state.monsterHp <= 0) return withLog(state, "There is nothing to attack.");
 
   const max = (10 + state.weaponLevel * 2) * 2;
@@ -550,27 +553,31 @@ export function stormAttack(state: PracticeGame): PracticeGame {
       next,
       randomInt(100),
       randomInt(10_000),
-      `⚡ Storm deals ${actual} DAMAGE and finishes ${persona.name}. The weather department accepts full credit.`
+      `⚡ Storm deals ${actual} DAMAGE and finishes ${persona.name}. The weather department accepts full credit.`,
+      randomInt
     );
   }
 
   next = { ...next, monsterHp: state.monsterHp - rolled };
-  const incoming = rollMonsterDamage(next);
+  const incoming = rollMonsterDamage(next, randomInt);
   next = takeDamage({ ...next, lastMonsterDamage: incoming }, incoming);
   const revived = !state.relicReviveUsed && next.relicReviveUsed;
   next = withLog(
     next,
-    getStormLogLine(actual, stormMax, state.log),
-    `💔 ${persona.name} retaliates for ${incoming} DAMAGE. ${pickFreshLogLine(persona.hitLines, state.log)}`
+    getStormLogLine(actual, stormMax, state.log, randomInt),
+    `💔 ${persona.name} retaliates for ${incoming} DAMAGE. ${pickFreshLogLine(persona.hitLines, state.log, randomInt)}`
   );
   if (revived) {
     const relicName = getRelicDefinition(next.equippedRelic).name;
     next = withLog(next, `🔥 ${relicName} revives you with ${next.hp} HP. Death has been asked to reschedule.`);
   }
-  return next.active ? next : withLog(next, getDeathLogLine(true));
+  return next.active ? next : withLog(next, getDeathLogLine(true, randomInt));
 }
 
-export function usePotion(state: PracticeGame): PracticeGame {
+export function usePotion(
+  state: PracticeGame,
+  randomInt: RandomInt = cryptoRandomInt
+): PracticeGame {
   if (!state.active) return withLog(state, "The run is over.");
   if (state.potions <= 0) return withLog(state, "No potions left.");
   if (state.hp >= state.maxHp) return withLog(state, "HP is already full.");
@@ -593,7 +600,7 @@ export function usePotion(state: PracticeGame): PracticeGame {
   const limit = state.monsterType === 3 ? 3 : 2;
   if (state.combatPotionsUsed >= limit) return withLog(state, "Combat potion limit reached.");
 
-  const incoming = Math.floor((rollMonsterDamage(state) + 1) / 2);
+  const incoming = Math.floor((rollMonsterDamage(state, randomInt) + 1) / 2);
   let hp = state.hp + 25;
   hp = hp > incoming ? hp - incoming : 0;
   hp = Math.min(state.maxHp, hp);
@@ -624,10 +631,13 @@ export function usePotion(state: PracticeGame): PracticeGame {
     const relicName = getRelicDefinition(next.equippedRelic).name;
     next = withLog(next, `🔥 ${relicName} revives you with ${next.hp} HP. Death has been asked to reschedule.`);
   }
-  return next.active ? next : withLog(next, getDeathLogLine());
+  return next.active ? next : withLog(next, getDeathLogLine(false, randomInt));
 }
 
-export function enterNextRoom(state: PracticeGame): PracticeGame {
+export function enterNextRoom(
+  state: PracticeGame,
+  randomInt: RandomInt = cryptoRandomInt
+): PracticeGame {
   if (!state.active) return withLog(state, "The run is over.");
   if (state.monsterHp > 0) return withLog(state, "Defeat the monster first.");
 
@@ -647,7 +657,7 @@ export function enterNextRoom(state: PracticeGame): PracticeGame {
     );
   }
 
-  return spawnMonster(next);
+  return spawnMonster(next, randomInt);
 }
 
 export function claimRelic(state: PracticeGame, equip: boolean): PracticeGame {

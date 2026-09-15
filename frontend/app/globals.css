@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./challenge/challenge.css";
 
 :root {
   color-scheme: dark;
@@ -348,8 +349,11 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
   .desktop-keyboard-hint { display: none; }
   .practice-shell, .practice-shell.practice-in-run { padding: 8px 10px max(16px,env(safe-area-inset-bottom)); background: radial-gradient(ellipse at top, #26182b, #09090b 60%); }
   .practice-in-run .practice-column { max-width: none; }
-  .delveworn-navigation { min-height: 48px; gap: 4px; padding-bottom: 4px; margin-bottom: 4px; }
-  .delveworn-navigation .delveworn-modes a { display: grid; min-height: 44px; padding: 0 5px; font-size: 10px; }
+  .delveworn-navigation { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "home sound" "modes modes"; min-height: 96px; gap: 3px 8px; padding-bottom: 4px; margin-bottom: 4px; }
+  .delveworn-navigation > .delveworn-home { grid-area: home; justify-self: start; }
+  .delveworn-navigation > .delveworn-sound { grid-area: sound; justify-self: end; }
+  .delveworn-navigation > .delveworn-modes { grid-area: modes; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); justify-self: stretch; width: 100%; }
+  .delveworn-navigation .delveworn-modes a { display: grid; min-height: 40px; padding: 0 5px; font-size: 10px; }
   .delveworn-sound { min-height: 44px; max-width: 88px; padding: 6px 8px; font-size: 10px; }
   .onchain-wallet-controls { grid-template-columns: minmax(0,1fr); gap: 5px; margin-bottom: 8px; padding-bottom: 8px; }
   .onchain-wallet-actions { grid-column: 1; grid-row: 2; }
@@ -454,7 +458,7 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
   .practice-potion-consequence { display: none; }
 }
 @media (max-width: 360px) {
-  .delveworn-navigation { column-gap: 2px; }
+  .delveworn-navigation { column-gap: 6px; }
   .delveworn-navigation .delveworn-modes a { padding: 0 3px; }
   .delveworn-sound { padding: 6px; }
   .practice-hud-value { gap: 2px; font-size: 11px; }

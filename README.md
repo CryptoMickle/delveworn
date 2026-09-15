@@ -10,6 +10,7 @@ The onchain game keeps gameplay, balance, player state and progression in the `D
 
 | Experience | Link | What it demonstrates |
 | --- | --- | --- |
+| Weekly Verified Challenge | [Play the current weekly seed](https://delveworn.app/challenge) | A wallet-free 10-room sprint with deterministic replay verification and challenge links. |
 | Practice Mode | [Play without a wallet](https://delveworn.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
 | Onchain beta | [Open the Somnia Testnet game](https://delveworn.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
 | Previous version | [Open the original frontend](https://delveworn.vercel.app) | Preserved separately from the upgraded experience. |
@@ -41,7 +42,7 @@ For a concise presentation sequence, use the [Somnia Verified Run 90-second demo
 
 The Foundry project remains at the repository root. All frontend commands run from `frontend/`.
 
-The frontend source now serves a neutral mode-selection home at `/`, local Practice at `/practice`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home or Practice route does not initialize the wallet bridge.
+The frontend source now serves a neutral mode-selection home at `/`, the current wallet-free challenge at `/challenge`, local Practice at `/practice`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home, challenge or Practice route does not initialize the wallet bridge.
 
 For local frontend checks, run `npm test`, `npm run lint`, and `npm run build`. `npm run test:e2e` runs the interaction suite on desktop Chromium, Android-sized Chromium and small iPhone-sized WebKit; install its browsers with `npx playwright install chromium webkit`. The browser suite seeds explicitly local Practice states and does not submit onchain actions. Emulation is not a physical-device or live-wallet test.
 
@@ -55,6 +56,10 @@ Practice Mode is not onchain, does not persist authoritative state and does not 
 
 Local saves are validated before restoration. Unavailable storage leaves the run playable, while malformed or newer-format saves stay untouched until the player explicitly replaces them. Cross-tab changes pause saving to protect the other run. Shared results label Practice progress as self-reported local simulation.
 
+### Weekly Verified Challenge
+
+Weekly Challenge runs the same local game rules with a controlled seed derived from an ISO week ID. The 10-room run requires no wallet. Shared URLs contain a compact action trace and integrity digest; the recipient sees a score only after the trace is validated and replayed against the same seed. See [Weekly Verified Challenge V1](WEEKLY_VERIFIED_CHALLENGE.md) for the schedule, score, proof format, analytics events and limits.
+
 ### Onchain Mode
 
 Onchain Mode connects a wallet to a configured deployment. Player state and game actions are handled by the deployed `Delveworn` contract, and randomness-backed actions resolve through the configured provider and callback adapter.
@@ -65,6 +70,8 @@ Onchain Mode depends on the selected network, RPC availability, wallet confirmat
 
 Delveworn currently includes:
 
+- A wallet-free weekly challenge with deterministic replay verification
+- Result links that open the same challenge and preserve referral attribution
 - Fully onchain player state
 - Procedurally selected enemies
 - Zombie, Goblin, Orc and Dungeon Lord encounters
@@ -170,6 +177,7 @@ Start the development server or run the production checks:
 
 ```bash
 npm run dev
+npm test
 npm run lint
 npm run build
 ```

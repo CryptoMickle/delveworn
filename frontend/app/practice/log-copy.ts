@@ -1,3 +1,5 @@
+import { cryptoRandomInt, type RandomInt } from "./random";
+
 type MonsterLogPersona = {
   name: string;
   encounters: readonly string[];
@@ -357,40 +359,39 @@ const STORM_EXTREME_LINES = [
   "⚡ Storm deals {damage} DAMAGE. Completely unreasonable. Excellent.",
 ] as const;
 
-function randomIndex(length: number): number {
-  if (length <= 1) return 0;
-  const value = new Uint32Array(1);
-  crypto.getRandomValues(value);
-  return value[0] % length;
-}
-
-export function pickLogLine<T>(values: readonly T[]): T {
-  return values[randomIndex(values.length)];
+export function pickLogLine<T>(
+  values: readonly T[],
+  randomInt: RandomInt = cryptoRandomInt
+): T {
+  return values[randomInt(values.length)];
 }
 
 function pickFreshCandidate<T>(
   values: readonly T[],
   recentLog: readonly string[],
-  markerFor: (value: T) => string
+  markerFor: (value: T) => string,
+  randomInt: RandomInt
 ): T {
   const withRecency = values.map((value) => ({
     value,
     lastSeenAt: recentLog.findIndex((entry) => entry.includes(markerFor(value))),
   }));
   const unseen = withRecency.filter(({ lastSeenAt }) => lastSeenAt === -1);
-  if (unseen.length > 0) return pickLogLine(unseen).value;
+  if (unseen.length > 0) return pickLogLine(unseen, randomInt).value;
 
   const oldestIndex = Math.max(...withRecency.map(({ lastSeenAt }) => lastSeenAt));
   return pickLogLine(
-    withRecency.filter(({ lastSeenAt }) => lastSeenAt === oldestIndex)
+    withRecency.filter(({ lastSeenAt }) => lastSeenAt === oldestIndex),
+    randomInt
   ).value;
 }
 
 export function pickFreshLogLine<T extends string>(
   values: readonly T[],
-  recentLog: readonly string[]
+  recentLog: readonly string[],
+  randomInt: RandomInt = cryptoRandomInt
 ): T {
-  return pickFreshCandidate(values, recentLog, (value) => value);
+  return pickFreshCandidate(values, recentLog, (value) => value, randomInt);
 }
 
 function templateMarker(template: string): string {
@@ -405,10 +406,14 @@ function templateMarker(template: string): string {
 
 function pickFreshTemplate<T extends string>(
   templates: readonly T[],
-  recentLog: readonly string[]
+  recentLog: readonly string[],
+  randomInt: RandomInt
 ): T {
-  return pickFreshCandidate<T>(templates, recentLog, (template) =>
-    templateMarker(template)
+  return pickFreshCandidate<T>(
+    templates,
+    recentLog,
+    (template) => templateMarker(template),
+    randomInt
   );
 }
 
@@ -434,30 +439,36 @@ export function getMonsterLogPersona(monsterType: number, room: number): Monster
 export function getAttackLogLine(
   monster: string,
   damage: number,
-  recentLog: readonly string[] = []
+  recentLog: readonly string[] = [],
+  randomInt: RandomInt = cryptoRandomInt
 ): string {
-  return pickFreshTemplate(ATTACK_LINES, recentLog)
+  return pickFreshTemplate(ATTACK_LINES, recentLog, randomInt)
     .replace("{monster}", monster)
     .replace("{damage}", `${damage}`);
 }
 
 export function getCriticalLogLine(
   damage: number,
-  recentLog: readonly string[] = []
+  recentLog: readonly string[] = [],
+  randomInt: RandomInt = cryptoRandomInt
 ): string {
-  return `💥 ${pickFreshLogLine(CRITICAL_LINES, recentLog)} ${damage} DAMAGE.`;
+  return `💥 ${pickFreshLogLine(CRITICAL_LINES, recentLog, randomInt)} ${damage} DAMAGE.`;
 }
 
-export function getDeathLogLine(storm = false): string {
-  return pickLogLine(storm ? STORM_DEATH_LINES : NORMAL_DEATH_LINES);
+export function getDeathLogLine(
+  storm = false,
+  randomInt: RandomInt = cryptoRandomInt
+): string {
+  return pickLogLine(storm ? STORM_DEATH_LINES : NORMAL_DEATH_LINES, randomInt);
 }
 
 export function getStormLogLine(
   damage: number,
   stormMax: number,
-  recentLog: readonly string[] = []
+  recentLog: readonly string[] = [],
+  randomInt: RandomInt = cryptoRandomInt
 ): string {
-  if (damage === 0) return pickFreshLogLine(STORM_ZERO_LINES, recentLog);
+  if (damage === 0) return pickFreshLogLine(STORM_ZERO_LINES, recentLog, randomInt);
   const ratio = stormMax > 0 ? damage / stormMax : 0;
   const lines = ratio < 0.25
     ? STORM_LOW_LINES
@@ -466,7 +477,7 @@ export function getStormLogLine(
       : ratio < 0.85
         ? STORM_HIGH_LINES
         : STORM_EXTREME_LINES;
-  return pickFreshTemplate(lines, recentLog).replace("{damage}", `${damage}`);
+  return pickFreshTemplate(lines, recentLog, randomInt).replace("{damage}", `${damage}`);
 }
 
 export function getBossDialogue(room: number): string {

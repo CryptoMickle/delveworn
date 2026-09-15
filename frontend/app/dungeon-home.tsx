@@ -8,7 +8,7 @@ import { GameLogo } from "./game-logo";
 import { useGameAudio } from "./use-game-audio";
 import styles from "./home.module.css";
 
-type DungeonMode = "practice" | "onchain";
+type DungeonMode = "practice" | "challenge" | "onchain";
 
 export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string }) {
   const [mode, setMode] = useState<DungeonMode | null>(null);
@@ -22,6 +22,14 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
     facts: ["Local play", "No wallet", "Endless rooms"],
     resume: "A saved local run will resume when you enter Practice.",
     note: "Local simulation. Progress is saved in this browser when available. No transactions or onchain rewards.",
+  } : mode === "challenge" ? {
+    eyebrow: "WEEKLY · SAME SEED FOR EVERYONE",
+    title: "One dungeon. One week. Your decisions.",
+    intro: "Take on a fixed 10-room challenge, earn a replay-verified score and share a link that sends friends into the same run.",
+    points: ["Every player gets the same challenge ID and controlled seed.", "Shared results are rebuilt from the action trace before the score is shown."],
+    facts: ["No wallet", "10 rooms", "Replay verified"],
+    resume: "Your current weekly run resumes on this browser when available.",
+    note: "Local deterministic play. No transaction, token, NFT or onchain reward.",
   } : mode === "onchain" ? {
     eyebrow: `WALLET · ${onchainNetwork.toUpperCase()}`,
     title: "Enter the dungeon onchain.",
@@ -56,9 +64,9 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
         </header>
         <div data-keyboard-actions>
           <div className={styles.modes} role="group" aria-label="Choose your dungeon">
-            {(["practice", "onchain"] as const).map(value => (
+            {(["practice", "challenge", "onchain"] as const).map(value => (
               <button key={value} type="button" className={styles.mode} aria-pressed={mode === value} aria-controls="dungeon-details" data-keyboard-default={value === "practice" ? "true" : undefined} onClick={() => setMode(value)}>
-                {value === "practice" ? "Practice" : "Onchain"}
+                {value === "practice" ? "Practice" : value === "challenge" ? "Weekly Challenge" : "Onchain"}
               </button>
             ))}
           </div>
@@ -87,7 +95,7 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
             </div>
           </section>
         </div>
-        <footer className={styles.footer}><span>DELVEWORN · PRACTICE &amp; {onchainNetwork.toUpperCase()}</span><span>Dungeon management accepts no responsibility.</span></footer>
+        <footer className={styles.footer}><span>DELVEWORN · WEEKLY · PRACTICE · {onchainNetwork.toUpperCase()}</span><span>Dungeon management accepts no responsibility.</span></footer>
       </div>
     </main>
   );

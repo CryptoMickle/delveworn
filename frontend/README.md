@@ -60,9 +60,17 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Weekly Verified Challenge
+
+Open `/challenge` for the current ISO week or `/challenge/2026-W38` for a stable challenge ID. The mode uses the shared Practice engine with a deterministic seed, records only legal action codes and reconstructs each shared result before displaying its score. It requires no wallet or network call.
+
+The full V1 contract for challenge IDs, scoring, proof validation, sharing, privacy and exclusions is documented in [`../WEEKLY_VERIFIED_CHALLENGE.md`](../WEEKLY_VERIFIED_CHALLENGE.md).
+
 ## Production build
 
 ```bash
+npm test
+npm run lint
 npm run build
 ```
 
