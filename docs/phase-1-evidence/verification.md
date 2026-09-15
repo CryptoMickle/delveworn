@@ -19,6 +19,16 @@ flow is still unverified; this is a review preview, not production-ready.
 Changes: `app/dungeon/movement.ts`, `tests/dungeon-movement.test.ts` and this
 record. Camera layout, art, combat rules and loot placement are unchanged.
 
+Current preview: source `964812d0e9b0d72daf04670403209c94db9051a1`, deployment
+`dpl_6aLDHnfo1CrqC34rqsBoT7WLCdHM`, **READY**.
+<https://delveworn-8ju886rrq-crypto-mickle.vercel.app/play>
+
+Seven-day deployment-specific access link delivered in the conversation; token
+not committed. After access propagation, the link returned HTTP 200 with the
+expected First Descent title; avatar asset also returned 200. These are delivery
+checks only. The previous movement preview below is superseded. No production
+release, remote Git push or onchain transaction.
+
 ## Previous correction — stable room, walking and automatic loot
 
 User reported zooming on each attack, hopping during Approach and requested
