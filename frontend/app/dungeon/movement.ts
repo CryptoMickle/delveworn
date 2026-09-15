@@ -10,7 +10,12 @@ type Frames = { request: (callback: (time: number) => void) => number; cancel: (
 /** One clock owns both visible movement and arrival. Cancelling keeps the last
  * displayed point, so a new destination never starts at the old destination. */
 export function startRoomWalk(from: Point, to: Point, step: (point: Point) => boolean | void, arrive: () => void,
-  frames: Frames = { request: requestAnimationFrame, cancel: cancelAnimationFrame }) {
+  frames: Frames = {
+    // Native animation methods require Window as their receiver. Copying them
+    // onto `frames` makes frames.request() throw before the first movement frame.
+    request: callback => window.requestAnimationFrame(callback),
+    cancel: id => window.cancelAnimationFrame(id),
+  }) {
   const duration = Math.hypot(to.x - from.x, to.y - from.y) / .24;
   let start: number | undefined, frame = 0, stopped = false;
   const tick = (time: number) => {

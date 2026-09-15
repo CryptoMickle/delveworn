@@ -13,6 +13,45 @@ function clock() {
   };
 }
 
+test("the default animation clock keeps the browser Window receiver for starting and cancelling walks",()=>{
+  const scheduler=clock();
+  const browserWindow={
+    requestAnimationFrame(this:unknown,callback:(time:number)=>void) {
+      assert.equal(this,browserWindow,"requestAnimationFrame requires its Window receiver");
+      return scheduler.frames.request(callback);
+    },
+    cancelAnimationFrame(this:unknown,id:number) {
+      assert.equal(this,browserWindow,"cancelAnimationFrame requires its Window receiver");
+      scheduler.frames.cancel(id);
+    },
+  };
+  const keys=["window","requestAnimationFrame","cancelAnimationFrame"] as const;
+  const originals=keys.map(key=>Object.getOwnPropertyDescriptor(globalThis,key));
+  Object.defineProperties(globalThis,{
+    window:{configurable:true,value:browserWindow},
+    requestAnimationFrame:{configurable:true,value:browserWindow.requestAnimationFrame},
+    cancelAnimationFrame:{configurable:true,value:browserWindow.cancelAnimationFrame},
+  });
+  try {
+    let visible={x:420,y:496},arrivals=0;
+    const stop=startRoomWalk(visible,{x:400,y:391},point=>{visible=point;},()=>{arrivals++;});
+    scheduler.tick(0); scheduler.tick(100);
+    assert.ok(visible.y<496 && visible.y>391,"the default clock must actually move the avatar");
+    const paused={...visible};
+    stop(); scheduler.tick(1000);
+    assert.deepEqual(visible,paused); assert.equal(arrivals,0);
+    startRoomWalk(visible,{x:400,y:391},point=>{visible=point;},()=>{arrivals++;});
+    scheduler.tick(1100); scheduler.tick(2100);
+    assert.deepEqual(visible,{x:400,y:391}); assert.equal(arrivals,1);
+    assert.equal(scheduler.pending(),0);
+  } finally {
+    keys.forEach((key,index)=>{
+      if(originals[index]) Object.defineProperty(globalThis,key,originals[index]!);
+      else Reflect.deleteProperty(globalThis,key);
+    });
+  }
+});
+
 test("approach moves continuously on one clock and arrives at its displayed destination once",()=>{
   const scheduler=clock(), from={x:420,y:496}, to={x:400,y:391}, positions:Point[]=[];
   let arrivals=0;

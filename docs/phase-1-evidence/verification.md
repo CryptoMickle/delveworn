@@ -1,6 +1,25 @@
 # First Descent verification — 2026-09-15
 
-## Current correction — stable room, walking and automatic loot
+## Current hotfix — avatar turns but walking never starts
+
+The phone review of `e10f0ac` exposed a browser-specific error missed by the
+injected test clock: native `requestAnimationFrame`/`cancelAnimationFrame` were
+copied onto another object and invoked with that object as their receiver.
+Facing changed before scheduling threw, so the avatar could turn but not walk.
+
+The default clock now calls both methods through `window`. A new test exercises
+the actual default clock against Window-receiver checks, including movement,
+cancellation and arrival after restarting. It failed on the previous code and
+passes with the fix. The full suite is **108 passed, 0 failed**; TypeScript and
+targeted ESLint passed; Somnia standard production build passed.
+
+Approved Browser navigation was retried for `/play`; the required admin-policy
+check remains unavailable. No alternate browser was used. The physical phone
+flow is still unverified; this is a review preview, not production-ready.
+Changes: `app/dungeon/movement.ts`, `tests/dungeon-movement.test.ts` and this
+record. Camera layout, art, combat rules and loot placement are unchanged.
+
+## Previous correction — stable room, walking and automatic loot
 
 User reported zooming on each attack, hopping during Approach and requested
 random floor drops, automatic pickup by proximity and horizontal avatar facing.
