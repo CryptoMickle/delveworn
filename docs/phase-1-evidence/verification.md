@@ -2,6 +2,22 @@
 
 ## Current correction — tap the doorway to bypass loot
 
+### Current phone preview
+
+- Source `4cd97612ca08b68cfd14e5dfacd0415b75d8ed60`; Vercel deployment
+  `dpl_5ihowAG5JyEYudGYXS3uD4F75gPc`: **READY**, preview target.
+- <https://delveworn-j43trlqmp-crypto-mickle.vercel.app/practice>
+  (the deployment-specific seven-day access link is delivered in the
+  conversation; its token is not committed).
+- `/practice`, `/play` and `/onchain` returned **HTTP 200** with expected
+  Delveworn titles. Kevin, tier-4 Meatwall and the transparent potion artwork
+  returned **HTTP 200**, `image/webp`. These are delivery checks only.
+- Exported tracked frontend files only; Somnia standard configuration with
+  session keys disabled. No production release, remote Git push/merge,
+  account creation, domain/configuration change or contract transaction.
+
+### Correction
+
 The previous correction did not meet the user's intended interaction: it added
 a Leave loot button, but the actual doorway still redirected the player to loot.
 This correction changes that routing. A direct doorway tap walks to the door,
@@ -62,7 +78,7 @@ Confirm the separate recovery Potion button is gone from the grid.
 
 ## Previous correction — optional loot, endless shared grid and readable Kevin shop
 
-### Current phone preview
+### Previous phone preview
 
 - Source `b258bc2f06675c68f51ff3a3a51a72c48e8e9d0d`; Vercel deployment
   `dpl_DakWn5rJzNipw8t2DH68kQhh2att`: **READY**, preview target.
