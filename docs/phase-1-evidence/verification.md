@@ -28,9 +28,13 @@ parked, an unfinished journey resumes, and a new room starts a fresh entrance.
 This exercises destination -> undefined -> destination with real component
 effects and a fake animation clock, without a DOM/browser.
 
-Protected preview publication is pending under the existing approval/project/
-protection. No production promotion, Git push or contract transaction. Browser
-execution is still policy-blocked; no browser/device verification is claimed.
+Source `4e53be586335bdbc53471817fbc030b1d61c60a2`, deployment
+`dpl_6Pg4hdtEP4a9DCghysX19hQvNjRz`, is **READY**, verified through Vercel's API.
+[Practice preview](https://delveworn-7u88nenqd-crypto-mickle.vercel.app/practice).
+The existing approval/project/protection is retained, Somnia standard with
+session keys disabled. No production promotion, Git push or contract
+transaction. Browser execution is still policy-blocked; no browser/device
+verification is claimed.
 
 ## Previous correction — varied spoken humour and a top-right bubble
 

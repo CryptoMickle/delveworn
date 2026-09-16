@@ -36,8 +36,11 @@ stage or stays parked afterward instead of entering the same room twice.
 
 All **196 tests** and the Somnia-standard production build pass. ESLint has zero
 errors and 14 existing warnings. The mounted Strict Mode probe confirms the
-cap before and after expiry, and a fresh greeting next room. Protected preview
-publication is pending; see [verification](phase-1-evidence/verification.md).
+cap before and after expiry, and a fresh greeting next room. Kevin's mounted
+reward-transition probe confirms parked, in-progress and new-room behavior.
+Source `4e53be586335bdbc53471817fbc030b1d61c60a2` is **READY** on the protected
+[Practice preview](https://delveworn-7u88nenqd-crypto-mickle.vercel.app/practice).
+See [verification](phase-1-evidence/verification.md).
 
 ## Previous checkpoint — expanded monster dialogue and top-right speech
 
