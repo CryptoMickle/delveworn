@@ -24,13 +24,15 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — two lines per fight and mirrored shop portrait
+## Current checkpoint — two lines per fight and Kevin continuity
 
 Each fight now allows at most one personal opening and one reaction. Further
 combat actions cannot start a third line, reset its timer or consume unseen
 catalogue entries. The next room gets a fresh allowance; the 264-line rotation
 and top-right parchment presentation remain. Kevin's original shop portrait is
 mirrored horizontally through scoped CSS in the shared shop component.
+The relic-choice phase now preserves Kevin's journey, so he resumes at the same
+stage or stays parked afterward instead of entering the same room twice.
 
 All **196 tests** and the Somnia-standard production build pass. ESLint has zero
 errors and 14 existing warnings. The mounted Strict Mode probe confirms the

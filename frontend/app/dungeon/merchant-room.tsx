@@ -55,7 +55,9 @@ export function RoomMerchant({ destination, actorScale, onArrivalChange, onPosit
   useEffect(() => {
     onArrivalChange?.(false);
     if (destinationX === undefined || destinationY === undefined) {
-      progress.current={stage:"entering",progress:0};
+      // The relic choice temporarily hides the merchant in this same room.
+      // Keep his journey so returning resumes it (or stays parked). The keyed
+      // room remount, not a phase change, owns the next entrance.
       return;
     }
     const target={x:destinationX,y:destinationY};

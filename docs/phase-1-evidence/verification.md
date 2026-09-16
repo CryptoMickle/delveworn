@@ -1,6 +1,6 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — calmer two-line fights and mirrored Kevin portrait
+## Current correction — calmer two-line fights and Kevin continuity
 
 - One opening and one reaction are available per fight. Once either slot is
   used, later events in that slot remain silent. A killed enemy still has no
@@ -11,6 +11,10 @@
 - The complete original Kevin portrait is mirrored horizontally in the shared
   shop panel with a scoped CSS transform. Room sprites/choreography, shop
   labels, inventory and purchase controls are unchanged.
+- Fixed Kevin entering a boss room twice around its relic choice. That phase
+  temporarily removes his destination; the effect previously reset his journey
+  to its start. It now retains progress while hidden/paused and resumes from
+  there, or remains parked. Only the keyed room remount starts a new entrance.
 
 All **196 tests pass** with no failures or skips. The added regression exercises
 all later reaction types, verifies no third utterance or hidden deck consumption,
@@ -18,7 +22,11 @@ then a fresh allowance next fight and death cleanup. Mounted React Strict Mode
 checks also confirm no third line before/after expiry, stable timers, next-room
 rotation and cleanup. Full lint: zero errors, 14 existing warnings. Somnia-
 standard production build with session keys disabled passes, including
-TypeScript; the changed shop stylesheet parses successfully.
+TypeScript; the changed shop stylesheet parses successfully. The mounted
+merchant reward-transition probe passes all three cases: already parked stays
+parked, an unfinished journey resumes, and a new room starts a fresh entrance.
+This exercises destination -> undefined -> destination with real component
+effects and a fake animation clock, without a DOM/browser.
 
 Protected preview publication is pending under the existing approval/project/
 protection. No production promotion, Git push or contract transaction. Browser

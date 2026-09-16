@@ -142,7 +142,10 @@ boss cadence, relic rules and respective randomness authorities.
   upper-left position adjusted to the visible mobile floor. You may trade before
   collecting loot; purchases spend only gold already held. Shopping leaves the
   floor reward intact, and door arrival can still leave it behind. Picking up
-  loot neither restarts Kevin's walk nor remounts him.
+  loot neither restarts Kevin's walk nor remounts him. A boss relic choice
+  temporarily pauses/hides his presentation but preserves the journey: Kevin
+  resumes at the same stage or remains parked afterward. Only a new keyed room
+  starts another entrance.
   He leads the wagon left, parks it, walks around its south side, and faces
   the wagon before turning it. He then pushes it to the visible left wall and
   turns back toward the room only after parking. He stands on the
