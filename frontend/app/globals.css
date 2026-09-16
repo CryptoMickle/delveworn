@@ -7,6 +7,13 @@
   --foreground: #fafafa;
 }
 
+/* Combat and recovery panels have different heights. Reserve the viewport
+   gutter so removing a defeated monster cannot widen and visually zoom the
+   room for one phase, then narrow it again when the next panel appears. */
+html {
+  scrollbar-gutter: stable;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

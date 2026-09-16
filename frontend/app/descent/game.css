@@ -286,6 +286,12 @@ button.dungeon-inventory-relics { background:#25182e; border-color:#91719f; colo
 .descent-log-dialog h2 { font-size:24px; margin:0; }
 .descent-log-dialog button { min-width:60px; min-height:44px; padding:8px; border:1px solid #896794; border-radius:8px; background:#25192d; color:#f1ddfa; }
 .descent-log-dialog p { margin-top:12px; padding-top:12px; border-top:1px solid #45374c; font-size:13px; line-height:1.5; }
+.descent-shop-dialog { width:min(94vw,720px); max-height:88dvh; margin:auto; padding:0; overflow:auto; border:1px solid #967045; border-radius:14px; background:#100c14; color:#f1e7d5; box-shadow:0 16px 54px #000e; }
+.descent-shop-dialog::backdrop { background:#09070bcc; backdrop-filter:blur(3px); }
+.descent-shop-dialog > .descent-merchant { border:0; }
+.descent-shop-dialog .dungeon-shop-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.descent-shop-dialog .dungeon-shop-title h2 { margin:0; }
+.descent-shop-dialog .dungeon-shop-title > button { min-width:72px; min-height:44px; padding:8px; border:1px solid #896794; border-radius:8px; background:#25192d; color:#f1ddfa; text-align:center; }
 @media(max-width:760px) {
   .descent-mobile-report { grid-template-rows:auto minmax(0,1fr); height:48px; min-height:48px; max-height:48px; margin:0; padding:1px 6px; overflow:hidden; border-width:1px 0; background:#151018e8; pointer-events:auto; }
   .descent-mobile-report strong { overflow:hidden; font-size:12px; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; }

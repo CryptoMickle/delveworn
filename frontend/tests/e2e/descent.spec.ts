@@ -274,8 +274,8 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
     const names={engage:/Approach/,enter:/Enter room/,"skip-loot":"Leave loot", collect:/Pick up loot/,attack:/Attack/i,storm:/Storm/i,potion:/Potion/i,claim:/Keep relic/,"claim-equip":/Equip relic/,"supply-bandage":/^Bandage/,"supply-potion":/^Potion/,"camp-rest":/^Rest/,"camp-potion":/^Potion/,"camp-weapon":/^Weapon \+1/,"camp-armor":/^Armor \+1/};
     const shopAction=action.startsWith("supply-") || action.startsWith("camp-");
     const safePotionAction=action === "potion" && (currentPhase === "loot" || currentPhase === "recovery");
-    if (isMobile && shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
-    const scope=shopAction ? page.getByRole("region",{name:"Kevin's shop"})
+    if (shopAction) await page.getByRole("button",{name:"Visit Kevin"}).click();
+    const scope=shopAction ? page.locator(".descent-shop-dialog").getByRole("region",{name:"Kevin's shop"})
       : safePotionAction ? page.locator(".dungeon-recovery-controls:visible")
       : ["attack","storm","potion"].includes(action) ? page.getByRole("group",{name:"Combat actions"}) : page;
     if (currentPhase === "reward") await expect(page.getByRole("region",{name:"Boss relic reward"}).getByRole("button")).toHaveCount(2);
@@ -285,7 +285,7 @@ test("the whole descent plays through doors, supplies, camp, boss and reward",as
     } else await scope.getByRole("button",{name:names[action]}).click();
     await expect.poll(async()=>(await saved(page)).revision).toBe(expected.revision);
     expect(await saved(page)).toEqual(expected);
-    if (isMobile && shopAction) await page.getByRole("button",{name:"Close Kevin's shop"}).click();
+    if (shopAction) await page.getByRole("button",{name:"Close Kevin's shop"}).click();
     run=expected;
     if ([5,9,10].includes(run.game.roomsCleared) && !reloaded.has(run.game.roomsCleared)) {
       reloaded.add(run.game.roomsCleared); await page.reload();
@@ -527,7 +527,7 @@ test("held W crosses the cleared doorway after healing and enters exactly one ro
   } finally { await page.keyboard.up("w"); }
 });
 
-test("Kevin is a reachable room figure in both merchant recoveries and opens the shop only on arrival",async({page,isMobile})=>{
+test("Kevin is a reachable room figure in both merchant recoveries and opens the shop only on arrival",async({page})=>{
   const rooms=[5,9];
   for(const [index,room] of rooms.entries()) {
     const run=recoveryAtRoom(room);
@@ -561,11 +561,8 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     expect(wagonBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
     expect(wagonBox!.x+wagonBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
     expect(wagonBox!.x-floorBox!.x,"the wagon parks against the visible left wall").toBeLessThanOrEqual(70);
-    const shop=isMobile
-      ? page.locator(".descent-mobile-shop").getByRole("region",{name:"Kevin's shop"})
-      : page.locator(".descent-sidebar").getByRole("region",{name:"Kevin's shop"});
-    if(isMobile) await expect(shop).not.toBeVisible();
-    else { await expect(shop).toBeVisible(); await expect(shop).not.toBeFocused(); }
+    const shop=page.locator(".descent-shop-dialog").getByRole("region",{name:"Kevin's shop"});
+    await expect(shop).not.toBeVisible();
 
     await floor.evaluate((element,target)=>{
       const floor=element as SVGSVGElement, matrix=floor.getScreenCTM();
@@ -576,23 +573,19 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     },{x:merchant.x+60,y:merchant.y});
     expect(await saved(page),"walking to Kevin does not spend gold or advance the run").toEqual(run);
     await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
-    if(isMobile) await expect(shop).not.toBeVisible();
-    else await expect(shop).not.toBeFocused();
+    await expect(shop).not.toBeVisible();
 
     await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
     const arrived=await avatarPoint(page);
     expect(distance(arrived,merchant),"the avatar must stand beside the figure before trade opens").toBeLessThanOrEqual(64);
     expect(arrived.x > merchant.x,"the avatar approaches Kevin from inside the room").toBe(true);
     await expect(page.locator("[data-avatar-facing]")).toHaveAttribute("data-avatar-facing",avatarFacing);
-    if(isMobile) {
-      await expect(shop).toBeVisible();
-      await page.getByRole("button",{name:"Close Kevin's shop"}).click();
-    } else {
-      await expect(shop).toBeFocused();
-      await page.keyboard.down("d");
-      await expect.poll(async()=>(await avatarPoint(page)).x).toBeGreaterThan(arrived.x+12);
-      await page.keyboard.up("d");
-    }
+    await expect(shop).toBeVisible();
+    await expect(page.getByRole("button",{name:"Close Kevin's shop"})).toBeFocused();
+    await page.getByRole("button",{name:"Close Kevin's shop"}).click();
+    await page.keyboard.down("d");
+    await expect.poll(async()=>(await avatarPoint(page)).x).toBeGreaterThan(arrived.x+12);
+    await page.keyboard.up("d");
     expect(await saved(page)).toEqual(run);
   }
 });
