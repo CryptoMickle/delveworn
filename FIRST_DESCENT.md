@@ -12,12 +12,20 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 <http://127.0.0.1:3100/play>, or choose **Play The First Descent** on the home page.
 `/concept` is the historical development-only visual review.
 
+Monster notes and recent dungeon remarks are shown on small parchment sheets
+inside the room, at the top right and bottom right. They reuse existing copy
+and let clicks pass through to the floor. The full text remains in the log.
+The avatar's cosmetic armor ring is removed; armor remains in the original HUD.
+
 1. Start a run. The original starting state applies: **100 HP, three potions,
    zero gold, base weapon/armor and no owned or equipped relic**. No build or
    relic selection, wallet, account or payment.
-2. Tap the floor or use arrows/WASD to walk. The avatar turns left/right with
-   travel and moves continuously to the monster guarding the north door.
-   E/Enter approaches the enemy or uses the cleared room's exit.
+2. Tap the floor or hold **WASD** to walk. Held movement starts immediately,
+   continues without operating-system key repeat, supports diagonals and direction
+   changes, and stops on release or focus loss. The avatar turns left/right with
+   travel, and walking into the enemy's approach range starts combat. **E** walks
+   to the enemy or uses the cleared room's exit. Arrow keys only navigate visible
+   action buttons; **Enter** selects the focused button.
 3. Approaching starts a short close-up of the original monster illustration.
    It fades away after two seconds of loaded artwork. Attacking, waiting for
    an action, or landing a killing blow keeps the same timer. **Close artwork**
@@ -25,13 +33,13 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    view during combat. HP and action controls remain usable throughout, and
    monsters retain their modest tier-1 scale on the room floor.
    Use **Storm (left) / Attack (right)** with **Potion below**. On short mobile
-   viewports, the row is **Storm / Potion / Attack**. Keys **1 / 2 / 3** remain
-   Attack / Storm / Potion; **A / S / P** work during combat. Attack has the original
+   viewports, the row is **Storm / Potion / Attack**. **K / J / M** select
+   Attack / Storm / Potion once per physical press. Attack has the original
    steady damage and critical chance. Storm has its original range and can roll
    zero. Potion heals 25 HP and receives the original half-strength retaliation
    during combat. Two combat potions per normal encounter, three per boss.
 4. After victory, loot appears at a seeded random location on the visible floor.
-   Tap the floor/loot or use arrows to walk there: entering pickup range collects
+   Tap the floor/loot or use WASD to walk there: entering pickup range collects
    it automatically, without another button press. Inventory changes once, on
    reaching the loot. To bypass it, tap the north doorway directly instead.
    The avatar walks to the door without collecting along that route, and leaves
@@ -41,8 +49,8 @@ From `frontend/`, install existing dependencies if needed (`npm ci`) and run
    The existing boss relic decision remains separate.
 5. The original status bar remains above the room, including HP, potion stock,
    gold, equipment and room. Tap the green **POTION** button below the report
-   on mobile (in the recovery sidebar on desktop) to heal after a kill, before
-   or after picking up loot. It consumes one potion without retaliation,
+   on mobile (in the recovery sidebar on desktop), or press **M**, to heal after
+   a kill before or after picking up loot. It consumes one potion without retaliation,
    a combat turn or a random draw; held loot stays on the floor. Full HP, empty
    inventory and pending actions disable it. Recovery healing also remains in
    **Menu**. Combat's Potion remains in its established position.
@@ -192,7 +200,7 @@ browser process crash/reload cannot be caught by the in-game error screen.
 - Seeing the original monster close-up stay visible for the same two seconds
   while attacking, then reopening it without changing HP or room layout.
 - A steady room during repeated attacks; smooth Approach; left/right facing;
-  varied loot locations and automatic pickup using only floor taps or arrows.
+  varied loot locations and automatic pickup using only floor taps or WASD.
 - Reload before and after pickup; recovery at supplies/camp and the boss relic.
 - Original background, item transparency, touch targets and sound on a phone.
 

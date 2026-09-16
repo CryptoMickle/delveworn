@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, type ReactNode, type Ref } from "react";
+import { useRef, type ReactNode, type Ref } from "react";
 import { getRelicDefinition, type RelicDefinition } from "./relics";
 import { useGameAudio } from "./use-game-audio";
 import { GameLogo } from "./game-logo";
@@ -508,7 +508,7 @@ export function DungeonEntry({
       <div className="practice-entry-hero relative h-[230px] overflow-hidden bg-black sm:h-[300px] lg:h-full lg:min-h-[520px] lg:border-r lg:border-zinc-800">
         <Image
           src="/assets/delveworn-tier2-party-hero.webp"
-          alt="Miss Morgue, Kevin the Unqualified and Brutus assembled in the dungeon"
+          alt="Miss Morgue, Nevin the Unqualified and Brutus assembled in the dungeon"
           fill
           unoptimized
           sizes="(min-width: 1024px) 700px, 100vw"
@@ -759,25 +759,6 @@ export function CombatActionDock({
   onAttack: () => void;
 }) {
   const potionUnavailable = potionLimitReached ? "Combat limit reached" : potionDisabledReason ?? (hp !== undefined && maxHp !== undefined && hp >= maxHp ? "HP is full · save it for later" : null);
-  useEffect(() => {
-    if (!keyboardEnabled) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable], [role='textbox']"))) return;
-      if (document.querySelector("dialog[open], [role='dialog'][aria-modal='true']:not([hidden])")) return;
-      const key = event.key.toLowerCase();
-      if (!["a", "1", "s", "2", "p", "3"].includes(key)) return;
-      event.preventDefault();
-      if (busy) return;
-      if (key === "a" || key === "1") onAttack();
-      else if (key === "s" || key === "2") onStorm();
-      else if (!potionDisabled) onPotion();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [busy, keyboardEnabled, onAttack, onPotion, onStorm, potionDisabled]);
-
   return (
     <div aria-label="Combat actions" aria-busy={busy} className="practice-action-dock practice-combat-dock sticky bottom-2 z-40 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-xl">
       <div className="practice-combat-vitals">
@@ -789,8 +770,8 @@ export function CombatActionDock({
         <span data-critical={lastExchange?.critical || undefined}>{lastExchange?.critical ? "🔥 CRITICAL!" : "DEALT"} <b>{lastExchange ? `${lastExchange.dealt} HP` : "—"}</b></span>
       </div>
       <div className="practice-combat-actions grid grid-cols-2 gap-2" data-keyboard-actions>
-        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM${keyboardEnabled ? " S" : ""} · DAMAGE ${stormDamage} · unpredictable, no critical`} aria-keyshortcuts={keyboardEnabled ? "s 2" : undefined} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
-          <p className="font-black">⚡ STORM {keyboardEnabled && <kbd>S</kbd>}</p>
+        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM${keyboardEnabled ? " J" : ""} · DAMAGE ${stormDamage} · unpredictable, no critical`} aria-keyshortcuts={keyboardEnabled ? "J" : undefined} data-keyboard-shortcut={keyboardEnabled ? "j" : undefined} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
+          <p className="font-black">⚡ STORM {keyboardEnabled && <kbd>J</kbd>}</p>
           <p className="mt-1 text-sm font-black">DAMAGE {stormDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] text-violet-200">Unpredictable · no critical</p>
           {stormRelicSummary && (
@@ -799,8 +780,8 @@ export function CombatActionDock({
             </p>
           )}
         </button>
-        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK${keyboardEnabled ? " A" : ""} · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical`} aria-keyshortcuts={keyboardEnabled ? "a 1" : undefined} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
-          <p className="font-black">⚔️ ATTACK {keyboardEnabled && <kbd>A</kbd>}</p>
+        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK${keyboardEnabled ? " K" : ""} · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical`} aria-keyshortcuts={keyboardEnabled ? "K" : undefined} data-keyboard-shortcut={keyboardEnabled ? "k" : undefined} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
+          <p className="font-black">⚔️ ATTACK {keyboardEnabled && <kbd>K</kbd>}</p>
           <p className="mt-1 text-sm font-black">DAMAGE {attackDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] opacity-70">Reliable · {criticalChance}% critical</p>
           {attackRelicSummary && (
@@ -814,13 +795,14 @@ export function CombatActionDock({
           type="button"
           onClick={onPotion}
           disabled={busy || potionDisabled}
-          aria-keyshortcuts={keyboardEnabled ? "p 3" : undefined}
+          aria-keyshortcuts={keyboardEnabled ? "M" : undefined}
+          data-keyboard-shortcut={keyboardEnabled ? "m" : undefined}
           className={busy || potionDisabled
             ? "practice-potion-action order-3 col-span-2 w-full cursor-not-allowed rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-zinc-400 opacity-70 lg:order-3 lg:col-span-1 lg:p-5"
             : "practice-potion-action order-3 col-span-2 w-full rounded-xl border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-emerald-200 p-3 text-emerald-950 shadow-[0_8px_24px_rgba(52,211,153,0.12)] transition hover:from-white hover:to-emerald-100 lg:order-3 lg:col-span-1 lg:p-5"}
         >
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="font-black">{potionLabel} {keyboardEnabled && <kbd>P</kbd>}</p>
+            <p className="font-black">{potionLabel} {keyboardEnabled && <kbd>M</kbd>}</p>
             <p className={potionLimitReached ? "practice-potion-description mt-1 text-[10px] text-red-300" : potionDisabled ? "practice-potion-description mt-1 text-[10px] text-zinc-400" : "practice-potion-description mt-1 text-[10px] text-emerald-800"}>
               {potionUnavailable ?? potionDetail}
             </p>

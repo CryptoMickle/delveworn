@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CombatActionDock, DungeonBattle, DungeonEntry, GameHud, RoomProgressLine } from "../app/game-ui";
+import { InventoryPotions } from "../app/dungeon/inventory-potions";
 
 test("the boss room remains cleared through its reward instead of selecting the next tier", () => {
   const battle = renderToStaticMarkup(<RoomProgressLine room={10} roomsCleared={9} isBoss phase="Combat" />);
@@ -64,8 +65,11 @@ test("the dock shows current health beside potion consequences and disables ever
   assert.match(markup, /heal, then take half retaliation/);
   assert.ok(markup.indexOf("practice-storm-action") < markup.indexOf("practice-attack-action"));
   assert.ok(markup.indexOf("practice-attack-action") < markup.indexOf("practice-potion-action"));
-  assert.match(markup, /aria-label="⚡ STORM S · DAMAGE 0–40 · unpredictable, no critical"/);
-  assert.match(markup, /aria-label="⚔️ ATTACK A · DAMAGE 8–14 · reliable, 15% critical"/);
+  assert.match(markup, /aria-label="⚡ STORM J · DAMAGE 0–40 · unpredictable, no critical"/);
+  assert.match(markup, /aria-label="⚔️ ATTACK K · DAMAGE 8–14 · reliable, 15% critical"/);
+  assert.match(markup, /data-keyboard-shortcut="j"/);
+  assert.match(markup, /data-keyboard-shortcut="k"/);
+  assert.match(markup, /data-keyboard-shortcut="m"/);
   const pending = renderToStaticMarkup(<CombatActionDock {...actionProps} busy hp={17} maxHp={100} />);
   assert.equal((pending.match(/disabled=""/g) ?? []).length, 3);
   assert.match(pending, /aria-busy="true"/);
@@ -73,6 +77,16 @@ test("the dock shows current health beside potion consequences and disables ever
   const withoutOptionalHealth = renderToStaticMarkup(<CombatActionDock {...actionProps} keyboardEnabled={false} />);
   assert.match(withoutOptionalHealth, /YOUR TURN/);
   assert.doesNotMatch(withoutOptionalHealth, /undefined|NaN|aria-keyshortcuts|<kbd>/);
+});
+
+test("safe recovery potions expose the same M shortcut as combat potions", () => {
+  const enabled = renderToStaticMarkup(<InventoryPotions potions={2} onUse={() => {}} />);
+  assert.match(enabled, /data-keyboard-actions="true"/);
+  assert.match(enabled, /data-keyboard-shortcut="m"/);
+  assert.match(enabled, /aria-keyshortcuts="M"/);
+  assert.match(enabled, /Use potion M/);
+  const disabled = renderToStaticMarkup(<InventoryPotions potions={0} onUse={() => {}} />);
+  assert.match(disabled, /disabled=""/);
 });
 
 test("battle keeps confirmed enemy status, artwork, log and supplied actions in one shared encounter", () => {

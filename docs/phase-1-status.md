@@ -24,7 +24,24 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — restore the original top status bar and clear recovery actions
+## Current checkpoint — desktop input and room atmosphere
+
+Hold WASD for continuous movement from the page or any game control, including
+immediately after a new room mounts. Movement no longer waits for OS key repeat
+or requires clicking the SVG floor. Walking into enemy range approaches it.
+Arrows navigate action buttons; Enter activates. K/J/M invoke the original
+Attack/Storm/Potion callbacks once per physical press, with safe M healing
+before and after loot pickup. Active Practice and onchain rooms now provide
+the missing input scope and navigation component.
+
+Existing monster descriptions and log remarks appear on parchment inside the
+room, above/right and below/right. Read-only sheets do not intercept walking
+or change camera geometry. The cosmetic armor ring is removed. The tier-two
+goblin is now Nevin the Unqualified; its original painting and scale remain,
+with the long ears restored in the clipping mask. Quartermaster Kevin keeps
+his name and existing shop behavior.
+
+## Previous checkpoint — restore the original top status bar and clear recovery actions
 
 The grid now reuses the actual original `GameHud` in Practice, `/play` and
 onchain. HP, potion stock, gold, equipment and room stay above the room in loot

@@ -66,8 +66,11 @@ test("combat panel retains shared Practice vitals, engine ranges, and action ord
     markup,
     /aria-label="Player health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="61"/,
   );
-  assert.match(markup, /aria-label="⚡ STORM · DAMAGE 0–20 · unpredictable, no critical"/);
-  assert.match(markup, /aria-label="⚔️ ATTACK · DAMAGE 8–12 · reliable, 15% critical"/);
+  assert.match(markup, /aria-label="⚡ STORM J · DAMAGE 0–20 · unpredictable, no critical"/);
+  assert.match(markup, /aria-label="⚔️ ATTACK K · DAMAGE 8–12 · reliable, 15% critical"/);
+  assert.match(markup, /aria-keyshortcuts="J" data-keyboard-shortcut="j"/);
+  assert.match(markup, /aria-keyshortcuts="K" data-keyboard-shortcut="k"/);
+  assert.match(markup, /aria-keyshortcuts="M" data-keyboard-shortcut="m"/);
   assert.ok(markup.indexOf("practice-storm-action") < markup.indexOf("practice-attack-action"));
   assert.ok(markup.indexOf("practice-attack-action") < markup.indexOf("practice-potion-action"));
 

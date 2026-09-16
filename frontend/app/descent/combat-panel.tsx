@@ -96,7 +96,6 @@ export function DescentCombatPanel({
         relicName={relic.name}
         stormRelicSummary={combatRelicSummary(game, true)}
         attackRelicSummary={combatRelicSummary(game, false)}
-        keyboardEnabled={false}
         onStorm={() => onAction("storm")}
         onPotion={() => onAction("potion")}
         onAttack={() => onAction("attack")}

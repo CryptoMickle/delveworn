@@ -73,6 +73,50 @@ export function startRoomWalk(from: Point, to: Point, step: (point: Point) => bo
   return () => { stopped = true; frames.cancel(frame); };
 }
 
+export type RoomMovementKey = "w" | "a" | "s" | "d";
+export function roomMovementKey(key: string): RoomMovementKey | null {
+  const lower = key.toLowerCase();
+  return lower === "w" || lower === "a" || lower === "s" || lower === "d" ? lower : null;
+}
+
+/** Held keys steer on animation frames, independently of the operating system's
+ * key-repeat delay. A fresh direction changes the next frame without a pause. */
+export function createRoomSteering(position: () => Point, step: (point: Point) => boolean | void,
+  motion: (moving: boolean) => void, frames: RoomFrames = createRoomFrameClock()) {
+  const held = new Set<RoomMovementKey>();
+  let frame: number | null = null, last = 0;
+  const direction = () => ({ x: Number(held.has("d")) - Number(held.has("a")), y: Number(held.has("s")) - Number(held.has("w")) });
+  const pause = () => {
+    if (frame !== null) { frames.cancel(frame); frame = null; motion(false); }
+  };
+  const stop = () => { held.clear(); pause(); };
+  const tick = (time: number) => {
+    if (frame === null) return;
+    const vector = direction(), length = Math.hypot(vector.x, vector.y);
+    const from = position();
+    if (!length || !isRoomPoint(from)) { stop(); return; }
+    // Limit a delayed frame so it cannot jump across loot or an interaction.
+    const distance = Math.max(0, Math.min(80, time - last)) * .24;
+    last = time;
+    if (step({ x: from.x + vector.x / length * distance, y: from.y + vector.y / length * distance }) === false) {
+      stop(); return;
+    }
+    // The step callback may stop us synchronously on arrival or open a dialog.
+    if (frame !== null) frame = frames.request(tick);
+  };
+  const update = () => {
+    const vector = direction();
+    if (!vector.x && !vector.y) { pause(); return; }
+    if (frame === null) { last = frames.now(); frame = frames.request(tick); motion(true); }
+  };
+  return {
+    press(key: RoomMovementKey) { if (!held.has(key)) { held.add(key); update(); } },
+    release(key: RoomMovementKey) { held.delete(key); update(); },
+    stop,
+    get moving() { return frame !== null; },
+  };
+}
+
 /** Cosmetic randomness only: stable for a seed/room, never consumes combat RNG.
  * Use the visible floor bounds so every drop remains reachable on a phone. */
 export function roomLootPoint(seed: number, room: number, bounds = { minX: 170, maxX: 733 }): Point {

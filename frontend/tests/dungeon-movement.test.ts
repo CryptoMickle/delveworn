@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createRoomFrameClock,
+  createRoomSteering,
   movementFacing,
   roomLootPoint,
+  roomMovementKey,
   startRoomWalk,
   type Point,
   type RoomFrameHost,
@@ -255,6 +257,92 @@ test("avatar turns with horizontal travel and preserves facing on vertical trave
   assert.equal(movementFacing({x:400,y:391},{x:350,y:300},"right"),"left");
   assert.equal(movementFacing({x:350,y:300},{x:450,y:300},"left"),"right");
   assert.equal(movementFacing({x:400,y:391},{x:400,y:300},"left"),"left");
+});
+
+test("held WASD moves from the first frame without waiting for key repeat and stops on release",()=>{
+  const scheduler=controlledHost(), motion:boolean[]=[];
+  let point={x:420,y:496};
+  const steering=createRoomSteering(()=>point,next=>{point=next;},moving=>motion.push(moving),scheduler.frames);
+  steering.press("w");
+  for(let frame=0;frame<20;frame++) { scheduler.advance(16); scheduler.fireFrame(); }
+  assert.ok(Math.abs(point.y-(496-320*.24))<1e-8);
+  assert.deepEqual(motion,[true],"a held key never restarts the walking animation");
+  const staleFrame=scheduler.frameKeys()[0],staleTimer=scheduler.timerKeys()[0];
+  steering.release("w");
+  const stopped={...point};
+  scheduler.advance(500); scheduler.invokeFrame(staleFrame); scheduler.invokeTimer(staleTimer);
+  assert.deepEqual(point,stopped);
+  assert.deepEqual(motion,[true,false]);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  assert.equal(steering.moving,false);
+  assert.equal(roomMovementKey("W"),"w");
+  for(const reserved of ["ArrowUp","ArrowLeft","k","j","m","Enter"]) assert.equal(roomMovementKey(reserved),null);
+});
+
+test("held direction changes have no restart delay and diagonal movement keeps the same speed",()=>{
+  const scheduler=controlledHost();
+  let point={x:400,y:400};
+  const steering=createRoomSteering(()=>point,next=>{point=next;},()=>{},scheduler.frames);
+  steering.press("w");
+  scheduler.advance(16); scheduler.fireFrame();
+  const before={...point};
+  steering.press("d"); steering.press("w"); // OS repeat cannot add another loop.
+  scheduler.advance(16); scheduler.fireFrame();
+  assert.ok(point.x>before.x && point.y<before.y);
+  assert.ok(Math.abs(Math.hypot(point.x-before.x,point.y-before.y)-16*.24)<1e-8);
+  steering.release("w");
+  const diagonalEnd={...point};
+  scheduler.advance(16); scheduler.fireFrame();
+  assert.equal(point.y,diagonalEnd.y);
+  assert.ok(Math.abs(point.x-diagonalEnd.x-16*.24)<1e-8);
+  assert.deepEqual(scheduler.pending(),{frames:1,timers:1});
+  steering.stop();
+});
+
+test("opposite keys pause and resume the remaining direction immediately",()=>{
+  const scheduler=controlledHost();
+  let point={x:400,y:400};
+  const steering=createRoomSteering(()=>point,next=>{point=next;},()=>{},scheduler.frames);
+  steering.press("a"); steering.press("d");
+  assert.equal(steering.moving,false);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  steering.release("a");
+  scheduler.advance(16); scheduler.fireFrame();
+  assert.ok(point.x>400);
+  steering.stop();
+  steering.release("d");
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+});
+
+test("held walking clamps delayed frames, survives missing RAF and stops once at an interaction",()=>{
+  const scheduler=controlledHost(0,{rejectFrames:true});
+  let point={x:420,y:496}, interactions=0;
+  const steering=createRoomSteering(()=>point,next=>{
+    assert.ok(Math.hypot(next.x-point.x,next.y-point.y)<=80*.24+.00001);
+    point=clampRoomPoint(next,false);
+    if(Math.hypot(point.x-450,point.y-236)<125) { interactions++; return false; }
+  },()=>{},scheduler.frames);
+  steering.press("w");
+  for(let tick=0;tick<30 && steering.moving;tick++) { scheduler.advance(500); scheduler.fireTimer(); }
+  assert.equal(interactions,1,"walking into the guard starts the encounter without E or a click");
+  assert.equal(steering.moving,false);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  steering.release("w");
+  assert.equal(steering.moving,false,"a completed interaction clears held keys");
+});
+
+test("focus loss cancellation clears held keys and a fresh room can walk immediately",()=>{
+  const scheduler=controlledHost();
+  let point={x:420,y:496};
+  const steering=createRoomSteering(()=>point,next=>{point=next;},()=>{},scheduler.frames);
+  steering.press("d");
+  scheduler.advance(16); scheduler.fireFrame();
+  steering.stop();
+  point={x:420,y:496};
+  steering.press("w");
+  scheduler.advance(16); scheduler.fireFrame();
+  assert.deepEqual(point,{x:420,y:496-16*.24});
+  steering.stop();
 });
 
 test("cosmetic loot positions vary by seed and room, stay reproducible and reachable across phone sizes",()=>{

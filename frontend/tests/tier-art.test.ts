@@ -11,7 +11,7 @@ const expected = {
     ["Lady Decomposition", "Zombie", "/monsters/zombie-4-lady-decomposition.webp"],
   ],
   1: [
-    ["Kevin the Unqualified", "Goblin", "/monsters/goblin-2-kevin-the-unqualified.webp"],
+    ["Nevin the Unqualified", "Goblin", "/monsters/goblin-2-kevin-the-unqualified.webp"],
     ["Gribble", "Goblin", "/monsters/goblin-3-gribble.webp"],
     ["Gary's Supervisor", "Goblin", "/monsters/goblin-4-garys-supervisor.webp"],
   ],

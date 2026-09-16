@@ -45,6 +45,7 @@ import { legacyFrontendSnapshotAbi } from "./legacy-snapshot";
 import type { MonsterType } from "./practice/engine";
 import type { RoomView, SceneCue } from "./dungeon/scene";
 import { EndlessRoom } from "./dungeon/endless-room";
+import { DesktopNavigation } from "./desktop-navigation";
 import {
   acknowledgeOnchainLoot,
   applyConfirmedOnchainPresentation,
@@ -1120,7 +1121,7 @@ const goblinVariants: MonsterPersona[] = [
   },
 
   {
-    name: "Kevin the Unqualified",
+    name: "Nevin the Unqualified",
 
     species: "Goblin",
 
@@ -1128,40 +1129,40 @@ const goblinVariants: MonsterPersona[] = [
       "/monsters/goblin-2-kevin-the-unqualified.webp?v=art-20260825-v2",
 
     flavor:
-      "Nobody knows who hired Kevin. Kevin included.",
+      "Nobody knows who hired Nevin. Nevin included.",
 
     chance: "35%",
 
     baseGold: 8,
 
     encounters: [
-      "Kevin arrives carrying equipment he clearly does not understand.",
+      "Nevin arrives carrying equipment he clearly does not understand.",
 
-      "Kevin has received absolutely no training for this.",
+      "Nevin has received absolutely no training for this.",
 
-      "Someone gave Kevin responsibility. This was a mistake.",
+      "Someone gave Nevin responsibility. This was a mistake.",
 
-      "Kevin looks prepared. This is misleading.",
+      "Nevin looks prepared. This is misleading.",
     ],
 
     hitLines: [
-      "Kevin cannot believe that worked.",
+      "Nevin cannot believe that worked.",
 
       "His annual review is going surprisingly well.",
 
-      "Kevin briefly achieves competence.",
+      "Nevin briefly achieves competence.",
 
-      "This will absolutely go on Kevin's résumé.",
+      "This will absolutely go on Nevin's résumé.",
     ],
 
     killLines: [
-      "Kevin has failed probation.",
+      "Nevin has failed probation.",
 
-      "Kevin's contract has been terminated with immediate effect.",
+      "Nevin's contract has been terminated with immediate effect.",
 
       "The hiring manager has several questions to answer.",
 
-      "Kevin's onboarding process ends abruptly.",
+      "Nevin's onboarding process ends abruptly.",
     ],
   },
 
@@ -9960,6 +9961,8 @@ function DelvewornGame() {
 
   if (player.hasStarted && player.active) {
     return (
+      <main>
+      <DesktopNavigation />
       <EndlessRoom
         key={onchainPresentationKey(onchainPresentation, presentationScope)}
         mode="onchain"
@@ -9988,6 +9991,7 @@ function DelvewornGame() {
           interact: () => audio.playAction("click"),
         }}
         enemyMaxHp={player.monsterMaxHp}
+        monsterDescription={sceneMonster.flavor}
         maxHp={player.maxHp}
         gold={player.gold}
         potions={player.potions}
@@ -10015,6 +10019,7 @@ function DelvewornGame() {
           toggleSound: audio.toggleSound,
         }}
       />
+      </main>
     );
   }
 

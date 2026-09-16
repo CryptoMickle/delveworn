@@ -118,7 +118,7 @@ test("potion preserves combat layout, shows net HP and survives reload", async (
 
 test("keyboard and pointer attacks share guarded result path", async ({ page }) => {
   await seed(page, { monsterHp: 1 });
-  await page.keyboard.press("a");
+  await page.keyboard.press("k");
   await waitForPhase(page, "loot");
   await expect(playerHud(page).getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "60");
   await passLootAtDoor(page, "explore");

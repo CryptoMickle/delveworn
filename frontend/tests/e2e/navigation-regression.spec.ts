@@ -49,35 +49,53 @@ async function expectVisibleFocus(control: Locator) {
   })).toBe(true);
 }
 
-test("recovery arrows walk the floor and the door acts only after arrival", async ({ page }, info) => {
+test("recovery WASD walks the floor and E uses the door only after arrival", async ({ page }, info) => {
   const viewport = page.viewportSize()!;
   const widths = info.project.name === "desktop-chromium" ? [820, 1365, 1920] : [viewport.width];
   for (const width of widths) {
     await page.setViewportSize({ width, height: viewport.height });
     await restore(page, { roomsCleared: 3, monsterHp: 0 });
     const before = await storedRun(page);
-    const floor = page.getByRole("group", { name: /Room 3 floor/ });
     const avatar = page.locator("[data-avatar-position]");
-    await floor.focus();
     const start = await avatar.getAttribute("data-avatar-position");
-    await page.keyboard.press("ArrowLeft");
-    await expect.poll(() => avatar.getAttribute("data-avatar-position")).not.toBe(start);
+    await page.keyboard.down("a");
+    try { await expect.poll(() => avatar.getAttribute("data-avatar-position")).not.toBe(start); }
+    finally { await page.keyboard.up("a"); }
     expect(await storedRun(page)).toEqual(before);
     await page.keyboard.press("e");
     await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "explore");
     expect((await storedRun(page)).roomsCleared).toBe(3);
+    const enteredAt = await avatar.getAttribute("data-avatar-position");
+    await page.keyboard.down("d");
+    try { await expect.poll(() => avatar.getAttribute("data-avatar-position")).not.toBe(enteredAt); }
+    finally { await page.keyboard.up("d"); }
+    expect((await storedRun(page)).roomsCleared).toBe(3);
   }
 });
 
-test("exploration movement cannot dispatch combat and approach reveals the action field", async ({ page }) => {
+test("WASD moves from page focus while arrows focus Approach and Enter walks there", async ({ page }) => {
   await restore(page, {}, true, createPracticeGrid(91));
   const before = await storedRun(page);
   await expect(page.getByLabel("Combat actions")).toHaveCount(0);
   const floor = page.getByRole("group", { name: /Room 1 floor/ });
-  await floor.focus();
-  await page.keyboard.press("a");
+  const avatar = page.locator("[data-avatar-position]");
+  const start = await avatar.getAttribute("data-avatar-position");
+  await page.keyboard.down("a");
+  try { await expect.poll(() => avatar.getAttribute("data-avatar-position")).not.toBe(start); }
+  finally { await page.keyboard.up("a"); }
   expect(await storedRun(page)).toEqual(before);
-  await page.getByRole("button", { name: /^Approach / }).click();
+  const moved = await avatar.getAttribute("data-avatar-position");
+  await page.keyboard.press("ArrowRight");
+  const approach = page.getByRole("button", { name: /^Approach / });
+  await expectVisibleFocus(approach);
+  await page.waitForTimeout(120);
+  await expect(avatar).toHaveAttribute("data-avatar-position", moved!);
+
+  // A focused floor uses the same focus-only arrow contract as page focus.
+  await floor.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expectVisibleFocus(approach);
+  await page.keyboard.press("Enter");
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "combat");
   await expect(attack(page)).toBeEnabled();
 });
@@ -108,7 +126,7 @@ test("battle arrows stay in the action field and retain the selected vertical la
 test("boss reward arrows enter KEEP from above and EQUIP from below", async ({ page }) => {
   await restore(page, { roomsCleared: 9, monsterType: 3, monsterHp: 1 });
   await resetFocus(page);
-  await page.keyboard.press("a");
+  await page.keyboard.press("k");
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
   await clickRoomPoint(page, { x: 450, y: 65 });
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "reward");

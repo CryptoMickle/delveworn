@@ -60,6 +60,10 @@ test("arrows and Enter reach Practice from Home and start the local run", async 
   await page.keyboard.press("ArrowDown");
   await expect(start).toBeFocused();
   await page.keyboard.press("Enter");
+  const approach = page.getByRole("button", { name: /^Approach / });
+  await page.keyboard.press("ArrowLeft");
+  await expect(approach).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(attack(page)).toBeEnabled();
   await page.keyboard.press("ArrowLeft");
   await expect(attack(page)).toBeFocused();
@@ -99,43 +103,73 @@ test("battle arrows follow Storm/Attack/Potion geometry, preserve the vertical l
   ]);
 });
 
-test("holding Enter resolves one attack and one sound, and a fresh press resolves the next", async ({ page }) => {
+test("K, J and M resolve once per press while WASD never dispatches battle actions", async ({ page }) => {
   await seed(page);
-  await page.keyboard.press("ArrowRight");
-  await expect(attack(page)).toBeFocused();
-  await page.keyboard.down("Enter");
+  await page.keyboard.down("k");
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   await expect.poll(async () => (await storedRun(page)).monsterHp).toBeLessThan(9999);
-  const firstHp = (await storedRun(page)).monsterHp;
+  const attacked = await storedRun(page);
   const cues = await page.evaluate(() => (window as KeyboardAudioWindow).__keyboardAttackCues);
   expect(cues).toBe(1);
-  await page.keyboard.down("Enter");
+  await page.keyboard.down("k");
   await page.waitForTimeout(350);
-  expect((await storedRun(page)).monsterHp).toBe(firstHp);
+  expect(await storedRun(page)).toEqual(attacked);
   expect(await page.evaluate(() => (window as KeyboardAudioWindow).__keyboardAttackCues)).toBe(cues);
-  await page.keyboard.up("Enter");
-  await page.keyboard.press("Enter");
-  await expect.poll(async () => (await storedRun(page)).monsterHp).toBeLessThan(firstHp);
-  expect(await page.evaluate(() => (window as KeyboardAudioWindow).__keyboardAttackCues)).toBe(cues + 1);
+  await page.keyboard.up("k");
+
+  await page.keyboard.down("j");
+  await expect.poll(async () => JSON.stringify(await storedRun(page))).not.toBe(JSON.stringify(attacked));
+  await expect(dock(page)).toHaveAttribute("aria-busy", "false");
+  const stormed = await storedRun(page);
+  await page.keyboard.down("j");
+  await page.waitForTimeout(350);
+  expect(await storedRun(page)).toEqual(stormed);
+  await page.keyboard.up("j");
+
+  await page.keyboard.down("m");
+  await expect.poll(async () => (await storedRun(page)).potions).toBe(stormed.potions - 1);
+  await expect(dock(page)).toHaveAttribute("aria-busy", "false");
+  const healed = await storedRun(page);
+  await page.keyboard.down("m");
+  await page.waitForTimeout(350);
+  expect(await storedRun(page)).toEqual(healed);
+  await page.keyboard.up("m");
+
+  for (const key of ["w", "a", "s", "d"]) await page.keyboard.press(key);
+  await page.waitForTimeout(350);
+  expect(await storedRun(page)).toEqual(healed);
 });
 
-test("disabled potion and a native log dialog cannot send a combat action", async ({ page }) => {
+test("disabled actions, editable controls and dialogs isolate every game shortcut", async ({ page }) => {
   await seed(page, { hp: 100, potions: 0 });
   await expect(potion(page)).toBeDisabled();
-  await page.keyboard.press("ArrowRight");
-  await expect(attack(page)).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  await expect(potion(page)).not.toBeFocused();
+  const before = await storedRun(page);
+  await page.keyboard.press("m");
+  expect(await storedRun(page)).toEqual(before);
+
+  await page.locator(".endless-room").evaluate(main => {
+    const input = document.createElement("input");
+    input.setAttribute("aria-label", "Keyboard isolation field");
+    main.append(input);
+  });
+  const input = page.getByRole("textbox", { name: "Keyboard isolation field" });
+  await input.focus();
+  await page.keyboard.type("kjmwasd");
+  await expect(input).toHaveValue("kjmwasd");
+  expect(await storedRun(page)).toEqual(before);
+
   await page.getByRole("button", { name: "Open dungeon log" }).click();
   const dialog = page.getByRole("dialog", { name: "Dungeon log", exact: true });
   await expect(dialog).toBeVisible();
   const close = page.getByRole("button", { name: "Close dungeon log" });
   await expect(close).toBeFocused();
+  for (const key of ["k", "j", "m", "w", "a", "s", "d"]) await page.keyboard.press(key);
+  expect(await storedRun(page)).toEqual(before);
   await page.keyboard.press("ArrowLeft");
   await expect(close).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(dialog).not.toBeVisible();
-  expect((await storedRun(page)).monsterHp).toBe(9999);
+  expect(await storedRun(page)).toEqual(before);
 });
 
 test("site navigation keeps native Enter and cannot replay the selected game action", async ({ page }) => {
@@ -206,9 +240,7 @@ test("camp equipment, next room and a boss relic can be selected with arrows and
   // resolves its actual local combat and relic rules through the same callback.
   const rewardPage = await page.context().newPage();
   await seed(rewardPage, { roomsCleared: 9, monsterType: 3, monsterHp: 1 });
-  await rewardPage.keyboard.press("ArrowRight");
-  await expect(attack(rewardPage)).toBeFocused();
-  await rewardPage.keyboard.press("Enter");
+  await rewardPage.keyboard.press("k");
   const keep = rewardPage.getByRole("button", { name: "KEEP NO RELIC" });
   await expect(keep).toBeEnabled();
   await keep.focus();

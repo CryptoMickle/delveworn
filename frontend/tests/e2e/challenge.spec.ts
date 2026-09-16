@@ -34,8 +34,8 @@ function nextAction(run: ChallengeRun): ChallengeAction {
 }
 
 async function clickAction(page: Page, action: ChallengeAction) {
-  const button = action === "attack" ? page.getByRole("button", { name: /ATTACK A/ })
-    : action === "storm" ? page.getByRole("button", { name: /STORM S/ })
+  const button = action === "attack" ? page.getByRole("button", { name: /ATTACK K/ })
+    : action === "storm" ? page.getByRole("button", { name: /STORM J/ })
       : action === "potion" ? page.getByRole("button", { name: /POTION ·/ })
         : action === "next-room" ? page.getByRole("button", { name: /ENTER (?:BOSS )?ROOM/ })
           : action === "supply-bandage" ? page.getByRole("button", { name: /BANDAGE/ })
@@ -113,8 +113,8 @@ test("two isolated players receive the same encounter and first combat result", 
     await expect(first.getByRole("heading", { name: "Grave Belle" })).toBeVisible();
     await expect(second.getByRole("heading", { name: "Grave Belle" })).toBeVisible();
     await Promise.all([
-      first.getByRole("button", { name: /ATTACK A/ }).click(),
-      second.getByRole("button", { name: /ATTACK A/ }).click(),
+      first.getByRole("button", { name: /ATTACK K/ }).click(),
+      second.getByRole("button", { name: /ATTACK K/ }).click(),
     ]);
     const [firstExchange, secondExchange, firstEnemyHp, secondEnemyHp] = await Promise.all([
       first.getByRole("status", { name: "Last combat exchange" }).innerText(),
@@ -172,7 +172,7 @@ test("entry and first combat fit every configured mobile and desktop viewport", 
   await expect(page.getByRole("heading", { name: "Grave Belle" })).toBeVisible();
   let run = startChallengeRun(definition());
   while (run.game.monsterHp > 0) {
-    await page.getByRole("button", { name: /ATTACK A/ }).click();
+    await page.getByRole("button", { name: /ATTACK K/ }).click();
     run = applyChallengeAction(run, "attack");
   }
   await expect(page.locator(".dungeon-recovery")).toBeVisible();

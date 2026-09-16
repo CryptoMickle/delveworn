@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
-import { isRoomPoint, movementFacing, roomLootPoint, startRoomWalk, type Facing, type Point } from "./movement";
+import { createRoomSteering, isRoomPoint, movementFacing, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Point } from "./movement";
 import { HIGHER_TIER_ART, type DungeonEnemyArt } from "./tier-art";
 
 export type { Point } from "./movement";
@@ -122,17 +122,21 @@ export function measuredRoomCamera(width: number, height: number, portrait: bool
 }
 
 /** Mount with a confirmed run/room key. Recovery never trusts saved coordinates. */
-export function DungeonScene({ view, actions, children, topOverlay, footer, presentationOverlay }: { view: RoomView; actions: RoomActions; children?: ReactNode; topOverlay?: ReactNode; footer?: ReactNode; presentationOverlay?: ReactNode }) {
+export function DungeonScene({ view, actions, children, topOverlay, footer, presentationOverlay, roomNotes }: { view: RoomView; actions: RoomActions; children?: ReactNode; topOverlay?: ReactNode; footer?: ReactNode; presentationOverlay?: ReactNode; roomNotes?: ReactNode }) {
   const [position, setPosition] = useState<Point>(view.phase === "explore" ? ENTRY : STAGING);
   const [walking, setWalking] = useState(false);
   const [facing, setFacing] = useState<Facing>("right");
   const point = useRef(position), stopWalk = useRef<(() => void) | null>(null);
+  const steering = useRef<ReturnType<typeof createRoomSteering> | null>(null);
+  const keyboardInteract = useRef<(() => void) | null>(null);
   const walkGoal = useRef<WalkGoal | null>(null);
   const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
   const latest = useRef({ view, actions });
   useEffect(() => { latest.current = { view, actions }; }, [view, actions]);
   const svg = useRef<SVGSVGElement>(null), pointer = useRef<Point | null>(null);
   const [camera,setCamera] = useState({actorScale:1,minX:170,maxX:733});
+  const currentCamera = useRef(camera);
+  useEffect(() => { currentCamera.current=camera; },[camera]);
   const lootPoint = roomLootPoint(view.seed ?? 0,view.room,camera);
   const currentLootPoint = useRef(lootPoint);
   useEffect(() => { currentLootPoint.current=lootPoint; },[lootPoint]);
@@ -160,11 +164,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       if (!next) return;
       const changed = previousCamera && (previousCamera.actorScale !== next.actorScale || previousCamera.minX !== next.minX || previousCamera.maxX !== next.maxX);
       previousCamera=next;
+      currentCamera.current=next;
       setCamera(previous => previous.actorScale === next.actorScale && previous.minX === next.minX && previous.maxX === next.maxX ? previous : next);
       const x=Math.max(next.minX,Math.min(next.maxX,point.current.x));
       if (changed || x !== point.current.x) {
         const goal=walkGoal.current;
-        stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false);
+        stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(steering.current?.moving ?? false);
         if (x !== point.current.x) { point.current={...point.current,x}; setPosition(point.current); }
         // Browser chrome can resize the floor while walking. Continue toward
         // the same intent using the new camera, including the moved loot drop.
@@ -178,16 +183,80 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   },[hasRoomHud]);
 
   useEffect(() => {
-    const stop = () => { stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false); };
+    const stop = () => { steering.current?.stop(); stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false); };
     window.addEventListener("blur",stop);
     window.addEventListener("pagehide",stop);
     document.addEventListener("visibilitychange",stop);
     return () => { stopWalk.current?.(); window.removeEventListener("blur",stop); window.removeEventListener("pagehide",stop); document.removeEventListener("visibilitychange",stop); };
   }, []);
 
+  useEffect(() => {
+    const root=svg.current?.closest("main");
+    if (!root) return;
+    const blocked = (target: EventTarget | null = document.activeElement) => {
+      if (document.querySelector("dialog[open], [role='dialog'][aria-modal='true']:not([hidden]), [role='alertdialog'][aria-modal='true']:not([hidden]), .descent-mobile-menu[open], .descent-supplies-menu[open]")) return true;
+      if (!(target instanceof Element)) return false;
+      return Boolean(target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox'], [role='combobox'], [role='slider'], [data-wallet-controls], [data-keyboard-exclude], [inert]"))
+        || (target !== document.body && target !== document.documentElement && !root.contains(target));
+    };
+    const control=createRoomSteering(() => point.current, target => {
+      const {view:current,actions:callbacks}=latest.current;
+      if (current.pending || !["explore","loot","recovery"].includes(current.phase) || blocked()) return false;
+      const bounds=currentCamera.current;
+      const next=clampRoomPoint({...target,x:Math.max(bounds.minX,Math.min(bounds.maxX,target.x))},current.enemyHp === 0);
+      setFacing(previous => movementFacing(point.current,next,previous));
+      point.current=next; setPosition(next);
+      if (current.phase === "explore" && Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125) {
+        setFacing(previous => movementFacing(next,GUARD,previous)); callbacks.approach(); return false;
+      }
+      if ((current.phase === "loot" || current.phase === "recovery") && next.y <= 130 && inDoorLane(next)) {
+        callbacks.enter(current.phase === "loot"); return false;
+      }
+      if (current.phase === "loot" && current.loot && nearRoomLoot(next,currentLootPoint.current)) {
+        callbacks.collect?.(); return false;
+      }
+      if (current.phase === "recovery" && callbacks.merchant) {
+        const merchant=roomMerchantPoint(bounds,current.room);
+        if (Math.hypot(next.x-merchant.x,next.y-merchant.y) <= 64) {
+          setFacing(previous => movementFacing(next,merchant,previous)); callbacks.merchant(); return false;
+        }
+      }
+    },setWalking);
+    steering.current=control;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { control.stop(); return; }
+      const current=latest.current.view;
+      if (current.pending || !["explore","loot","recovery"].includes(current.phase)) return;
+      const key=roomMovementKey(event.key);
+      if (!key && event.key.toLowerCase() !== "e") return;
+      event.preventDefault();
+      // Repeat never starts a fresh walk after a phase transition or focus loss.
+      if (event.repeat) return;
+      if (key) {
+        stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null;
+        latest.current.actions.interact?.();
+        control.press(key);
+      } else keyboardInteract.current?.();
+    };
+    const keyup = (event: KeyboardEvent) => { const key=roomMovementKey(event.key); if (key) control.release(key); };
+    const focusChanged = (event: FocusEvent) => { if (blocked(event.target)) control.stop(); };
+    document.addEventListener("keydown",keydown);
+    document.addEventListener("keyup",keyup);
+    document.addEventListener("focusin",focusChanged);
+    return () => {
+      control.stop(); steering.current=null;
+      document.removeEventListener("keydown",keydown);
+      document.removeEventListener("keyup",keyup);
+      document.removeEventListener("focusin",focusChanged);
+    };
+  },[]);
+
+  useEffect(() => { steering.current?.stop(); },[view.phase,view.pending]);
+
   function moveTo(target: Point, destination?: WalkGoal["destination"], interact = true, bounds = camera) {
     const {view: currentView,actions: currentActions}=latest.current;
     if (currentView.pending || !["explore","loot","recovery"].includes(currentView.phase) || !isRoomPoint(target)) return;
+    steering.current?.stop();
     if (interact) currentActions.interact?.();
     stopWalk.current?.();
     const next = clampRoomPoint({...target,x:Math.max(bounds.minX,Math.min(bounds.maxX,target.x))},currentView.enemyHp === 0);
@@ -218,6 +287,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   }
 
   useEffect(() => {
+    keyboardInteract.current=() => moveTo(cleared ? DOOR : STAGING,cleared ? "door" : "enemy");
     continueWalk.current=(goal,bounds) => {
       const current=latest.current.view;
       const merchant=roomMerchantPoint(bounds,current.room);
@@ -228,15 +298,6 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   });
 
 
-  function keyboard(event: KeyboardEvent<SVGSVGElement>) {
-    if (!["explore","loot","recovery"].includes(view.phase)) return;
-    const moves: Record<string,Point> = { ArrowLeft:{x:-42,y:0},a:{x:-42,y:0},ArrowRight:{x:42,y:0},d:{x:42,y:0},ArrowUp:{x:0,y:-42},w:{x:0,y:-42},ArrowDown:{x:0,y:42},s:{x:0,y:42} };
-    const delta = moves[event.key];
-    if (delta) { event.preventDefault(); moveTo({x:point.current.x+delta.x,y:point.current.y+delta.y}); }
-    if ((event.key === "Enter" || event.key.toLowerCase() === "e") && !event.repeat) {
-      event.preventDefault(); moveTo(cleared ? DOOR : STAGING,cleared ? "door" : "enemy");
-    }
-  }
   function floor(event: PointerEvent<SVGSVGElement>) {
     const start = pointer.current; pointer.current = null;
     if (!start || Math.hypot(event.clientX-start.x,event.clientY-start.y) > 12) return;
@@ -254,8 +315,8 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
 
   return <div className={`dungeon-scene-wrap ${view.phase} ${view.enemy === 3 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room}>
     {topOverlay && <div className="dungeon-scene-top-overlay">{topOverlay}</div>}
-    <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Arrow keys or WASD to walk; E to ${cleared ? "use the door" : "approach the enemy"}.`}
-      onKeyDown={keyboard} onPointerDown={e => { pointer.current={x:e.clientX,y:e.clientY}; }} onPointerUp={floor} onPointerCancel={() => {pointer.current=null;}}>
+    <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Hold WASD to walk; E to ${cleared ? "use the door" : "approach the enemy"}. Arrow keys select buttons; Enter activates.`}
+      onPointerDown={e => { pointer.current={x:e.clientX,y:e.clientY}; }} onPointerUp={floor} onPointerCancel={() => {pointer.current=null;}}>
       <image href="/dungeon/stone-room.webp" width="900" height="600" />
       <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
       {cleared && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.phase === "won" ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
@@ -282,7 +343,6 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
         <g key={view.cue ? `avatar-${view.cueId}` : "avatar-idle"} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
           <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite /></svg>
-          {view.armor > 0 && <circle cx="5" cy="-66" r="29" fill="none" stroke="#ddb36f" strokeWidth="2" opacity=".42" />}
           {view.weapon > 0 && <path d="M34 -57 L66 -92" stroke="#f9dea3" strokeWidth="2" opacity=".8" />}
         </g>
         </g>
@@ -299,17 +359,18 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         <text x={GUARD.x} y={GUARD.y-spriteHeight*camera.actorScale-12} textAnchor="middle" className="dungeon-damage">{view.cue === "critical" ? "CRIT " : ""}{view.damage}</text>
       </g>}
     </svg>
+    {roomNotes && <div className="dungeon-scene-notes">{roomNotes}</div>}
     {presentationOverlay && <div className="dungeon-scene-presentation">{presentationOverlay}</div>}
     <div className="dungeon-scene-bottom">
     {footer && <div className="dungeon-scene-footer">{footer}</div>}
     {children && <div className="dungeon-scene-overlay">{children}</div>}
-    <div className="dungeon-floor-controls">
-      {view.phase === "explore" && <button onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending}>Approach {view.enemyName} <span>↗</span></button>}
-      {view.phase === "recovery" && <><button className="dungeon-enter-room" onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
+    <div className="dungeon-floor-controls" data-keyboard-actions>
+      {view.phase === "explore" && <button data-keyboard-default="true" onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending}>Approach {view.enemyName} <span>↗</span></button>}
+      {view.phase === "recovery" && <><button className="dungeon-enter-room" data-keyboard-default="true" onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
       {view.phase === "combat" && !children && <span>Your turn · Choose an action below</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>
-    {!children && <p className="dungeon-controls-help">Tap the floor to walk · Arrow keys / WASD · E to interact</p>}
+    {!children && <p className="dungeon-controls-help">Hold WASD to walk · E to interact · Arrows + Enter for buttons</p>}
     </div>
   </div>;
 }

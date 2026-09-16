@@ -89,16 +89,21 @@ function recoveryAtRoom(room:number):Descent {
   throw new Error(`Could not reach recovery in room ${room}`);
 }
 
-async function walkToLootWithKeyboard(page:Page,floor:Locator,target:RoomPoint) {
-  await floor.focus();
+function wasdToward(start:RoomPoint,target:RoomPoint) {
+  const dx=target.x-start.x,dy=target.y-start.y;
+  return Math.abs(dx)>Math.abs(dy) ? dx<0 ? "a" : "d" : dy<0 ? "w" : "s";
+}
+
+async function walkToLootWithKeyboard(page:Page,target:RoomPoint) {
   for (let step=0;step<32 && await page.locator("[data-descent-phase='loot']").count();step++) {
-    const before=await avatarPoint(page), dx=target.x-before.x, dy=target.y-before.y;
-    const key=Math.abs(dx)>Math.abs(dy) ? dx<0 ? "ArrowLeft" : "ArrowRight" : dy<0 ? "ArrowUp" : "ArrowDown";
-    await floor.press(key);
-    await expect.poll(async()=>{
-      if (!await page.locator("[data-descent-phase='loot']").count()) return true;
-      return distance(await avatarPoint(page),before)>38;
-    }).toBe(true);
+    const before=await avatarPoint(page), key=wasdToward(before,target);
+    await page.keyboard.down(key);
+    try {
+      await expect.poll(async()=>{
+        if (!await page.locator("[data-descent-phase='loot']").count()) return true;
+        return distance(await avatarPoint(page),before)>38;
+      }).toBe(true);
+    } finally { await page.keyboard.up(key); }
   }
 }
 
@@ -165,35 +170,96 @@ test("a newcomer starts with the original kit and no wallet or RPC",async({page,
   expect(forbidden).toEqual([]);
 });
 
-test("keyboard and floor input move the avatar; repeated combat input commits one turn",async({page})=>{
+test("held WASD moves continuously, combines directions and stops on release or blur",async({page})=>{
   await seed(page);
-  const floor=page.getByRole("group",{name:/Room 1 floor/});
   const actor=page.locator("[data-avatar-position]"), avatar=actor.locator(".dungeon-avatar"), art=actor.locator(".dungeon-avatar-art");
-  await floor.focus(); await floor.press("ArrowLeft");
-  await expect(actor).toHaveAttribute("data-avatar-facing","left");
-  await expect(actor).not.toHaveAttribute("data-avatar-position","420,496");
-  await expect(avatar).toHaveClass(/is-walking/); await expect(avatar).not.toHaveClass(/is-walking/);
-  const leftScale=await art.evaluate(element=>(element as SVGSVGElement).getScreenCTM()!.a);
-  await floor.press("ArrowRight");
+  const initial=await saved(page), start=await avatarPoint(page);
+  expect(await page.evaluate(()=>document.activeElement?.closest("svg.dungeon-scene"))).toBeNull();
+
+  // Walk across the entrance so this movement test cannot accidentally start
+  // combat while assertions wait for frames on a slower browser.
+  await page.keyboard.down("a");
+  try {
+    await expect.poll(async()=>(await avatarPoint(page)).x,{intervals:[16]}).toBeLessThan(start.x-10);
+    const first=await avatarPoint(page);
+    await expect.poll(async()=>(await avatarPoint(page)).x,{intervals:[16]}).toBeLessThan(first.x-10);
+
+    const diagonalStart=await avatarPoint(page);
+    await page.keyboard.down("w");
+    await expect.poll(async()=>{
+      const current=await avatarPoint(page);
+      return diagonalStart.x-current.x>8 && diagonalStart.y-current.y>8;
+    },{intervals:[16]}).toBe(true);
+    await page.keyboard.up("w");
+
+    const horizontalStart=await avatarPoint(page);
+    await expect.poll(async()=>(await avatarPoint(page)).x,{intervals:[16]}).toBeLessThan(horizontalStart.x-8);
+    const horizontalEnd=await avatarPoint(page);
+    await page.waitForTimeout(120);
+    expect(Math.abs((await avatarPoint(page)).y-horizontalEnd.y),"releasing W should leave only A moving").toBeLessThanOrEqual(2);
+  } finally {
+    await page.keyboard.up("a");
+    await page.keyboard.up("w");
+  }
+  const released=await avatarPoint(page);
+  await page.waitForTimeout(180);
+  expect(distance(await avatarPoint(page),released),"keyup should stop movement without waiting for OS repeat").toBeLessThanOrEqual(2);
+
+  await page.keyboard.down("d");
+  try {
+    await expect.poll(async()=>(await avatarPoint(page)).x,{intervals:[16]}).toBeGreaterThan(released.x+8);
+    await page.evaluate(()=>window.dispatchEvent(new Event("blur")));
+    await page.waitForTimeout(60);
+    const blurred=await avatarPoint(page);
+    await page.waitForTimeout(180);
+    expect(distance(await avatarPoint(page),blurred),"window blur should clear held movement").toBeLessThanOrEqual(2);
+  } finally { await page.keyboard.up("d"); }
+
   await expect(actor).toHaveAttribute("data-avatar-facing","right");
-  await expect(avatar).toHaveClass(/is-walking/); await expect(avatar).not.toHaveClass(/is-walking/);
   const rightScale=await art.evaluate(element=>(element as SVGSVGElement).getScreenCTM()!.a);
+  const beforeLeft=await avatarPoint(page);
+  await page.keyboard.down("a");
+  try { await expect.poll(async()=>(await avatarPoint(page)).x,{intervals:[16]}).toBeLessThan(beforeLeft.x-8); }
+  finally { await page.keyboard.up("a"); }
+  await expect(actor).toHaveAttribute("data-avatar-facing","left");
+  const leftScale=await art.evaluate(element=>(element as SVGSVGElement).getScreenCTM()!.a);
   expect(leftScale*rightScale,"left and right facing should visually mirror the avatar").toBeLessThan(0);
-  expect((await saved(page)).turns).toBe(0);
-  await floor.press("e");
-  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","combat");
+  expect(await saved(page)).toEqual(initial);
+  await expect(avatar).not.toHaveClass(/is-walking/);
+});
+
+test("walking up to the enemy starts combat and a held K commits one turn",async({page})=>{
+  const run=createDescent(12345,"walk-to-combat");
+  await seed(page,run);
+  await page.keyboard.down("w");
+  try {
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","combat");
+  } finally { await page.keyboard.up("w"); }
+  expect(await saved(page)).toEqual(transition(run,"engage"));
+  const before=await saved(page);
+  await page.keyboard.down("k");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(before.revision+1);
   await expect(page.getByRole("group",{name:"Combat actions"})).toHaveAttribute("aria-busy","false");
-  const before=await saved(page), beforeFrame=await floorFrame(floor);
-  await page.getByRole("button",{name:/Attack/i}).evaluate((button:HTMLButtonElement)=>{button.click();button.click();button.click();});
-  await expect(page.getByRole("group",{name:"Combat actions"})).toHaveAttribute("aria-busy","true");
-  expectStableFloor(beforeFrame,await floorFrame(floor));
-  await expect.poll(async()=>(await saved(page)).turns).toBe(before.turns+1);
-  await expect(page.getByRole("group",{name:"Combat actions"})).toHaveAttribute("aria-busy","false");
-  expectStableFloor(beforeFrame,await floorFrame(floor));
-  expect(await saved(page)).toEqual(transition(before,"attack"));
+  const attacked=await saved(page);
+  await page.keyboard.down("k");
+  await page.waitForTimeout(350);
+  expect(await saved(page),"a repeated keydown while K remains held must not attack twice").toEqual(attacked);
+  await page.keyboard.up("k");
+  for (const key of ["w","a","s","d"]) await page.keyboard.press(key);
+  await page.waitForTimeout(180);
+  expect(await saved(page),"WASD must never dispatch a battle action").toEqual(attacked);
   await page.reload();
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","combat");
-  expect(await saved(page)).toEqual(transition(before,"attack"));
+  expect(await saved(page)).toEqual(attacked);
+});
+
+test("E approaches the enemy from page focus without focusing or clicking the floor",async({page})=>{
+  const run=createDescent(2468,"keyboard-approach");
+  await seed(page,run);
+  expect(await page.evaluate(()=>document.activeElement?.closest("svg.dungeon-scene"))).toBeNull();
+  await page.keyboard.press("e");
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","combat");
+  expect(await saved(page)).toEqual(transition(run,"engage"));
 });
 
 test("the whole descent plays through doors, supplies, camp, boss and reward",async({page,isMobile},testInfo)=>{
@@ -257,11 +323,12 @@ test("random floor loot is credited automatically when keyboard or pointer movem
     await tapRoomPoint(page,floor,lootPoint,true);
     expect((await saved(page)).revision).toBe(run.revision);
   } else {
-    await floor.focus();
-    const current=await avatarPoint(page), dx=lootPoint.x-current.x, dy=lootPoint.y-current.y;
-    await floor.press(Math.abs(dx)>Math.abs(dy) ? dx<0 ? "ArrowLeft" : "ArrowRight" : dy<0 ? "ArrowUp" : "ArrowDown");
+    const current=await avatarPoint(page), key=wasdToward(current,lootPoint);
+    await page.keyboard.down(key);
+    try { await expect.poll(async()=>distance(await avatarPoint(page),current)).toBeGreaterThan(10); }
+    finally { await page.keyboard.up(key); }
     expect((await saved(page)).revision).toBe(run.revision);
-    await walkToLootWithKeyboard(page,floor,lootPoint);
+    await walkToLootWithKeyboard(page,lootPoint);
   }
   await expect(page.locator("[data-avatar-position]")).not.toHaveAttribute("data-avatar-position","400,391");
 
@@ -281,6 +348,35 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await expect(recoveryPotion).toHaveAccessibleName(/Use potion/);
 });
 
+test("M safely heals before and after WASD loot pickup without spending a turn",async({page})=>{
+  const combat=transition(createDescent(199,"keyboard-safe-potion"),"engage");
+  const loot=transition({...combat,game:{...combat.game,hp:40,monsterHp:1}},"attack");
+  expect(phase(loot)).toBe("loot");
+  await seed(page,loot);
+
+  await page.keyboard.press("m");
+  const healedBeforePickup=transition(loot,"potion");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(healedBeforePickup.revision);
+  expect(await saved(page)).toEqual(healedBeforePickup);
+  expect(healedBeforePickup.pendingLoot).toEqual(loot.pendingLoot);
+  expect(healedBeforePickup.turns).toBe(loot.turns);
+  expect(healedBeforePickup.rngState).toBe(loot.rngState);
+
+  const target=await stableRenderedLootPoint(page);
+  await walkToLootWithKeyboard(page,target);
+  const collected=transition(healedBeforePickup,"collect");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(collected.revision);
+  expect(await saved(page)).toEqual(collected);
+  await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
+
+  await page.keyboard.press("m");
+  const healedAfterPickup=transition(collected,"potion");
+  await expect.poll(async()=>(await saved(page)).revision).toBe(healedAfterPickup.revision);
+  expect(await saved(page)).toEqual(healedAfterPickup);
+  expect(healedAfterPickup.turns).toBe(collected.turns);
+  expect(healedAfterPickup.rngState).toBe(collected.rngState);
+});
+
 test("the safe potion below the room heals with loot waiting and the door can still leave that loot",async({page})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   const combat=transition(createDescent(99,"loot-inventory-potion"),"engage");
@@ -298,7 +394,7 @@ test("the safe potion below the room heals with loot waiting and the door can st
   await expect(potion).toContainText(`POTION · ${run.game.potions}/5`);
   await expect(potion).toContainText("+25 HP · No enemy retaliation");
 
-  await potion.click();
+  await page.keyboard.press("m");
   const healed=transition(run,"potion");
   await expect.poll(async()=>(await saved(page)).revision).toBe(healed.revision);
   expect(await saved(page)).toEqual(healed);
@@ -311,9 +407,7 @@ test("the safe potion below the room heals with loot waiting and the door can st
   await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
   await expect(potion).toBeEnabled();
 
-  const floor=page.getByRole("group",{name:/Room 1 floor/});
-  await floor.focus();
-  await floor.press("e");
+  await page.keyboard.press("e");
   const entered=transition(healed,"enter");
   await expect.poll(async()=>(await saved(page)).revision).toBe(entered.revision);
   expect(await saved(page)).toEqual(entered);
@@ -510,14 +604,13 @@ test("free movement, retargeting, approach and loot still finish without animati
     window.requestAnimationFrame=()=>++frame;
     window.cancelAnimationFrame=()=>{};
   });
-  const floor=page.getByRole("group",{name:/Room 1 floor/});
-  const press=async(key:string)=>floor.evaluate((element,key)=>{
-    element.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true}));
-  },key);
-  await press("ArrowLeft");
+  await page.keyboard.down("a");
   await expect.poll(async()=>(await avatarPoint(page)).x).toBeLessThan(420);
-  await press("ArrowRight");
+  await page.keyboard.up("a");
+  await page.keyboard.down("d");
   await expect(page.locator("[data-avatar-facing]")).toHaveAttribute("data-avatar-facing","right");
+  await expect.poll(async()=>(await avatarPoint(page)).x).toBeGreaterThan(400);
+  await page.keyboard.up("d");
   await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
   expect(await saved(page)).toEqual(initial);
   await page.getByRole("button",{name:/Approach/}).evaluate((element:HTMLButtonElement)=>element.click());
@@ -630,7 +723,7 @@ test("responsive room keeps compact combat controls inside the scene",async({pag
   await expect(actions.getByRole("status",{name:"Last combat exchange"})).toContainText(`${afterAttack.game.lastPlayerDamage} HP`);
   await page.getByRole("button",{name:"Open dungeon log"}).click();
   await expect(page.getByRole("dialog",{name:"Dungeon log"})).toBeVisible();
-  await page.keyboard.press("1");
+  await page.keyboard.press("k");
   expect(await saved(page)).toEqual(afterAttack);
   await page.getByRole("button",{name:"Close dungeon log"}).click();
   if (testInfo.project.name === "iphone-11-pro-webkit") {

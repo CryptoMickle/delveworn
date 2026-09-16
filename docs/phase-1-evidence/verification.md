@@ -1,8 +1,69 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — restore the original status bar and recovery buttons
+## Current correction — continuous desktop movement, button navigation and room notes
 
-### Current phone preview
+### Correction
+
+WASD now steers continuously on animation frames, beginning with the first
+keydown and ending on release. It supports diagonals at the same speed,
+direction changes and walking into enemy approach range. The page listens
+without requiring a click/focus on the SVG floor, including after room entry.
+Active Practice and onchain returns now include the missing main input scope
+and DesktopNavigation. Arrows select room/combat buttons; Enter activates them.
+K/J/M use the existing Attack/Storm/Potion callbacks once per physical press.
+M also heals while loot is pending and after collection; E walks to the enemy
+or to the cleared room's door. Input fields, modifiers, dialogs, wallet controls,
+pending actions, visibility/focus loss and unmount stop or exclude game input.
+
+Small parchment notes inside the room reuse the current monster description
+and latest log remarks; combat/reward punchlines can appear without repeating
+their numeric prefix. They are pointer-transparent, use fixed overlay bounds
+and sit below the original timed close-up artwork. On phones the notes are
+compact and the full log remains available. The decorative armor ring is removed.
+
+The tier-two goblin is Nevin the Unqualified across displayed personas and new
+log entries. Quartermaster Kevin is unchanged. The original goblin bitmap,
+asset path, crop and actor scale are preserved; the SVG clip includes both ears.
+Previously stored log entries are not rewritten.
+
+### Actual checks
+
+- **164 automated tests passed, 0 failed, 0 skipped.** Added coverage includes
+  held movement without key repeat, immediate direction changes, normalized
+  diagonals, cancellation, delayed/missing animation frames, arrival and
+  shortcut selection; existing state, loot, safe-healing and replay tests pass.
+- TypeScript passed; ESLint **0 errors, 14 existing warnings**; whitespace
+  checks passed. **201 browser scenarios in 10 files** were discovered, not run.
+- All three existing frontend CI build configurations passed locally on the
+  final application changes: RISE compatibility, Somnia standard and Somnia
+  session keys. No remote GitHub CI run was triggered.
+- No-DOM mounted-component probes exercised actual scene listeners and frames:
+  body/button focus, held movement, release, diagonal travel, automatic approach,
+  fresh-room movement, blur/modal/input/external exclusions, E door and cleanup.
+  A separate actual DesktopNavigation probe verified K/J/M, repeat suppression,
+  SVG arrow selection, Enter, disabled potion, pending overlays and focus.
+- The actual Practice-page callback probe still passes original HUD values,
+  Gear/Relics, safe potion before/after loot, no extra RNG, pending-loot retention,
+  full HP, stale callbacks, empty stock, door bypass and legacy save restoration.
+- The corrected ear mask was rendered with Sharp and visually inspected against
+  the original illustration. This is an SVG art check, not a browser screenshot.
+- Browser/device QA remains blocked by the administration policy previously
+  reported by automatic approval review. No browser retry or workaround was
+  attempted. Real desktop/mobile input and parchment layout need preview testing.
+- No production release, Git push/merge or live onchain transaction. Somnia's
+  unresolved adapter setup is not validated by these presentation/input checks.
+
+Desktop check: open Practice, start, hold WASD without clicking the floor,
+release and change direction. Use arrows to select Approach and Enter to walk
+there; try K/J/M in combat, M before/after loot and E to bypass a drop. Start
+moving in the next room without clicking the grid. Check parchment readability
+and Nevin's ears in tier two; the merchant should remain Quartermaster Kevin.
+
+**Review preview; native gameplay and layout checks remain required for production.**
+
+## Previous correction — restore the original status bar and recovery buttons
+
+### Previous phone preview
 
 - Source `fc1aaf81878393fe36c2dc3ba1a77aa92298d31e`; Vercel deployment
   `dpl_A4rXj3qWCUMxt4RRGrnxamYpfjzY`: **READY**, preview target.

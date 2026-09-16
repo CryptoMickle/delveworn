@@ -1,0 +1,33 @@
+.dungeon-scene-notes { position:absolute; inset:0 0 auto; aspect-ratio:3/2; z-index:1; pointer-events:none; }
+.room-parchments { position:relative; width:100%; height:100%; pointer-events:none; }
+.room-parchment {
+  position:absolute; right:12px; width:clamp(150px,25%,218px); max-height:35%; overflow:hidden;
+  padding:15px 16px 17px; border:1px solid #a67c43; border-radius:2px 5px 3px 1px;
+  color:#352316;
+  background:
+    radial-gradient(ellipse at 5% 0%,#a4774440,transparent 55%),
+    radial-gradient(ellipse at 100% 100%,#946b3840,transparent 50%),
+    repeating-linear-gradient(7deg,#8b68340a 0 1px,transparent 1px 4px),
+    linear-gradient(105deg,#dbc18e,#f0deba 35%,#e5cca0 85%,#c5a775);
+  box-shadow:0 5px 13px #09040988,inset 0 0 15px #83591c35;
+  font:12px/1.45 Georgia,"Times New Roman",serif;
+}
+.room-parchment::before { content:""; position:absolute; inset:5px; border:1px solid #98703a50; pointer-events:none; }
+.room-parchment-monster { top:12px; transform:rotate(1deg); }
+.room-parchment-humor { bottom:12px; transform:rotate(-1deg); }
+.room-parchment .room-parchment-label { margin:0 0 6px; color:#785631; font:700 9px/1.2 var(--font-geist-sans),sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+.descent-shell .room-parchment h2 { margin:0 0 7px; color:#352316; font:700 clamp(14px,1.6vw,19px)/1.12 Georgia,"Times New Roman",serif; }
+.room-parchment .room-parchment-copy { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; margin:0; }
+.room-parchment-humor .room-parchment-copy + .room-parchment-copy { margin-top:7px; padding-top:7px; border-top:1px solid #9b753d55; }
+.room-parchment-humor .room-parchment-copy { -webkit-line-clamp:2; font-style:italic; }
+.descent-monster-reveal.is-collapsed { justify-content:flex-start; }
+@media(max-width:760px) {
+  .has-room-hud > .dungeon-scene-notes { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); aspect-ratio:auto; }
+  .room-parchment { right:7px; width:34%; min-width:110px; max-height:35%; padding:9px 10px; font-size:10px; line-height:1.3; }
+  .room-parchment-monster { top:7px; }
+  .room-parchment-humor { bottom:7px; }
+  .room-parchment .room-parchment-label { margin-bottom:4px; font-size:7px; letter-spacing:.05em; }
+  .descent-shell .room-parchment h2 { margin-bottom:4px; font-size:12px; }
+  .room-parchment .room-parchment-copy { -webkit-line-clamp:3; }
+  .room-parchment-humor .room-parchment-copy + .room-parchment-copy { display:none; }
+}

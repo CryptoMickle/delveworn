@@ -65,6 +65,7 @@ import {
   type PracticeGridState,
 } from "./grid-state";
 import { EndlessRoom } from "../dungeon/endless-room";
+import { DesktopNavigation } from "../desktop-navigation";
 import type { SceneCue } from "../dungeon/scene";
 
 const MAX_POTIONS = 5;
@@ -90,7 +91,7 @@ const MONSTER_PERSONAS: Record<MonsterType, readonly MonsterPersona[]> = {
   ],
   1: [
     { name: "Gary", species: "Goblin", image: "/monsters/goblin-1-gary.webp?v=art-20260825-v2", flavor: "Gary has no plan, but he is extremely committed to it.", chance: "35%" },
-    { name: "Kevin the Unqualified", species: "Goblin", image: "/monsters/goblin-2-kevin-the-unqualified.webp?v=art-20260825-v2", flavor: "Nobody knows who hired Kevin. Kevin included.", chance: "35%" },
+    { name: "Nevin the Unqualified", species: "Goblin", image: "/monsters/goblin-2-kevin-the-unqualified.webp?v=art-20260825-v2", flavor: "Nobody knows who hired Nevin. Nevin included.", chance: "35%" },
     { name: "Gribble", species: "Goblin", image: "/monsters/goblin-3-gribble.webp?v=art-20260825-v2", flavor: "Gribble has discovered armor. Civilization may never recover.", chance: "35%" },
     { name: "Gary's Supervisor", species: "Goblin", image: "/monsters/goblin-4-garys-supervisor.webp?v=art-20260825-v2", flavor: "You finally found the person responsible for Gary.", chance: "35%" },
   ],
@@ -752,6 +753,8 @@ export default function PracticePage() {
     ) : undefined;
 
     return (
+      <main>
+      <DesktopNavigation />
       <EndlessRoom
         key={grid.seed}
         mode="practice"
@@ -781,6 +784,7 @@ export default function PracticePage() {
           interact: () => audio.playAction("click"),
         }}
         enemyMaxHp={game.monsterMaxHp}
+        monsterDescription={persona.flavor}
         maxHp={game.maxHp}
         gold={game.gold}
         potions={game.potions}
@@ -799,6 +803,7 @@ export default function PracticePage() {
         log={game.log}
         sound={{ enabled: audio.enabled, available: audio.available, paused: audio.paused, toggleSound: audio.toggleSound }}
       />
+      </main>
     );
   }
 

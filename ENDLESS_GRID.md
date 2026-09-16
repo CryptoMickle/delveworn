@@ -10,10 +10,18 @@ boss cadence, relic rules and respective randomness authorities.
 - `/practice`: start without a wallet, account or payment. Walk toward the monster
   and use Approach, then Attack, Storm or Potion. The original starting kit is
   100 HP, three potions and no relic choice.
+- On a keyboard, hold **WASD** for smooth free movement. Movement starts on the
+  first keydown, continues without relying on operating-system key repeat, supports
+  direction changes and diagonals, and stops on release, focus loss or an open
+  input/dialog. Walking into the enemy's approach range starts combat. **E** walks
+  to the current interaction: the enemy before combat or the north door after it.
+  Arrow keys only move focus among visible action buttons, and **Enter** selects
+  the focused button. Combat uses **K** for Attack, **J** for Storm and **M** for
+  Potion; each physical press resolves at most one action.
 - After victory, tap the loot in the grid for automatic pickup on arrival, or
   **tap the north doorway directly** to walk past the loot and continue.
-  There is no separate pickup/bypass button. E/Enter on the floor uses the door;
-  arrows can still walk onto loot for automatic collection.
+  There is no separate pickup/bypass button. E uses the door; WASD can walk onto
+  loot for automatic collection. Enter remains button selection.
   In `/play` and new Practice runs, leaving loot forfeits the held gold, potion,
   weapon or armor reward. Pickup or leaving advances no combat turn or RNG.
   The existing boss relic keep/equip decision remains separate. Loot is left only
@@ -25,12 +33,21 @@ boss cadence, relic rules and respective randomness authorities.
   details. Picking up loot no longer replaces the potion count with Relics.
 - After a kill, the original green **POTION** style is used below the report
   on mobile (in the recovery sidebar on desktop). It works before and after
-  collecting loot. Full HP, empty stock and pending actions disable healing;
+  collecting loot, and **M** activates the same safe heal. Full HP, empty stock
+  and pending actions disable healing;
   floor loot and room turns are preserved. **Relics** has its own header button
   during recovery, and **Enter room** uses the original orange action style.
   **Menu** also retains recovery healing. Combat controls keep their positions.
 - There is no sustained exploration drone. Short action/character/outcome
   effects and the boss score retain their existing sound controls.
+- Monster notes appear on parchment at the top right of the room; recent
+  existing dungeon-log remarks appear on a second parchment at the bottom
+  right. They take no pointer input, do not change room size, and sit beneath
+  the timed monster artwork. Phones show a compact excerpt; the full log
+  remains available. The cosmetic armor ring over the avatar is removed.
+- The tier-two goblin is **Nevin the Unqualified**; **Quartermaster Kevin**
+  remains the merchant. Nevin uses the original painting with both ears
+  preserved in its transparent clipping mask.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. Difficulty continues to

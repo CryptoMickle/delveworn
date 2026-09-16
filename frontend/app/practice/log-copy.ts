@@ -97,19 +97,19 @@ const MONSTER_LOG_COPY: readonly (readonly MonsterLogPersona[])[] = [
       ],
     },
     {
-      name: "Kevin the Unqualified",
+      name: "Nevin the Unqualified",
       encounters: [
-        "Kevin has received absolutely no training for this.",
-        "Kevin looks prepared. This is misleading.",
+        "Nevin has received absolutely no training for this.",
+        "Nevin looks prepared. This is misleading.",
       ],
       hitLines: [
-        "Kevin cannot believe that worked.",
-        "This will absolutely go on Kevin's résumé.",
+        "Nevin cannot believe that worked.",
+        "This will absolutely go on Nevin's résumé.",
         "His annual review is going surprisingly well.",
-        "Kevin briefly achieves competence.",
+        "Nevin briefly achieves competence.",
       ],
       killLines: [
-        "Kevin has failed probation.",
+        "Nevin has failed probation.",
         "The hiring manager has several questions to answer.",
       ],
     },

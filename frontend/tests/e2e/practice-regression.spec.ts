@@ -110,7 +110,7 @@ test("a new run must approach before combat hotkeys can change the game", async 
   await expect(page.getByLabel("Combat actions")).toHaveCount(0);
   const before = await savedGame(page);
   expect((await savedGrid(page)).engaged).toBe(false);
-  await page.keyboard.press("a");
+  await page.keyboard.press("k");
   expect(await savedGame(page)).toEqual(before);
   await walkThrough(page, /^Approach /, "combat");
   await expect(page.getByRole("button", { name: /⚔️ ATTACK/ })).toBeEnabled();
@@ -124,8 +124,8 @@ test("same-tick pointer and keyboard dispatch resolve one combat action", async 
     const read = () => JSON.parse(localStorage.getItem(key)!).game as PracticeGame;
     button.click();
     const first = read();
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "m", bubbles: true }));
     button.click();
     const duplicates = read();
     // The event's microtasks finish before any timer may run. A fresh action
