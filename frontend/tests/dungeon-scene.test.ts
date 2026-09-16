@@ -98,8 +98,10 @@ test("Kevin taps approach the painted shop before or after floor loot pickup", (
     for(const room of [5,9]) {
       const merchant=roomMerchantPoint(bounds), approach=roomMerchantApproach(merchant,bounds);
       const scale=bounds.actorScale ?? 1;
-      assert.deepEqual(merchant,{x:Math.min(bounds.maxX-52*scale,bounds.minX+210*scale),y:270},"Kevin stands on the inward side of the upper-left wagon");
-      assert.ok(merchant.x+MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right*scale >= bounds.minX-.001,"the turned wagon stays inside the left camera bound");
+      const visibleLeft=bounds.minX <= 170 ? 0 : bounds.minX-(88+12/.65)*scale;
+      const wagonLeft=visibleLeft+50*scale;
+      assert.deepEqual(merchant,{x:Math.min(bounds.maxX-52*scale,wagonLeft+210*scale),y:270},"Kevin stands immediately inward of the wall-parked wagon");
+      assert.ok(Math.abs(merchant.x+MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right*scale-wagonLeft)<.001,"the turned wagon finishes at the visible left wall margin");
       assert.ok(merchant.x+(MERCHANT_ROOM_ART_LAYOUT.person.x+MERCHANT_ROOM_ART_LAYOUT.person.width)*scale <= bounds.maxX+.001,"Kevin stays inside the right camera bound");
       assert.deepEqual(approach,{x:Math.min(bounds.maxX,merchant.x+48),y:merchant.y+36},"the avatar approaches from the inward side");
       assert.ok(approach.x >= bounds.minX && approach.x <= bounds.maxX,"the approach remains inside the mobile camera");
@@ -146,7 +148,7 @@ test("the original Kevin figure enters eligible rooms as soon as loot drops", ()
   for(const room of [5,9]) {
     const markup=render({room});
     assert.match(markup,/data-merchant-position="450,92"/,"Kevin starts at the north doorway");
-    assert.match(markup,/data-merchant-destination="380,270"/,"both stops put Kevin inward of the upper-left wagon");
+    assert.match(markup,/data-merchant-destination="260,270"/,"Kevin finishes inward of the wagon parked against the left wall");
     assert.match(markup,/data-merchant-arrived="false"/,"entry has not teleported to the final spot");
     assert.match(markup,/role="img" aria-label="Quartermaster Kevin\. Walk here to trade\."/);
     assert.match(markup,/\/characters\/merchant-quartermaster-kevin\.webp/);

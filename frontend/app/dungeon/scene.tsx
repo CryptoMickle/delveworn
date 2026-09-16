@@ -95,11 +95,14 @@ type RoomMerchantBounds = {actorScale?: number; minX: number; maxX: number};
 
 export function roomMerchantPoint(bounds: RoomMerchantBounds = {actorScale:1,minX:170,maxX:733}): Point {
   const scale=bounds.actorScale ?? 1;
-  // The final inward-facing composition puts the wagon to Kevin's left.
-  // Anchor Kevin far enough inside the camera to keep the whole pair visible.
+  // The portrait walk margin is 88 actor pixels plus a 12px screen gutter.
+  // Recover its visible edge so the final wagon can sit at the wall without
+  // being cropped; the uncropped desktop room uses its painted 50px margin.
+  const visibleLeft=bounds.minX <= 170 ? 0 : bounds.minX-(88+12/.65)*scale;
+  const wagonLeft=visibleLeft+50*scale;
   const stallLeft=-MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right;
   const personRight=MERCHANT_ROOM_ART_LAYOUT.person.x+MERCHANT_ROOM_ART_LAYOUT.person.width;
-  return {x:Math.min(bounds.maxX-personRight*scale,bounds.minX+stallLeft*scale),y:270};
+  return {x:Math.min(bounds.maxX-personRight*scale,wagonLeft+stallLeft*scale),y:270};
 }
 
 export function roomMerchantApproach(merchant: Point, bounds: RoomMerchantBounds = {minX:170,maxX:733}): Point {

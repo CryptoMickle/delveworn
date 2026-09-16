@@ -40,11 +40,13 @@ function manualFrames() {
   return {frames,pending,advanceTo,get time(){ return time; }};
 }
 
-test("Kevin leads the wagon to the existing parking point, circles south, then turns it in place", () => {
-  const plan=createMerchantJourney({x:380,y:270},1);
+test("Kevin faces the wagon, turns it, pushes it to the wall, then faces into the room", () => {
+  const plan=createMerchantJourney({x:260,y:270},1);
   assert.deepEqual(plan.towPath,[MERCHANT_ENTRY,{x:450,y:270},{x:150,y:270}]);
   assert.deepEqual(plan.circlePath,[{x:150,y:270},{x:150,y:322},{x:380,y:322},{x:380,y:270}]);
-  assert.deepEqual(plan.parkedWagon,{x:265,y:270});
+  assert.deepEqual(plan.stagingDestination,{x:380,y:270});
+  assert.deepEqual(plan.circleWagon,{x:265,y:270});
+  assert.deepEqual(plan.parkedWagon,{x:145,y:270});
 
   const start=merchantPoseAt(plan,0);
   assert.equal(start.stage,"entering");
@@ -67,37 +69,59 @@ test("Kevin leads the wagon to the existing parking point, circles south, then t
   assertPoint(beforePark.position,parked.position,"Kevin's enter/circle boundary is continuous");
   assertPoint(beforePark.wagon,parked.wagon,"the wagon does not jump when it parks");
   assertPoint(parked.position,{x:150,y:270});
-  assertPoint(parked.wagon,plan.parkedWagon);
+  assertPoint(parked.wagon,plan.circleWagon);
 
   for(const fraction of [0,.2,.5,.8]) {
     const pose=merchantPoseAt(plan,plan.enterDuration+plan.circleDuration*fraction);
     assert.equal(pose.stage,"circling");
-    assertPoint(pose.wagon,plan.parkedWagon,"the parked wagon remains still while Kevin circles it");
+    assertPoint(pose.wagon,plan.circleWagon,"the wagon remains still while Kevin circles it");
   }
   const southCorner=merchantPoseAt(plan,plan.enterDuration+52/WALK_SPEED);
   assertPoint(southCorner.position,{x:150,y:322});
   assert.equal(southCorner.facing,"right");
 
-  const turning=merchantPoseAt(plan,plan.enterDuration+plan.circleDuration);
+  const facing=merchantPoseAt(plan,plan.enterDuration+plan.circleDuration);
+  assert.equal(facing.stage,"facing");
+  assertPoint(facing.position,plan.stagingDestination);
+  assertPoint(facing.wagon,plan.circleWagon);
+  assert.equal(facing.facing,"left","Kevin faces the wagon before it begins to turn");
+  assert.equal(facing.wagonTurn,0);
+
+  const turning=merchantPoseAt(plan,plan.enterDuration+plan.circleDuration+plan.faceDuration);
   assert.equal(turning.stage,"turning");
-  assertPoint(turning.position,plan.destination);
-  assertPoint(turning.wagon,plan.parkedWagon);
+  assertPoint(turning.position,plan.stagingDestination);
+  assertPoint(turning.wagon,plan.circleWagon);
+  assert.equal(turning.facing,"left");
   assert.equal(turning.wagonTurn,0);
+  const pushing=merchantPoseAt(plan,plan.enterDuration+plan.circleDuration+plan.faceDuration+plan.turnDuration);
+  assert.equal(pushing.stage,"pushing");
+  assertPoint(pushing.position,plan.stagingDestination);
+  assertPoint(pushing.wagon,plan.circleWagon);
+  assert.equal(pushing.facing,"left");
+  assert.equal(pushing.wagonTurn,1);
+  const halfway=merchantPoseAt(plan,plan.duration-plan.pushDuration/2);
+  assert.equal(halfway.stage,"pushing");
+  assertPoint(halfway.position,{x:320,y:270});
+  assertPoint(halfway.wagon,{x:205,y:270});
   const ready=merchantPoseAt(plan,plan.duration);
   assert.deepEqual(ready,{stage:"ready",progress:1,position:plan.destination,wagon:plan.parkedWagon,facing:"right",wagonTurn:1});
 });
 
 test("scaled journeys preserve the same parking geometry and stage progress after a resize", () => {
-  const desktop=createMerchantJourney({x:380,y:270},1);
-  const mobile=createMerchantJourney({x:466.8,y:270},.6);
-  assertPoint(mobile.towPath[2],{x:328.8,y:270});
-  assertPoint(mobile.parkedWagon,{x:397.8,y:270});
-  assertPoint(mobile.circlePath[1],{x:328.8,y:301.2});
+  const desktop=createMerchantJourney({x:260,y:270},1);
+  const mobile=createMerchantJourney({x:432.9230769230769,y:270},.6);
+  assertPoint(mobile.stagingDestination,{x:504.9230769230769,y:270});
+  assertPoint(mobile.towPath[2],{x:366.9230769230769,y:270});
+  assertPoint(mobile.circleWagon,{x:435.9230769230769,y:270});
+  assertPoint(mobile.parkedWagon,{x:363.9230769230769,y:270});
+  assertPoint(mobile.circlePath[1],{x:366.9230769230769,y:301.2});
 
   const samples:MerchantProgress[]=[
     {stage:"entering",progress:.37},
     {stage:"circling",progress:.43},
+    {stage:"facing",progress:.52},
     {stage:"turning",progress:.61},
+    {stage:"pushing",progress:.48},
     {stage:"ready",progress:1},
   ];
   for(const sample of samples) {
@@ -107,12 +131,12 @@ test("scaled journeys preserve the same parking geometry and stage progress afte
     assertProgress(resizedPose.progress,sample.progress);
   }
 
-  assert.throws(()=>createMerchantJourney({x:380,y:270},0),RangeError);
+  assert.throws(()=>createMerchantJourney({x:260,y:270},0),RangeError);
   assert.throws(()=>createMerchantJourney({x:Number.NaN,y:270},1),RangeError);
 });
 
-test("the journey announces arrival only after the wagon turn and cancellation stops all work", () => {
-  const plan=createMerchantJourney({x:380,y:270},1);
+test("the journey announces arrival only after the push and cancellation stops all work", () => {
+  const plan=createMerchantJourney({x:260,y:270},1);
   const clock=manualFrames();
   const poses:MerchantPose[]=[];
   let arrivals=0;
@@ -123,10 +147,16 @@ test("the journey announces arrival only after the wagon turn and cancellation s
   assert.equal(poses.at(-1)?.stage,"circling");
   assert.equal(arrivals,0);
   clock.advanceTo(plan.enterDuration+plan.circleDuration);
+  assert.equal(poses.at(-1)?.stage,"facing");
+  assert.equal(arrivals,0);
+  clock.advanceTo(plan.enterDuration+plan.circleDuration+plan.faceDuration);
   assert.equal(poses.at(-1)?.stage,"turning");
   assert.equal(arrivals,0);
+  clock.advanceTo(plan.enterDuration+plan.circleDuration+plan.faceDuration+plan.turnDuration);
+  assert.equal(poses.at(-1)?.stage,"pushing");
+  assert.equal(arrivals,0);
   clock.advanceTo(plan.duration-1);
-  assert.equal(poses.at(-1)?.stage,"turning");
+  assert.equal(poses.at(-1)?.stage,"pushing");
   assert.equal(arrivals,0);
   clock.advanceTo(plan.duration);
   assert.equal(poses.at(-1)?.stage,"ready");
@@ -150,17 +180,18 @@ test("the journey announces arrival only after the wagon turn and cancellation s
 });
 
 test("a resumed journey starts at the matching resized stage instead of replaying entry", () => {
-  const resized=createMerchantJourney({x:466.8,y:270},.6);
+  const resized=createMerchantJourney({x:432.9230769230769,y:270},.6);
   const clock=manualFrames();
   const poses:MerchantPose[]=[];
   let arrivals=0;
-  const resume:MerchantProgress={stage:"circling",progress:.4};
+  const resume:MerchantProgress={stage:"pushing",progress:.4};
   const stop=startMerchantJourney(resized,pose=>poses.push(pose),()=>{ arrivals++; },clock.frames,resume);
   clock.advanceTo(0);
   assert.equal(poses.length,1);
-  assert.equal(poses[0].stage,"circling");
+  assert.equal(poses[0].stage,"pushing");
   assertProgress(poses[0].progress,.4);
-  assertPoint(poses[0].wagon,resized.parkedWagon);
+  assertPoint(poses[0].position,{x:476.1230769230769,y:270});
+  assertPoint(poses[0].wagon,{x:407.1230769230769,y:270});
   assert.equal(arrivals,0);
   stop();
   assert.equal(clock.pending.size,0);

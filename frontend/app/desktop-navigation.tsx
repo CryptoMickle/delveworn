@@ -7,6 +7,8 @@ const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditabl
 const EXCLUDED = '[inert], [hidden], [aria-hidden="true"], [data-keyboard-exclude], [data-wallet-controls]';
 const MODAL = 'dialog[open], [role="dialog"][aria-modal="true"]:not([hidden]), [role="alertdialog"][aria-modal="true"]:not([hidden]), .descent-mobile-menu[open], .descent-supplies-menu[open]';
 const SCROLL_HEADER = "[data-keyboard-scroll-header]";
+const ROOM_FLOOR = "svg.dungeon-scene";
+const ROOM_DEFAULT = '[data-room-scene] .dungeon-floor-controls [data-keyboard-default="true"]';
 
 export type ArrowDirection = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 export type NavigationRect = Pick<DOMRect, "left" | "right" | "top" | "bottom">;
@@ -141,11 +143,21 @@ export function DesktopNavigation() {
         return;
       }
       const unfocused = !targetElement || targetElement === document.body || targetElement === document.documentElement || !target;
+      // Walking and pointer input deliberately return focus to the room SVG.
+      // Enter still means the single painted floor action in explore/recovery,
+      // but never guesses among combat, shop, retry or transaction controls.
+      const roomDefaultSource = !targetElement || targetElement === document.body || targetElement === document.documentElement
+        ? Boolean(root.querySelector(ROOM_FLOOR))
+        : Boolean(targetElement.closest(ROOM_FLOOR));
+      const roomDefault = event.key === "Enter" && roomDefaultSource
+        ? root.querySelector<HTMLElement>(ROOM_DEFAULT)
+        : null;
       // Browsers drop focus when an action temporarily disables its button.
       // Keep that same connected button for the next physical key gesture,
       // while requiring it to be enabled again before it can be activated.
       const selected = targetControl
-        ?? (unfocused && remembered?.isConnected && items.includes(remembered) ? remembered : null);
+        ?? (unfocused && remembered?.isConnected && items.includes(remembered) ? remembered : null)
+        ?? (roomDefault && items.includes(roomDefault) ? roomDefault : null);
       if (event.key === "Enter") {
         if (!selected || !items.includes(selected)) return;
         event.preventDefault();

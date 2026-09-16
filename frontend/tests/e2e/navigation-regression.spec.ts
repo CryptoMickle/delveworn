@@ -100,6 +100,36 @@ test("WASD moves from page focus while arrows focus Approach and Enter walks the
   await expect(attack(page)).toBeEnabled();
 });
 
+test("Enter from the page or focused room floor uses only the visible room action", async ({ page }) => {
+  await restore(page, {}, true, createPracticeGrid(92));
+  const beforeApproach = await storedRun(page);
+  await page.evaluate(() => {
+    document.body.tabIndex = -1;
+    document.body.focus({ preventScroll: true });
+  });
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "combat");
+  expect((await storedRun(page)).monsterHp).toBe(beforeApproach.monsterHp);
+  await page.evaluate(() => document.body.focus({ preventScroll: true }));
+  await page.keyboard.press("Enter");
+  expect((await storedRun(page)).monsterHp).toBe(beforeApproach.monsterHp);
+
+  await restore(page, { roomsCleared: 10, monsterType: 3, monsterHp: 0, monsterMaxHp: 122 }, true, createPracticeGrid(93));
+  const beforeEntry = await storedRun(page);
+  const floor = page.getByRole("group", { name: /Room 10 floor/ });
+  await floor.focus();
+  await page.keyboard.down("Enter");
+  try {
+    // The key starts the doorway walk; it does not bypass or dispatch twice.
+    expect(await storedRun(page)).toEqual(beforeEntry);
+    await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "explore");
+  } finally {
+    await page.keyboard.up("Enter");
+  }
+  await expect(page.getByRole("group", { name: /Room 11 floor/ })).toBeVisible();
+  expect((await storedRun(page)).roomsCleared).toBe(10);
+});
+
 test("battle arrows stay in the action field and retain the selected vertical lane", async ({ page, browserName }) => {
   await restore(page);
   await resetFocus(page);

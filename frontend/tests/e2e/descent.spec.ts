@@ -541,7 +541,7 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     const kevin=page.getByRole("img",{name:"Quartermaster Kevin. Walk here to trade."});
     await expect(kevin).toBeVisible();
     await expect(kevin.locator("image").first()).toHaveAttribute("href","/characters/merchant-quartermaster-kevin.webp");
-    await expect(kevin).toHaveAttribute("data-merchant-arrived","true");
+    await expect(kevin).toHaveAttribute("data-merchant-arrived","true",{timeout:7000});
     const merchant=roomPoint(await kevin.getAttribute("data-merchant-position"));
     const merchantFacing="right", avatarFacing="left";
     await expect(kevin).toHaveAttribute("data-merchant-facing",merchantFacing);
@@ -560,6 +560,7 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     expect(kevinBox!.x).toBeLessThan(floorBox!.x+floorBox!.width/2);
     expect(wagonBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
     expect(wagonBox!.x+wagonBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
+    expect(wagonBox!.x-floorBox!.x,"the wagon parks against the visible left wall").toBeLessThanOrEqual(70);
     const shop=isMobile
       ? page.locator(".descent-mobile-shop").getByRole("region",{name:"Kevin's shop"})
       : page.locator(".descent-sidebar").getByRole("region",{name:"Kevin's shop"});

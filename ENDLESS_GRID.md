@@ -21,6 +21,9 @@ boss cadence, relic rules and respective randomness authorities.
   resolves at most one action. After approaching, clearing a room, closing the
   boss reward, or entering a new room, the enabled default action receives focus.
   A pending onchain action delays this handoff until its controls are ready.
+  Enter also activates the enabled Approach/Enter-room button when focus is on
+  the floor or document after walking or restoring a room; selecting an action
+  with arrows is not required first. Other controls retain their own behavior.
   In Kevin's shop,
   arrows move between its buttons and Enter activates the selected button;
   room movement remains paused while the dialog is open.
@@ -67,7 +70,8 @@ boss cadence, relic rules and respective randomness authorities.
   bottom-right "Dungeon remarks" parchment is removed. Short speech bubbles
   next to the enemy contain direct spoken lines from that monster or boss,
   selected from its persona and confirmed combat outcome while it is alive.
-  The compact dark-plum bubble has warm book-serif text and no visible nameplate;
+  The compact dark-plum bubble has upright book-serif text (17px desktop,
+  16px mobile) on an opaque background, with no text shadow or visible nameplate;
   its accessible label still identifies the speaker. A line disappears after
   4.2 seconds; ordinary rerenders do not restart its timer. Defeating the enemy
   immediately removes the bubble, with no final/death remark. Speech uses no
@@ -96,11 +100,12 @@ boss cadence, relic rules and respective randomness authorities.
   collecting loot; purchases spend only gold already held. Shopping leaves the
   floor reward intact, and door arrival can still leave it behind. Picking up
   loot neither restarts Kevin's walk nor remounts him.
-  He leads the wagon to the far left, parks it, walks around its south side,
-  then turns himself and the wagon toward the room. He stands on the
+  He leads the wagon left, parks it, walks around its south side, and faces
+  the wagon before turning it. He then pushes it to the visible left wall and
+  turns back toward the room only after parking. He stands on the
   right/inward side with the wagon behind him. The original wagon,
   stock and no-refunds sign travel with him; the sign's lettering stays readable.
-  Shopping waits for the complete arrival and turn. Resizing preserves the current
+  Shopping waits for the complete arrival, turn and final push. Resizing preserves the current
   stage instead of replaying the entrance.
   Characters are drawn in floor-depth order: walking behind Kevin or his wagon
   places the avatar behind them, including during Kevin's entrance. Kevin and

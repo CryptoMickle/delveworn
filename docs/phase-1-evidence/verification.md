@@ -1,6 +1,44 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — keyboard focus and Kevin's entrance
+## Current correction — readable speech, room Enter and final wagon parking
+
+The user explicitly approved uploading the updated code to the existing,
+protected Delveworn Vercel preview after the speech correction, and then asked
+for the Approach/Enter-room keyboard defect to be included before that upload.
+
+Speech uses upright Georgia at 17px on desktop and 16px on phones, brighter
+cream text on an opaque dark-plum background and no text shadow. The discreet
+frame has a muted border, soft shadow and smaller tail, with no gold trim or
+visible nameplate. The contrast
+ratio is 15.31:1. Wider bounds and padding retain a 12px minimum left margin at
+320px, 375px and narrow desktop room widths. Geometry review is static, not a
+browser layout test. Direct dialogue, the short display time and immediate
+removal on a killing blow are preserved.
+
+The reproduced Enter defect was a missing selected action when focus was on
+the floor SVG or document body. The shared handler now resolves only the
+visible, enabled Approach/Enter-room default from those locations. Existing
+arrow selection, disabled/pending guards, native dialog controls and the
+single-press guard remain. Mounted before/after probes cover body, floor and
+recovery defaults, plus the actual room-10 boss reward and room-11 door walk.
+
+Kevin faces the wagon before its turn, pushes the turned wagon to the left wall,
+then faces into the room. The final desktop wagon starts at x=50 and Kevin at
+x=260; portrait geometry uses the visible crop edge. Trading waits until this
+complete sequence finishes. The original artwork, readable sign and independent
+floor-depth positions are preserved. Twelve static SVG poses were generated
+across desktop and portrait sizes, with the final face/push/park arrangement
+visually checked. These are illustrations, not browser screenshots.
+
+Validation: all 180 automated tests pass, zero failed/skipped; full ESLint has
+zero errors and the existing 14 warnings. The Somnia-standard production build,
+including TypeScript, passes. Mounted no-DOM probes pass for the input cases,
+speech lifetime/kill cleanup, merchant stage order, final pushing, continuous
+positions, independent depth, queued trade, resize, reduced motion and cleanup.
+Playwright discovers 223 scenarios; browser execution remains blocked by the
+earlier administration-policy check, so actual phone/desktop QA is outstanding.
+
+## Previous correction — keyboard focus and Kevin's entrance
 
 These changes are local. The protected Vercel preview still serves source
 `c404944`; the previously rejected upload remains pending explicit approval.

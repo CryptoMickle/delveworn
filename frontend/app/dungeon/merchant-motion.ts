@@ -1,7 +1,7 @@
 import { createRoomFrameClock, isRoomPoint, movementFacing, type Facing, type Point, type RoomFrames } from "./movement";
 
 export const MERCHANT_ENTRY = { x: 450, y: 92 } as const;
-type MerchantStage = "entering" | "circling" | "turning" | "ready";
+type MerchantStage = "entering" | "circling" | "facing" | "turning" | "pushing" | "ready";
 export type MerchantProgress = { stage: MerchantStage; progress: number };
 export type MerchantPose = MerchantProgress & {
   position: Point;
@@ -29,18 +29,24 @@ function alongPath(points: readonly Point[], travelled: number): Point {
   return {...points[points.length-1]};
 }
 
-/** One short entrance, with the existing final shop/approach position intact. */
+/** Kevin uses the familiar entrance, then pushes the turned wagon against the
+ * visible left wall before he presents the finished shop. */
 export function createMerchantJourney(destination: Point, actorScale: number) {
   if (!isRoomPoint(destination) || !Number.isFinite(actorScale) || actorScale <= 0) throw new RangeError("Invalid merchant destination");
-  const outer={x:destination.x-230*actorScale,y:destination.y};
+  const pushDistance=120*actorScale;
+  const stagingDestination={x:destination.x+pushDistance,y:destination.y};
+  const outer={x:stagingDestination.x-230*actorScale,y:destination.y};
   const towPath=[MERCHANT_ENTRY,{x:MERCHANT_ENTRY.x,y:destination.y},outer];
-  const circlePath=[outer,{x:outer.x,y:outer.y+52*actorScale},{x:destination.x,y:destination.y+52*actorScale},destination];
+  const circlePath=[outer,{x:outer.x,y:outer.y+52*actorScale},{x:stagingDestination.x,y:destination.y+52*actorScale},stagingDestination];
   const enterDuration=pathLength(towPath)/WALK_SPEED;
   const circleDuration=pathLength(circlePath)/WALK_SPEED;
+  const faceDuration=220;
   const turnDuration=280;
-  return {destination,actorScale,towPath,circlePath,enterDuration,circleDuration,turnDuration,
+  const pushDuration=pushDistance/WALK_SPEED;
+  return {destination,stagingDestination,actorScale,towPath,circlePath,enterDuration,circleDuration,faceDuration,turnDuration,pushDuration,
+    circleWagon:{x:stagingDestination.x-115*actorScale,y:destination.y},
     parkedWagon:{x:destination.x-115*actorScale,y:destination.y},
-    duration:enterDuration+circleDuration+turnDuration};
+    duration:enterDuration+circleDuration+faceDuration+turnDuration+pushDuration};
 }
 export type MerchantJourney = ReturnType<typeof createMerchantJourney>;
 
@@ -56,12 +62,23 @@ export function merchantPoseAt(plan: MerchantJourney, elapsedMs: number): Mercha
   const circleElapsed=elapsed-plan.enterDuration;
   if (circleElapsed < plan.circleDuration) {
     const travelled=circleElapsed*WALK_SPEED, position=alongPath(plan.circlePath,travelled);
-    return {stage:"circling",progress:circleElapsed/plan.circleDuration,position,wagon:plan.parkedWagon,
+    return {stage:"circling",progress:circleElapsed/plan.circleDuration,position,wagon:plan.circleWagon,
       facing:travelled < 52*plan.actorScale ? "left" : "right",wagonTurn:0};
   }
-  const turnElapsed=circleElapsed-plan.circleDuration;
+  const faceElapsed=circleElapsed-plan.circleDuration;
+  if (faceElapsed < plan.faceDuration) return {stage:"facing",progress:faceElapsed/plan.faceDuration,
+    position:plan.stagingDestination,wagon:plan.circleWagon,facing:"left",wagonTurn:0};
+  const turnElapsed=faceElapsed-plan.faceDuration;
   if (turnElapsed < plan.turnDuration) return {stage:"turning",progress:turnElapsed/plan.turnDuration,
-    position:plan.destination,wagon:plan.parkedWagon,facing:"right",wagonTurn:turnElapsed/plan.turnDuration};
+    position:plan.stagingDestination,wagon:plan.circleWagon,facing:"left",wagonTurn:turnElapsed/plan.turnDuration};
+  const pushElapsed=turnElapsed-plan.turnDuration;
+  if (pushElapsed < plan.pushDuration) {
+    const progress=pushElapsed/plan.pushDuration;
+    return {stage:"pushing",progress,
+      position:{x:plan.stagingDestination.x+(plan.destination.x-plan.stagingDestination.x)*progress,y:plan.destination.y},
+      wagon:{x:plan.circleWagon.x+(plan.parkedWagon.x-plan.circleWagon.x)*progress,y:plan.destination.y},
+      facing:"left",wagonTurn:1};
+  }
   return {stage:"ready",progress:1,position:plan.destination,wagon:plan.parkedWagon,facing:"right",wagonTurn:1};
 }
 
@@ -70,7 +87,9 @@ export function merchantElapsedAt(plan: MerchantJourney, progress: MerchantProgr
   const fraction=Math.max(0,Math.min(1,progress.progress));
   if (progress.stage === "entering") return fraction*plan.enterDuration;
   if (progress.stage === "circling") return plan.enterDuration+fraction*plan.circleDuration;
-  if (progress.stage === "turning") return plan.enterDuration+plan.circleDuration+fraction*plan.turnDuration;
+  if (progress.stage === "facing") return plan.enterDuration+plan.circleDuration+fraction*plan.faceDuration;
+  if (progress.stage === "turning") return plan.enterDuration+plan.circleDuration+plan.faceDuration+fraction*plan.turnDuration;
+  if (progress.stage === "pushing") return plan.enterDuration+plan.circleDuration+plan.faceDuration+plan.turnDuration+fraction*plan.pushDuration;
   return plan.duration;
 }
 
