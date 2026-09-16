@@ -2,6 +2,18 @@
 
 ## Current correction — mobile room, character and overlay readability
 
+### Protected preview — READY
+
+- Source `04c77967347b3db559a255b61e8549fd5c882408`; deployment
+  `dpl_3WRRMHyH2Lziwz5FAbxiWGs8JE4u` is **READY**, verified through Vercel's API.
+- [Practice preview](https://delveworn-1vgdwn855-crypto-mickle.vercel.app/practice)
+- Updated under the user's existing explicit preview approval, on the same
+  protected project. Somnia standard, session keys disabled. No production
+  promotion, Git push, protection bypass or contract transaction.
+- Phone review: check the larger figures, open notes with the picture icon,
+  play through loot/door transitions and a Kevin stop, and try Safari with its
+  address bar expanded/collapsed. Short viewports intentionally allow scrolling.
+
 ### Changes
 
 - Mobile HUD occupies 141px plus its top safe inset; the report/action area is

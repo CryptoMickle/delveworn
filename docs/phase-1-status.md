@@ -39,6 +39,13 @@ along the lower-right edge rather than over the monster or north doorway.
 Desktop presentation and combat rules are preserved. See current validation
 and the protected preview in [verification](phase-1-evidence/verification.md).
 
+All 190 tests and the Somnia-standard build pass. Source
+`04c77967347b3db559a255b61e8549fd5c882408` is **READY** on protected preview
+deployment `dpl_3WRRMHyH2Lziwz5FAbxiWGs8JE4u`:
+[Practice preview](https://delveworn-1vgdwn855-crypto-mickle.vercel.app/practice).
+Static artwork QA is complete; actual Safari/touch layout still needs phone
+review because the browser-policy block remains in effect.
+
 ## Previous checkpoint — original-art environments for all sixteen monsters
 
 The room now follows the background in the exact original monster painting,
