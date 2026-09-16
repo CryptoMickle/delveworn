@@ -70,8 +70,9 @@ boss cadence, relic rules and respective randomness authorities.
   bottom-right "Dungeon remarks" parchment is removed. Short speech bubbles
   next to the enemy contain direct spoken lines from that monster or boss,
   selected from its persona and confirmed combat outcome while it is alive.
-  The compact dark-plum bubble has upright book-serif text (17px desktop,
-  16px mobile) on an opaque background, with no text shadow or visible nameplate;
+  The compact speech bubble shares Field Notes' parchment background, dark ink,
+  book-serif font and body-text sizing (12px desktop, 10.5px mobile), using the
+  same appearance variables. It has no text shadow or visible nameplate;
   its accessible label still identifies the speaker. A line disappears after
   4.2 seconds; ordinary rerenders do not restart its timer. Defeating the enemy
   immediately removes the bubble, with no final/death remark. Speech uses no

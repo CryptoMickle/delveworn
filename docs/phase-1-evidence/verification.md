@@ -1,6 +1,21 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — readable speech, room Enter and final wagon parking
+## Current correction — speech matches Field Notes
+
+The speech bubble now shares Field Notes' exact parchment background, ink,
+border color and body typography through common CSS variables. Both use the
+existing IM Fell English/book-serif stack at 12px/1.48 on desktop and
+10.5px/1.34 on mobile, including matching letter spacing and kerning. The bubble
+keeps its speech shape and existing placement. Dialogue, timing and game logic
+are unchanged. This replaces the larger dark-plum speech style below.
+
+All 180 automated tests and the Somnia-standard production build, including
+TypeScript, pass. CSS inheritance/import order and desktop/mobile style parity
+were independently reviewed; whitespace checks pass. Browser execution remains
+blocked by the earlier policy check, so actual device appearance still needs
+user review in the updated protected preview.
+
+## Previous correction — readable speech, room Enter and final wagon parking
 
 The user explicitly approved uploading the updated code to the existing,
 protected Delveworn Vercel preview after the speech correction, and then asked
