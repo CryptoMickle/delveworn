@@ -2,6 +2,23 @@
 
 ## Current correction — room controls, walking avatar and parchment typography
 
+### Current protected review preview
+
+- Source `1b43ad09b3c3f4400c2cf4ca2859f44adf47277a`; deployment
+  `dpl_5BPmzPxTEy4G8bTSQBJtjXcTbKY5`: **READY**, preview target.
+- <https://delveworn-kkra9n4e8-crypto-mickle.vercel.app/practice>
+- Tracked frontend files only; Somnia standard, session keys disabled. No
+  production promotion, Git push or contract transaction.
+- Automatic approval review rejected creating a deployment-specific access link
+  without login, because a bypass token would allow external access without
+  sufficiently explicit sharing authorization. No token was created and no
+  workaround attempted. Use the protected preview with existing Vercel login.
+- Vercel's authenticated deployment API confirms READY. Page/asset delivery
+  behind preview protection was not checked for this deployment. The local
+  builds and code checks below passed; they are not browser/device QA.
+- Local saved runs remain usable after reloading. This new preview hostname has
+  its own browser storage; local or older-preview saves do not transfer to it.
+
 ### Reproduced failures and fixes
 
 - **Held-key exit:** at normal frame rates the cleared doorway clamped a step

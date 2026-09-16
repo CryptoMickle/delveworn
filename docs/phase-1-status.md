@@ -46,6 +46,15 @@ alternate while moving; idle and reduced-motion poses stay still. The room and
 camera do not bounce. Parchment notes use the self-hosted IM Fell English font
 through the existing Next font pipeline, with readable serif fallbacks.
 
+Review source `1b43ad0` is deployed and READY at
+<https://delveworn-kkra9n4e8-crypto-mickle.vercel.app/practice>.
+Use existing Vercel login: automatic approval review rejected creating a
+no-login share token, and protection was not bypassed. All 171 automated tests
+and the three local frontend build configurations pass; ESLint has no errors
+and 14 existing warnings. The 220 browser scenarios were discovered only.
+Browser/device QA remains blocked by the earlier administration-policy failure;
+this is a review preview, not production-approved.
+
 ## Previous checkpoint — complete figures, room loot and a moving merchant
 
 All sixteen monster silhouettes are reviewed against the unchanged original
