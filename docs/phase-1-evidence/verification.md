@@ -2,6 +2,14 @@
 
 ## Current correction — reduce mobile idle and repeated rendering work
 
+### Protected preview — READY
+
+- Source `d270c8b661399c25d7554e5bae15972d6c5d7e35`; deployment
+  `dpl_6vEoW3ppCVR4gKEsPRNs7oACx3Y1` is **READY**, verified through Vercel's API.
+- [Practice preview](https://delveworn-23hqsv7qw-crypto-mickle.vercel.app/practice)
+- Existing preview approval/project/protection retained. Somnia standard,
+  session keys disabled; no production promotion, Git push or transaction.
+
 ### Changes and scope
 
 The user reported heat on iPhone 11 Pro. Code audit found perpetual SVG/CSS

@@ -37,6 +37,11 @@ See [verification](phase-1-evidence/verification.md) for tests, preview and limi
 The remaining major graphics candidate is the layered avatar's live alpha
 filter; no original artwork or image quality was altered in this pass.
 
+Source `d270c8b661399c25d7554e5bae15972d6c5d7e35` is **READY** on the protected
+[Practice preview](https://delveworn-23hqsv7qw-crypto-mickle.vercel.app/practice).
+All 190 tests and the Somnia-standard build pass. Real iPhone thermal comparison
+and Safari profiling remain outstanding.
+
 ## Previous checkpoint — mobile room readability
 
 The shared phone presentation now gives more emphasis to the characters:
