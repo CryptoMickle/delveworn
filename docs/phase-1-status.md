@@ -24,7 +24,31 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — readable dialogue and complete room input
+## Current checkpoint — monster-specific rooms and shared Field Notes
+
+The shared grid now selects a room by monster family: the original zombie crypt,
+goblin storeroom, orc armory or boss hall. Three generated background variants
+keep the existing room composition and open floor; movement and interaction
+coordinates are unchanged. The theme survives defeat and fills the mobile
+surround. Original monster paintings remain intact.
+
+Expanded monster artwork includes the same Field Notes as the room, with HP.
+Speech uses the exact Field Notes parchment/font/body sizing. Merchant-room
+loot reserves the Kevin/wagon area and interaction clearance, including narrow
+portrait paths; clicks on loot have priority over merchant targets. The
+Executive Overlord mask removes false-wing background wedges and restores
+the real central cape.
+
+This update carries forward the room-11 Enter fix, arrow/Enter navigation and
+Kevin's final face-wagon, turn and push-to-wall choreography. See
+[verification](phase-1-evidence/verification.md) for final validation and preview.
+
+All 187 automated tests and the Somnia-standard production build pass. ESLint
+has zero errors and 14 existing warnings. Static room/door and cutout images
+were reviewed; no-DOM input/loot/shop probes pass. Actual browser/device QA
+remains outstanding because browser execution is blocked by policy.
+
+## Previous checkpoint — readable dialogue and complete room input
 
 Source `63f5947` includes discreet speech with larger upright text, the missing
 Enter fallback from the floor/document to Approach and Enter room, and Kevin's

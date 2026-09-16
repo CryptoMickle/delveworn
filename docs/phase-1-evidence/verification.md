@@ -1,6 +1,6 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — speech matches Field Notes
+## Current correction — monster rooms, Field Notes and reachable loot
 
 The speech bubble now shares Field Notes' exact parchment background, ink,
 border color and body typography through common CSS variables. Both use the
@@ -9,11 +9,50 @@ existing IM Fell English/book-serif stack at 12px/1.48 on desktop and
 keeps its speech shape and existing placement. Dialogue, timing and game logic
 are unchanged. This replaces the larger dark-plum speech style below.
 
-All 180 automated tests and the Somnia-standard production build, including
-TypeScript, pass. CSS inheritance/import order and desktop/mobile style parity
-were independently reviewed; whitespace checks pass. Browser execution remains
-blocked by the earlier policy check, so actual device appearance still needs
-user review in the updated protected preview.
+Loot placement now reserves the final Kevin/wagon footprint plus the complete
+drop's artwork and a gap. Each side has at least 96 room units of clearance
+from Kevin, keeping the 64-unit shop radius separate from the 32-unit pickup
+radius even on tall phone layouts. Cosmetic retries are deterministic for the
+same seed, room and camera; non-merchant rooms retain their original positions.
+Render, resize and continued walks use the same placement helper. The bounded
+fallback uses a reachable south-floor point. Clicking painted loot or its label
+explicitly chooses pickup before merchant targeting. Reward amounts and engine
+randomness are unchanged.
+
+The expanded monster artwork now includes the same Field Notes component as
+the floor: role, name, existing persona description, and current HP. The original
+automatic two-second display after image readiness, manual reopening and close
+control are unchanged. The card uses the same parchment tokens as floor notes
+and speech, with a compact bottom-left placement on phones.
+
+The Executive Overlord cutout removes background wedges above the cape and
+between the flame and shoulder, while restoring the real red cape between the
+legs. The original painting, crop, dimensions, face, armor, hands, staff and
+flame are retained. Original/contour and before/after static room renders were
+visually reviewed; these are image renders, not browser screenshots.
+
+Each confirmed monster family now selects a distinct room background: the
+existing zombie crypt, a goblin storeroom, an orc armory or a boss hall. Three
+new built-in ImageGen edits preserve the original style and room composition,
+with dressing on the perimeter. Images are stored locally as WebP; prompts and
+provenance are in `frontend/public/dungeon/rooms/README.md`. The theme persists
+after defeat and fills the mobile surround. Selection is presentation-only:
+movement, door targeting, loot, combat, randomness and merchant rules stay intact.
+
+Validation: **187/187 automated tests pass**, zero failed/skipped. Full ESLint
+has zero errors and the 14 existing warnings. The Somnia-standard production
+build with session keys disabled, including TypeScript, passes. Three merchant
+loot tests cover 13 camera shapes, six merchant rooms and 256 seeds per shape,
+including the reported overlap and cropped-phone approach cases. Mounted no-DOM
+checks pass for loot targeting/automatic pickup, trade before pickup, preserved
+pending loot, speech lifetime and cleanup, Enter defaults and boss-room-11
+travel. Field Notes parity/timing and four stable room mappings are covered by
+unit/render tests. Playwright discovers 223 scenarios in 11 files, listed only.
+Static closed/open renders were reviewed for all four room backgrounds.
+
+Browser execution remains blocked by the earlier policy check. Static image
+review and automated checks do not replace actual phone/desktop gameplay review
+in the protected preview.
 
 ## Previous correction — readable speech, room Enter and final wagon parking
 

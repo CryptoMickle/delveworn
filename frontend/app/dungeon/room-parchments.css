@@ -1,7 +1,8 @@
 @import "./monster-speech.css";
 
 .dungeon-scene-notes { position:absolute; inset:0 0 auto; aspect-ratio:3/2; z-index:1; pointer-events:none; }
-.room-parchments {
+.room-parchments,
+.descent-monster-reveal {
   --parchment-book-font:var(--font-parchment,Palatino),"Palatino Linotype","Book Antiqua",Georgia,serif;
   --parchment-copy-size:12px;
   --parchment-copy-leading:1.48;
@@ -12,8 +13,8 @@
     radial-gradient(ellipse at 100% 100%,#946b3840,transparent 50%),
     repeating-linear-gradient(7deg,#8b68340a 0 1px,transparent 1px 4px),
     linear-gradient(105deg,#dbc18e,#f0deba 35%,#e5cca0 85%,#c5a775);
-  position:relative; width:100%; height:100%; pointer-events:none;
 }
+.room-parchments { position:relative; width:100%; height:100%; pointer-events:none; }
 .room-parchment {
   position:absolute; right:12px; width:clamp(150px,25%,218px); max-height:35%; overflow:hidden;
   padding:15px 16px 17px; border:1px solid var(--parchment-border); border-radius:2px 5px 3px 1px;
@@ -30,7 +31,7 @@
 .room-parchment .room-parchment-copy { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; margin:0; }
 .descent-monster-reveal.is-collapsed { justify-content:flex-start; }
 @media(max-width:760px) {
-  .room-parchments { --parchment-copy-size:10.5px; --parchment-copy-leading:1.34; }
+  .room-parchments,.descent-monster-reveal { --parchment-copy-size:10.5px; --parchment-copy-leading:1.34; }
   .has-room-hud > .dungeon-scene-notes { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); aspect-ratio:auto; }
   .room-parchment { right:7px; width:34%; min-width:110px; max-height:35%; padding:9px 10px; }
   .room-parchment-monster { top:7px; }

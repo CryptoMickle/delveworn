@@ -3,11 +3,13 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MONSTER_REVEAL_DURATION_MS, MonsterReveal, isMonsterRevealVisible, monsterRevealReducer, scheduleMonsterRevealDismiss, shouldAutoRevealMonster, shouldScheduleMonsterRevealDismiss, type MonsterRevealProps } from "../app/descent/monster-reveal";
+import { MonsterFieldNotes } from "../app/dungeon/room-parchments";
 
 const base: MonsterRevealProps = {
   enemy: 0,
   name: "Grave Belle",
   role: "Zombie",
+  description: "She wants brains, compliments, and preferably both.",
   hp: 30,
   maxHp: 30,
   phase: "combat",
@@ -25,6 +27,20 @@ test("a fresh combat briefly shows the detailed original monster illustration", 
   assert.doesNotMatch(markup, /\/_next\/image/);
   assert.match(markup, /Close artwork/);
   assert.match(markup, /aria-valuenow="30"/);
+  assert.match(markup, /aria-label="Monster field notes"/);
+  assert.match(markup, /Field notes · Zombie/);
+  assert.match(markup, /<h2>Grave Belle<\/h2>/);
+  assert.match(markup, /She wants brains, compliments, and preferably both\./);
+});
+
+test("expanded artwork and the floor parchment share the same field-note title and description", () => {
+  const monster={name:base.name,role:base.role,description:base.description};
+  const floorNotes=renderToStaticMarkup(createElement(MonsterFieldNotes,{monster}));
+  const artwork=renderToStaticMarkup(createElement(MonsterReveal,base));
+  for(const copy of ["Field notes · Zombie","Grave Belle","She wants brains, compliments, and preferably both."]) {
+    assert.ok(floorNotes.includes(copy),`floor notes include ${copy}`);
+    assert.ok(artwork.includes(copy),`expanded artwork includes ${copy}`);
+  }
 });
 
 test("reloads after a combat action stay collapsed but keep an optional health-linked view", () => {

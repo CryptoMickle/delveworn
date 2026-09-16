@@ -131,7 +131,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
         actions={{ ...actions, merchant: merchantAvailable ? () => open("shop") : undefined }} topOverlay={top} footer={footer}
         roomNotes={<RoomParchments monster={view.enemyHp > 0 ? {name:view.enemyName,role:art.role,description:monsterDescription} : undefined}
           speech={{name:view.enemyName,monsterType:view.enemy,room:view.room,phase:view.phase,cue:view.cue,cueId:view.cueId,roomTurns,hp:view.enemyHp,maxHp:enemyMaxHp,damage:view.damage}} />}
-        presentationOverlay={view.phase !== "explore" ? <MonsterReveal enemy={view.enemy} room={view.room} name={view.enemyName} role={art.role} hp={view.enemyHp} maxHp={enemyMaxHp} phase={view.phase} roomTurns={roomTurns} cueId={view.cueId} pending={view.pending} /> : undefined}>
+        presentationOverlay={view.phase !== "explore" ? <MonsterReveal enemy={view.enemy} room={view.room} name={view.enemyName} role={art.role} description={monsterDescription} hp={view.enemyHp} maxHp={enemyMaxHp} phase={view.phase} roomTurns={roomTurns} cueId={view.cueId} pending={view.pending} /> : undefined}>
         {!sidebarControls && combatDock}
       </DungeonScene>
       {renderReport()}

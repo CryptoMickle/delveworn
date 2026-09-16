@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useReducer } from "react";
+import { MonsterFieldNotes } from "../dungeon/room-parchments";
 import { getEnemyArt, type RoomView } from "../dungeon/scene";
 import type { MonsterType } from "../practice/engine";
 
@@ -12,6 +13,7 @@ export type MonsterRevealProps = {
   room?: number;
   name: string;
   role: string;
+  description: string;
   hp: number;
   maxHp: number;
   phase: RoomView["phase"];
@@ -47,7 +49,7 @@ export function scheduleMonsterRevealDismiss(onDismiss: () => void, timers: Mons
   return () => timers.clearTimeout(timer);
 }
 
-export function MonsterReveal({ enemy, room = 1, name, role, hp, maxHp, phase, roomTurns }: MonsterRevealProps) {
+export function MonsterReveal({ enemy, room = 1, name, role, description, hp, maxHp, phase, roomTurns }: MonsterRevealProps) {
   const [state, dispatch] = useReducer(monsterRevealReducer, {
     automatic: shouldAutoRevealMonster(phase, roomTurns, hp),
     manual: false,
@@ -77,14 +79,12 @@ export function MonsterReveal({ enemy, room = 1, name, role, hp, maxHp, phase, r
       <div className="descent-monster-reveal-art">
         <Image src={art.src} alt={`${name}, ${role}`} fill sizes="(max-width: 760px) 100vw, 900px" unoptimized onLoad={() => dispatch({ type: "art-ready" })} onError={() => dispatch({ type: "art-ready" })} />
       </div>
-      <div className="descent-monster-reveal-caption">
-        <p>{role}</p>
-        <h2>{name}</h2>
+      <MonsterFieldNotes monster={{name,role,description}} className="descent-monster-reveal-notes">
         <div className="descent-monster-reveal-health" role="progressbar" aria-label={`${name} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}>
           <span style={{ width: `${Math.max(0, Math.min(100, hp / maxHp * 100))}%` }} />
         </div>
         <small>{hp} / {maxHp} HP</small>
-      </div>
+      </MonsterFieldNotes>
       <button className="descent-monster-reveal-close" type="button" onClick={() => dispatch({ type: "dismiss" })} aria-label={`Close ${name} close-up`}>Close artwork <span aria-hidden="true">×</span></button>
     </section>
   </div>;

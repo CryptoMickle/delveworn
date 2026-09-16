@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
 import { createRoomSteering, isRoomPoint, movementFacing, movementOrientation, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Orientation, type Point } from "./movement";
@@ -9,6 +9,7 @@ import { MERCHANT_ROOM_ART_LAYOUT } from "./merchant-art";
 import { createMerchantArrivalGate, RoomMerchant, type MerchantRoomActors } from "./merchant-room";
 import { GoldLootSprite } from "./gold-loot-art";
 import { AvatarSprite } from "./avatar-art";
+import { getRoomTheme } from "./room-theme";
 export { AvatarSprite } from "./avatar-art";
 export { MerchantSprite } from "./merchant-art";
 
@@ -109,6 +110,32 @@ export function roomMerchantApproach(merchant: Point, bounds: RoomMerchantBounds
   return {x:Math.max(bounds.minX,Math.min(bounds.maxX,merchant.x+48)),y:merchant.y+36};
 }
 
+/** Keep the whole drop clear of Kevin's parked shop, including its label and
+ * pickup approach. Retries use only cosmetic randomness, never combat rolls. */
+export function roomFloorLootPoint(seed: number, room: number,
+  bounds: RoomMerchantBounds = {actorScale:1,minX:170,maxX:733}, merchantAvailable = false): Point {
+  if (!merchantAvailable) return roomLootPoint(seed,room,bounds);
+  const merchant=roomMerchantPoint(bounds), scale=bounds.actorScale ?? 1;
+  const reserved={
+    left:merchant.x-Math.max(96,284*scale+24),
+    right:merchant.x+Math.max(96,100*scale+24),
+    top:merchant.y-Math.max(96,208*scale+24),
+    bottom:merchant.y+Math.max(96,124*scale+24),
+  };
+  for (let attempt=0;attempt<32;attempt++) {
+    const candidate=roomLootPoint(seed ^ Math.imul(attempt,0x45d9f3b),room,bounds);
+    // A cropped phone room puts Kevin beside the combat walk lane. Keep the
+    // drop south of him so a direct keyboard approach cannot open his shop.
+    if (Math.abs(merchant.x-STAGING.x) < 96 && candidate.y <= reserved.bottom) continue;
+    if (candidate.x < reserved.left || candidate.x > reserved.right
+      || candidate.y < reserved.top || candidate.y > reserved.bottom) return candidate;
+  }
+  // The south floor is below the shop at every supported actor scale and is
+  // more than 95 units from the combat anchor, even on the narrowest camera.
+  const left=Math.max(210,bounds.minX+12), right=Math.min(690,bounds.maxX-12);
+  return {x:Math.round(Math.abs(left-400) > Math.abs(right-400) ? left : right),y:495};
+}
+
 export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType, lootPoint?: Point, merchantPoint?: Point, room = 1, merchantBounds?: RoomMerchantBounds): { point: Point; destination?: "enemy" | "door" | "loot" | "merchant" } {
   const door = inDoorLane(point) && point.y <= 130;
   const guard = Math.abs(point.x - GUARD.x) < 90 && point.y >= GUARD.y - getEnemyArt(enemy,room).roomHeight - 15 && point.y <= GUARD.y + 25;
@@ -173,7 +200,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const [camera,setCamera] = useState({actorScale:1,minX:170,maxX:733});
   const currentCamera = useRef(camera);
   useEffect(() => { currentCamera.current=camera; },[camera]);
-  const lootPoint = roomLootPoint(view.seed ?? 0,view.room,camera);
+  const lootPoint = roomFloorLootPoint(view.seed ?? 0,view.room,camera,Boolean(actions.merchant));
   const currentLootPoint = useRef(lootPoint);
   useEffect(() => { currentLootPoint.current=lootPoint; },[lootPoint]);
   const relic = getRelicDefinition(view.relic);
@@ -183,6 +210,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const hasRoomHud=Boolean(topOverlay);
   const hasMerchant=(view.phase === "loot" || view.phase === "recovery") && Boolean(actions.merchant);
   const merchantPoint=hasMerchant ? roomMerchantPoint(camera) : undefined;
+  const roomTheme=getRoomTheme(view.enemy);
   // Reuse the engine's ten-room tier cadence; tier-four art continues in deep runs.
   const art = getEnemyArt(view.enemy,view.room), spriteHeight = art.roomHeight;
   const [, , cropWidth, cropHeight] = art.crop.split(" ").map(Number);
@@ -209,7 +237,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         if (x !== point.current.x) { point.current={...point.current,x}; setPosition(point.current); }
         // Browser chrome can resize the floor while walking. Continue toward
         // the same intent using the new camera, including the moved loot drop.
-        currentLootPoint.current=roomLootPoint(latest.current.view.seed ?? 0,latest.current.view.room,next);
+        currentLootPoint.current=roomFloorLootPoint(latest.current.view.seed ?? 0,latest.current.view.room,next,Boolean(latest.current.actions.merchant));
         if (goal) continueWalk.current?.(goal,next);
       }
     };
@@ -359,7 +387,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     continueWalk.current=(goal,bounds) => {
       const current=latest.current.view;
       const merchant=roomMerchantPoint(bounds);
-      const target=goal.destination === "loot" ? roomLootPoint(current.seed ?? 0,current.room,bounds)
+      const target=goal.destination === "loot" ? roomFloorLootPoint(current.seed ?? 0,current.room,bounds,Boolean(latest.current.actions.merchant))
         : goal.destination === "merchant" ? roomMerchantApproach(merchant,bounds) : goal.target;
       moveTo(target,goal.destination,false,bounds);
     };
@@ -377,6 +405,9 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     catch { return; }
     if (!isRoomPoint(p)) return;
     svg.current?.focus({preventScroll:true});
+    if (loot && event.target instanceof Element && event.target.closest(".dungeon-loot")) {
+      moveTo(lootPoint,"loot"); return;
+    }
     if (merchantPoint && event.target instanceof Element && event.target.closest(".dungeon-merchant")) {
       moveTo(roomMerchantApproach(merchantPoint,camera),"merchant"); return;
     }
@@ -421,13 +452,14 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     {id:"avatar",footY:position.y,content:avatarActor},
   ]).map(actor => <Fragment key={actor.id}>{actor.content}</Fragment>);
 
-  return <div className={`dungeon-scene-wrap ${view.phase} ${view.enemy === 3 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room}>
+  return <div className={`dungeon-scene-wrap ${view.phase} ${view.enemy === 3 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room} data-room-theme={roomTheme.id}
+    style={{"--dungeon-room-background":`url("${roomTheme.backgroundSrc}")`} as CSSProperties}>
     {topOverlay && <div className="dungeon-scene-top-overlay">{topOverlay}</div>}
     <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Hold WASD to walk; E to ${cleared ? "use the door" : "approach the enemy"}. Arrow keys select buttons; Enter activates.`}
       onPointerDown={e => { pointer.current={x:e.clientX,y:e.clientY}; }} onPointerUp={floor} onPointerCancel={() => {pointer.current=null;}}>
-      <image href="/dungeon/stone-room.webp" width="900" height="600" />
+      <image href={roomTheme.backgroundSrc} width="900" height="600" />
       <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
-      {cleared && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.phase === "won" ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
+      {cleared && <g className="dungeon-door-open"><path d={roomTheme.openDoorPath} fill="#030205" /><path d={roomTheme.doorLightPath} fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.phase === "won" ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
       <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged}>
         {renderDepthActors}
       </RoomMerchant>

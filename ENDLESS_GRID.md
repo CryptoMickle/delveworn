@@ -46,6 +46,10 @@ boss cadence, relic rules and respective randomness authorities.
   Closing it does not restart the cancelled trip.
 - After victory, tap the loot in the grid for automatic pickup on arrival, or
   **tap the north doorway directly** to walk past the loot and continue.
+  At merchant stops, drops reserve space around Kevin and his complete wagon,
+  including both pickup and shop interaction ranges. The cosmetic placement
+  stays deterministic and reachable after reload or resize. Clicking the loot
+  image or its label targets pickup before merchant interaction.
   There is no separate pickup/bypass button. E uses the door; WASD can walk onto
   loot for automatic collection. Enter remains button selection.
   In `/play` and new Practice runs, leaving loot forfeits the held gold, potion,
@@ -84,9 +88,18 @@ boss cadence, relic rules and respective randomness authorities.
 - The tier-two goblin is **Gribnob the Unqualified**; **Quartermaster Kevin**
   remains the merchant. Every monster uses its original painting, with its
   own traced silhouette; bitmap files are unchanged.
+  The Executive Overlord's mask excludes the background wedges above his cape
+  and keeps the painted red cloth between his legs, avoiding the false-wing shape.
   Gold has three stack silhouettes using the original Delveworn coin face:
   1–9 gold is one short stack, 10–24 is two stacks, and 25+ is three stacks.
   The label continues to report the exact reward.
+- The room background follows the confirmed monster family: zombies use the
+  original crypt, goblins a storeroom, orcs an armory, and bosses a banner-lined
+  hall. Each family keeps its room through combat, loot and recovery, across
+  tiers and shared modes. The variants retain the central floor, north doorway
+  and south stairs; all movement, pickup and merchant coordinates are unchanged.
+  Mobile's surrounding background uses the same image. See
+  `frontend/public/dungeon/rooms/README.md` for assets and generation prompts.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. All monsters grow with each
@@ -120,6 +133,8 @@ boss cadence, relic rules and respective randomness authorities.
   image load/error. Attacks, pending transactions, damage, and even a killing
   blow neither shorten nor restart that timer. **Close artwork** closes it
   explicitly; **View monster** reopens a manual view. Controls remain usable.
+  The expanded artwork also shows the same Field Notes card (role, name and
+  existing description) as the room, together with the monster's current HP.
 
 ## Reused components and authority
 

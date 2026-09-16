@@ -1,6 +1,6 @@
 @import "./avatar-art.css";
 
-.dungeon-scene-wrap { position:relative; min-width:0; background:#100d10; border:1px solid #735a35; }
+.dungeon-scene-wrap { --dungeon-room-background:url('/dungeon/stone-room.webp'); position:relative; min-width:0; background-color:#100d10; border:1px solid #735a35; }
 .dungeon-scene { display:block; width:100%; height:auto; touch-action:pan-y; outline-offset:-4px; }
 .dungeon-scene:focus-visible { outline:2px solid #eed197; }
 .dungeon-room-tint { fill:#35154b; opacity:.055; pointer-events:none; }
@@ -60,7 +60,10 @@
     display:grid;
     grid-template-rows:var(--dungeon-hud-track) minmax(0,1fr) var(--dungeon-controls-track);
     border:0;
-    background:#100d10 url('/dungeon/stone-room.webp') center/cover;
+    background-color:#100d10;
+    background-image:var(--dungeon-room-background),url('/dungeon/stone-room.webp');
+    background-position:center;
+    background-size:cover;
   }
   .has-room-hud > .dungeon-scene-presentation { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); height:auto; aspect-ratio:auto; }
   .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; min-height:0; z-index:5; }
