@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { clampRoomPoint, DungeonScene, getEnemyArt, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomEnemyScale, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
+import { clampRoomPoint, DungeonScene, getEnemyArt, measuredRoomCamera, nearRoomLoot, nearRoomMerchant, portraitRoomCamera, roomEnemyScale, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
 import { createMerchantArrivalGate } from "../app/dungeon/merchant-room";
 import { MERCHANT_ROOM_ART_LAYOUT } from "../app/dungeon/merchant-art";
 import { roomLootPoint } from "../app/dungeon/movement";
@@ -133,6 +133,8 @@ test("Kevin taps approach the painted shop before or after floor loot pickup", (
       assert.deepEqual(approach,{x:Math.min(bounds.maxX,merchant.x+48),y:merchant.y+36},"the avatar approaches from the inward side");
       assert.ok(approach.x >= bounds.minX && approach.x <= bounds.maxX,"the approach remains inside the mobile camera");
       assert.ok(Math.hypot(approach.x-merchant.x,approach.y-merchant.y) <= 64,"the shop opens from beside Kevin");
+      assert.equal(nearRoomMerchant({x:merchant.x+70,y:merchant.y},merchant),true,"an empty-floor walk beside Kevin opens trade");
+      assert.equal(nearRoomMerchant({x:merchant.x+73,y:merchant.y},merchant),false,"ordinary movement outside Kevin stays free");
       const figureCenter={x:merchant.x,y:merchant.y-75};
       assert.deepEqual(roomFloorTarget(figureCenter,true,0,undefined,merchant,room,bounds),{point:approach,destination:"merchant"});
       const wagonCenter={x:merchant.x-115*scale,y:merchant.y-88*scale};
@@ -208,6 +210,23 @@ test("loot rooms expose both physical exits and no action buttons", () => {
   assert.match(loot,/data-loot-position=/);
   assert.doesNotMatch(loot,/<button[^>]*>(?:Pick up loot|Leave loot|Enter room|Continue)/);
   assert.match(loot,/E to use the door/);
+});
+
+test("a surviving monster visibly retaliates after attacks, storms and potions", () => {
+  const base:RoomView={room:1,enemy:0,enemyName:"Grave Belle",enemyHp:18,hp:85,
+    relic:0,weapon:0,armor:0,phase:"combat",pending:false,cue:"attack",cueId:2,damage:9,incoming:5};
+  const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
+    view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{}},
+  }));
+  const attack=render();
+  assert.match(attack,/class="dungeon-enemy is-hit is-retaliating"/);
+  assert.match(attack,/class="dungeon-avatar[^\"]*is-attacking[^\"]*takes-hit"/);
+  assert.match(attack,/class="dungeon-damage incoming">−5</);
+  const potion=render({cue:"potion",damage:0,incoming:3});
+  assert.match(potion,/class="dungeon-enemy\s+is-retaliating"/);
+  assert.doesNotMatch(potion,/dungeon-enemy is-hit/);
+  const avoided=render({cue:"storm",damage:0,incoming:0});
+  assert.doesNotMatch(avoided,/is-retaliating/);
 });
 
 

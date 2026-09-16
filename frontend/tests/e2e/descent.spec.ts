@@ -567,13 +567,13 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     if(isMobile) await expect(shop).not.toBeVisible();
     else { await expect(shop).toBeVisible(); await expect(shop).not.toBeFocused(); }
 
-    await kevin.evaluate((element,target)=>{
-      const floor=element.closest("svg.dungeon-scene") as SVGSVGElement|null, matrix=floor?.getScreenCTM();
+    await floor.evaluate((element,target)=>{
+      const floor=element as SVGSVGElement, matrix=floor.getScreenCTM();
       if(!matrix) throw new Error("Room floor has no screen transform");
       const init={bubbles:true,clientX:matrix.a*target.x+matrix.c*target.y+matrix.e,clientY:matrix.b*target.x+matrix.d*target.y+matrix.f,pointerId:1,isPrimary:true};
-      element.dispatchEvent(new PointerEvent("pointerdown",init));
-      element.dispatchEvent(new PointerEvent("pointerup",init));
-    },{x:merchant.x,y:merchant.y-75});
+      floor.dispatchEvent(new PointerEvent("pointerdown",init));
+      floor.dispatchEvent(new PointerEvent("pointerup",init));
+    },{x:merchant.x+60,y:merchant.y});
     expect(await saved(page),"walking to Kevin does not spend gold or advance the run").toEqual(run);
     await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
     if(isMobile) await expect(shop).not.toBeVisible();
@@ -791,6 +791,11 @@ test("responsive room keeps compact combat controls in their active presentation
     await expect(scene.locator(".descent-enemy-status")).toBeInViewport();
     const size=await scene.locator(".descent-enemy-status-heading b").evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
     expect(size).toBeGreaterThanOrEqual(15);
+  } else {
+    const status=page.locator(".descent-sidebar .descent-enemy-status");
+    await expect(status).toBeVisible();
+    await expect(status).toContainText("RETALIATION");
+    await expect(status).toContainText("IF IT SURVIVES");
   }
   const stormBox=(await actions.getByRole("button",{name:/Storm/i}).boundingBox())!;
   const attackBox=(await actions.getByRole("button",{name:/Attack/i}).boundingBox())!;

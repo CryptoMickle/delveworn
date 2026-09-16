@@ -110,6 +110,12 @@ export function roomMerchantApproach(merchant: Point, bounds: RoomMerchantBounds
   return {x:Math.max(bounds.minX,Math.min(bounds.maxX,merchant.x+48)),y:merchant.y+36};
 }
 
+/** The painted figure is wider than its foot-point. A small shared radius lets
+ * free walking, floor clicks and the explicit Visit button agree on arrival. */
+export function nearRoomMerchant(point: Point, merchant: Point) {
+  return Math.hypot(point.x-merchant.x,point.y-merchant.y) <= 72;
+}
+
 /** Keep the whole drop clear of Kevin's parked shop, including its label and
  * pickup approach. Retries use only cosmetic randomness, never combat rolls. */
 export function roomFloorLootPoint(seed: number, room: number,
@@ -304,7 +310,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       if ((current.phase === "loot" || current.phase === "recovery") && callbacks.merchant) {
         const merchant=roomMerchantPoint(bounds);
         const distance=Math.hypot(next.x-merchant.x,next.y-merchant.y);
-        if (distance <= 64 && distance < Math.hypot(from.x-merchant.x,from.y-merchant.y)) {
+        if (nearRoomMerchant(next,merchant) && distance < Math.hypot(from.x-merchant.x,from.y-merchant.y)) {
           setFacing(previous => movementFacing(next,merchant,previous));
           setOrientation(previous => movementOrientation(next,merchant,previous));
           walkGoal.current={target:roomMerchantApproach(merchant,bounds),destination:"merchant"};
@@ -381,6 +387,19 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       if (destination !== "door" && current.view.phase === "loot" && current.view.loot && nearRoomLoot(step,currentLootPoint.current)) {
         stopWalk.current=null; walkGoal.current=null; setWalking(false); current.actions.collect?.(); return false;
       }
+      // Free floor clicks use the same automatic proximity rule as held WASD.
+      // Without this, the avatar could visibly stand on Kevin while only the
+      // dedicated Visit button was capable of completing the trade approach.
+      if (destination !== "door" && (current.view.phase === "loot" || current.view.phase === "recovery") && current.actions.merchant) {
+        const bounds=currentCamera.current, merchant=roomMerchantPoint(bounds);
+        if (nearRoomMerchant(step,merchant)) {
+          setFacing(previous => movementFacing(step,merchant,previous));
+          setOrientation(previous => movementOrientation(step,merchant,previous));
+          stopWalk.current=null;
+          walkGoal.current={target:roomMerchantApproach(merchant,bounds),destination:"merchant"};
+          setWalking(false); playerArrivedAtMerchant(); return false;
+        }
+      }
     },() => {
       stopWalk.current = null;
       if (destination !== "merchant") walkGoal.current=null;
@@ -435,7 +454,9 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     moveTo(target.point,target.destination);
   }
 
-  const enemyActor=!cleared ? <g data-room-depth-actor="enemy" transform={`translate(${GUARD.x} ${GUARD.y}) scale(${enemyScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
+  const enemyWasHit=Boolean(view.cue && view.cue !== "potion" && view.damage > 0);
+  const enemyRetaliates=Boolean(view.cue && view.incoming > 0);
+  const enemyActor=!cleared ? <g data-room-depth-actor="enemy" transform={`translate(${GUARD.x} ${GUARD.y}) scale(${enemyScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${enemyWasHit ? "is-hit" : ""} ${enemyRetaliates ? "is-retaliating" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
     <ellipse cx={GUARD.x} cy={GUARD.y-3} rx={spriteWidth*.4} ry={spriteHeight*.07} fill="#000" opacity=".62" />
     <svg x={GUARD.x-spriteWidth/2} y={GUARD.y-spriteHeight} width={spriteWidth} height={spriteHeight} overflow="visible"><EnemySprite type={view.enemy} room={view.room} /></svg>
   </g></g> : null;

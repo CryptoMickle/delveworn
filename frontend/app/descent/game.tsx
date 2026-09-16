@@ -28,9 +28,6 @@ import "./monster-reveal.css";
 import "../dungeon/scene.css";
 import "../dungeon/room-parchments.css";
 
-function Meter({ label, value, max, enemy = false }: { label: string; value: number; max: number; enemy?: boolean }) {
-  return <div className={`descent-meter ${enemy ? "enemy" : ""}`} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}><span style={{width:`${value/max*100}%`}} /></div>;
-}
 const storage = () => window.localStorage;
 const range = ([min,max]: [number,number]) => min === max ? String(min) : `${min}–${max}`;
 function lootSummary(loot: PendingLoot) {
@@ -268,8 +265,8 @@ export default function DescentGame() {
       {renderReport()}
     </div><aside className="descent-sidebar">
       {!terminal && p !== "reward" && <section className="descent-enemy-card" aria-label="Enemy intention"><Image src={art.src} alt={art.name} width={art.width} height={art.height} sizes="(max-width:760px) 100vw, 330px" className="descent-portrait" priority />
-        <div><p className="descent-kicker">{art.role}</p><h2>{art.name} <span>{g.monsterHp} / {g.monsterMaxHp}</span></h2><Meter label="Enemy health" value={g.monsterHp} max={g.monsterMaxHp} enemy />
-          {g.monsterHp > 0 ? <div className="descent-intent"><strong>{intent.name} · {range(reply)} damage</strong><p>{intent.hint}</p><small>Only if the enemy survives your action.</small></div> : p === "loot" ? <div className="descent-intent"><strong>Loot dropped</strong><p>Walk to the drop to add it to your inventory.</p><small>Tap the loot to pick it up, or tap the door to leave it behind.</small></div> : <div className="descent-intent"><strong>Room secured</strong><p>{practiceLoot(g)}</p><small>{room === 9 ? "Camp arrival restored up to 15 HP." : "Heal safely, then enter the next room."}</small></div>}
+        <div><p className="descent-kicker">{art.role}</p><DescentEnemyStatus name={art.name} hp={g.monsterHp} maxHp={g.monsterMaxHp} incoming={range(reply)} isBoss={g.monsterType === 3} />
+          {g.monsterHp > 0 ? <div className="descent-intent"><strong>{intent.name}</strong><p>{intent.hint}</p><small>The retaliation above lands only if the enemy survives your action.</small></div> : p === "loot" ? <div className="descent-intent"><strong>Loot dropped</strong><p>Walk to the drop to add it to your inventory.</p><small>Tap the loot to pick it up, or tap the door to leave it behind.</small></div> : <div className="descent-intent"><strong>Room secured</strong><p>{practiceLoot(g)}</p><small>{room === 9 ? "Camp arrival restored up to 15 HP." : "Heal safely, then enter the next room."}</small></div>}
         </div></section>}
       {sidebarControls && combatDock}
       {relic && relic.imageSrc && <section className="descent-relic-card" aria-label="Equipped relic"><Image src={relic.imageSrc} alt="" width={86} height={86} /><div><p className="descent-kicker">{relic.rarity} · EQUIPPED</p><h2>{relic.name}</h2><p>{relic.effect}</p><p className="descent-relic-cost">{relic.tradeoff}</p></div><details><summary>How this relic changes your turn</summary><p>{combatRelicSummary(g,false)} on Attack.</p><p>{combatRelicSummary(g,true) ?? "Normal damage"} on Storm. Shown damage ranges include the relic.</p></details></section>}
