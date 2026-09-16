@@ -41,6 +41,10 @@ monster's own voice, while its top-right field notes remain. The walking rig
 uses an exposed hip/thigh swing and a smaller opposite step in the leg partially
 hidden by the preserved cape. Both visible legs move; the idle pose stays still.
 
+Review source `c404944` is READY at
+<https://delveworn-nk1pc2eoj-crypto-mickle.vercel.app/practice>, using existing
+Vercel login with preview protection intact.
+
 All 178 automated tests and the three local frontend build configurations pass;
 ESLint has zero errors and 14 existing warnings. The 220 browser scenarios were
 discovered only. See [current verification](phase-1-evidence/verification.md) for

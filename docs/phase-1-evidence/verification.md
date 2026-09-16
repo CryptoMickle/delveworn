@@ -2,6 +2,18 @@
 
 ## Current correction — compact combat, room depth, tier growth and monster dialogue
 
+### Current protected preview
+
+- Source `c404944d12c989161199d8e7ffcf3330610e329e`; deployment
+  `dpl_Cdh1zmFmrpjLjmTTjukNujPB7dnU`: **READY**, preview target.
+- <https://delveworn-nk1pc2eoj-crypto-mickle.vercel.app/practice>
+- Tracked frontend only; Somnia standard, session keys disabled. No production
+  promotion, Git push, wallet action or contract transaction.
+- Use existing Vercel login. Preview protection remains enabled; no share/bypass
+  token was requested or created. Authenticated Vercel API status confirms READY;
+  page/asset delivery behind protection and actual device gameplay were not
+  checked. This hostname has separate storage from local and previous previews.
+
 ### Implemented behavior
 
 - Desktop combat controls sit directly below the enemy card: compact Storm left,
