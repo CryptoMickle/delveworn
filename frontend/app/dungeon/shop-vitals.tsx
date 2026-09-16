@@ -1,5 +1,8 @@
-import Image from "next/image";
+"use client";
+
+import { useRef } from "react";
 import "./shop-vitals.css";
+import { MerchantShopArtwork } from "./merchant-art";
 
 export function ShopVitals({ hp, maxHp, gold, potions, weapon, armor }: {
   hp: number; maxHp: number; gold: number; potions: number; weapon: number; armor: number;
@@ -12,5 +15,9 @@ export function ShopVitals({ hp, maxHp, gold, potions, weapon, armor }: {
 }
 
 export function ShopKeeper({ camp = false }: { camp?: boolean }) {
-  return <div className="dungeon-shop-keeper"><div className="dungeon-shop-keeper-art"><Image src="/characters/merchant-quartermaster-kevin.webp" alt="Quartermaster Kevin with his wagon and no-refunds sign" width={1672} height={941} sizes="(max-width: 760px) calc(100vw - 48px), 460px" /></div><div><p className="descent-kicker">{camp ? "CAMP BEFORE MANAGEMENT" : "SUPPLY STOP"}</p><h2>Quartermaster Kevin</h2><p>{camp ? "Rest, restock, and improve your equipment." : "Heal here or take a potion with you."}</p></div></div>;
+  const artwork=useRef<HTMLDetailsElement>(null);
+  return <div className="dungeon-shop-keeper"><details ref={artwork} className="dungeon-shop-keeper-art" data-keyboard-actions>
+    <summary aria-label="View full Quartermaster Kevin artwork"><MerchantShopArtwork /><span>View full artwork</span></summary>
+    <div className="dungeon-shop-art-expanded"><button type="button" onClick={() => artwork.current?.removeAttribute("open")} aria-label="Close full Quartermaster Kevin artwork">Close artwork</button><MerchantShopArtwork /></div>
+  </details><div className="dungeon-shop-keeper-copy"><p className="descent-kicker">{camp ? "CAMP BEFORE MANAGEMENT" : "SUPPLY STOP"}</p><h2>Quartermaster Kevin</h2><p>{camp ? "Rest, restock, and improve your equipment." : "Heal here or take a potion with you."}</p></div></div>;
 }

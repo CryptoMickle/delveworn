@@ -82,16 +82,23 @@ export function createMonsterSpeechRotation() {
  * The store has no background work or timer. */
 export function createMonsterSpeechSession(rotation=createMonsterSpeechRotation()) {
   let snapshot: SpeechSnapshot | null=null;
+  let queued: SpeechSnapshot | null=null;
   let lastEvent: string | null=null;
   const spoken=new Set<"opening" | "reaction">();
   const listeners=new Set<() => void>();
+  const publish = (next: SpeechSnapshot | null) => {
+    if (snapshot === next) return;
+    snapshot=next;
+    listeners.forEach(listener => listener());
+  };
   return {
     getSnapshot: () => snapshot,
     getServerSnapshot: () => null,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     observe(context: MonsterSpeechContext) {
       if (!active(context)) {
-        if (snapshot) { snapshot=null; listeners.forEach(listener => listener()); }
+        queued=null;
+        if (snapshot) publish(null);
         return;
       }
       const pool=speechPool(context);
@@ -104,8 +111,18 @@ export function createMonsterSpeechSession(rotation=createMonsterSpeechRotation(
       lastEvent=id;
       const next=rotation.pick(context);
       if (next) spoken.add(slot);
-      snapshot=next ? {...next,id} : null;
-      listeners.forEach(listener => listener());
+      const nextSnapshot=next ? {...next,id} : null;
+      // Keep the greeting on screen for its complete reading time. A fast
+      // first attack may prepare the one reaction, but cannot replace a line
+      // that the player has only just seen over the monster artwork.
+      if (snapshot?.stage === "opening" && slot === "reaction") queued=nextSnapshot;
+      else publish(nextSnapshot);
+    },
+    advance(id: string) {
+      if (snapshot?.id !== id) return;
+      const next=queued;
+      queued=null;
+      publish(next);
     },
   };
 }
@@ -114,12 +131,15 @@ export function createMonsterSpeechSession(rotation=createMonsterSpeechRotation(
 // survives room changes within this page visit without storage or tracking.
 const visitRotation=createMonsterSpeechRotation();
 
-function TimedMonsterSpeech({ name, speech }: { name: string; speech: Speech }) {
+function TimedMonsterSpeech({ name, speech, onExpired }: { name: string; speech: SpeechSnapshot; onExpired: (id: string) => void }) {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
-    const timeout = window.setTimeout(() => setVisible(false), MONSTER_SPEECH_LIFETIME_MS);
+    const timeout = window.setTimeout(() => {
+      setVisible(false);
+      onExpired(speech.id);
+    }, MONSTER_SPEECH_LIFETIME_MS);
     return () => window.clearTimeout(timeout);
-  }, []);
+  }, [onExpired,speech.id]);
   if (!visible) return null;
   return <blockquote className="monster-speech" data-speech-stage={speech.stage} aria-label={name+" says"}>
     <strong className="monster-speech-speaker">{name}</strong>
@@ -137,5 +157,5 @@ export function MonsterSpeech(context: MonsterSpeechContext) {
     session.observe({name,monsterType,room,phase,cue,cueId,roomTurns,hp,maxHp,damage});
   },[session,name,monsterType,room,phase,cue,cueId,roomTurns,hp,maxHp,damage]);
   if (!active(context) || !speech) return null;
-  return <TimedMonsterSpeech key={speech.id} name={name} speech={speech} />;
+  return <TimedMonsterSpeech key={speech.id} name={name} speech={speech} onExpired={session.advance} />;
 }

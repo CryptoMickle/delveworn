@@ -36,7 +36,16 @@ test("Kevin's modal keeps the original painting and owns arrow navigation withou
   const painting = shop.getByRole("img", { name: "Quartermaster Kevin with his wagon and no-refunds sign" });
   await expect(painting).toHaveAttribute("width", "1672");
   await expect(painting).toHaveAttribute("height", "941");
-  await expect(shop.locator(".dungeon-shop-keeper-art svg")).toHaveCount(0);
+  await expect(shop.locator(".dungeon-shop-keeper-art > summary > svg")).toBeVisible();
+
+  const artwork = shop.getByRole("button", { name: "View full Quartermaster Kevin artwork" });
+  await artwork.focus();
+  await page.keyboard.press("Enter");
+  const closeArtwork = shop.getByRole("button", { name: "Close full Quartermaster Kevin artwork" });
+  await expect(closeArtwork).toBeVisible();
+  await closeArtwork.focus();
+  await page.keyboard.press("Enter");
+  await expect(closeArtwork).not.toBeVisible();
 
   const close = shop.getByRole("button", { name: "Close Kevin's shop" });
   await expect(close).toBeFocused();

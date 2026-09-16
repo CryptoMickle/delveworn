@@ -79,6 +79,8 @@ test("cue cleanup and repeated confirmed-state renders keep the same utterance a
   assert.strictEqual(session.getSnapshot(),opening);
   const hit={...context,cue:"attack",cueId:5,roomTurns:1,hp:30,damage:7} as const;
   session.observe(hit);
+  assert.strictEqual(session.getSnapshot(),opening,"a quick reaction waits for the full opening line");
+  session.advance(opening!.id);
   const reaction=session.getSnapshot();
   assert.equal(reaction?.stage,"hit");
   assert.notEqual(reaction?.id,opening?.id);
@@ -110,10 +112,13 @@ test("each fight has at most one opening and one reaction without spending suppr
   let updates=0;
   session.subscribe(() => updates++);
   session.observe(context);
+  const opening=session.getSnapshot();
   untouched.pick(context);
   const hit={...context,cue:"attack",cueId:5,roomTurns:1,hp:30,damage:7} as const;
   session.observe(hit);
   untouched.pick(hit);
+  assert.strictEqual(session.getSnapshot(),opening,"the opening remains while the reaction queues");
+  session.advance(session.getSnapshot()!.id);
   const reaction=session.getSnapshot();
   for (const [index,stage] of (["hit","storm","miss","critical","potion","revive","wounded"] as SpeechStage[]).entries()) {
     const action={...forStage(stage,0),name:context.name,cueId:6+index,roomTurns:2+index};
@@ -129,12 +134,33 @@ test("each fight has at most one opening and one reaction without spending suppr
   assert.equal(nextFight.getSnapshot()?.line,untouched.pick(nextOpening)?.line);
   const nextHit={...hit,room:13,cueId:21};
   nextFight.observe(nextHit);
+  nextFight.advance(nextFight.getSnapshot()!.id);
   assert.equal(nextFight.getSnapshot()?.line,untouched.pick(nextHit)?.line);
   for(const stage of ["storm","miss","critical","potion","revive","wounded"] as SpeechStage[]) {
     assert.deepEqual(rotation.pick(forStage(stage,0)),untouched.pick(forStage(stage,0)));
   }
   session.observe({...hit,phase:"loot",hp:0});
   assert.equal(session.getSnapshot(),null,"the cap never prevents death cleanup");
+});
+
+test("a queued reaction expires after its own full reading time and death cancels it", () => {
+  const session=createMonsterSpeechSession();
+  session.observe(context);
+  const opening=session.getSnapshot()!;
+  session.observe({...context,cue:"attack",cueId:5,roomTurns:1,hp:30,damage:7});
+  session.advance(opening.id);
+  const reaction=session.getSnapshot()!;
+  assert.equal(reaction.stage,"hit");
+  session.advance(reaction.id);
+  assert.equal(session.getSnapshot(),null);
+
+  const defeated=createMonsterSpeechSession();
+  defeated.observe(context);
+  const defeatedOpening=defeated.getSnapshot()!;
+  defeated.observe({...context,cue:"attack",cueId:5,roomTurns:1,hp:30,damage:7});
+  defeated.observe({...context,phase:"loot",hp:0});
+  defeated.advance(defeatedOpening.id);
+  assert.equal(defeated.getSnapshot(),null,"postcombat cannot publish a queued line");
 });
 
 test("killing blows and postcombat stay silent", () => {

@@ -116,28 +116,33 @@ export const MerchantStallSprite = memo(function MerchantStallSprite({ className
   );
 });
 
-/** Full shop portrait for panels, assembled from the same two room layers. */
-export function MerchantShopArtwork({ className }: { className?: string } = {}) {
-  const stallId = useId();
-  const merchantId = useId();
-  const merchantMaskId = useId();
+/** Full original shop painting for panels. The scene is mirrored to place
+ * Kevin toward the room, while the painted sign is restored unmirrored. */
+export function MerchantShopArtwork({ className, turned = true }: { className?: string; turned?: boolean } = {}) {
+  const signId = useId();
+  const signMaskId = useId();
+  const signTurnX = MERCHANT_IMAGE_WIDTH - 2 * MERCHANT_SIGN_CENTER_X;
 
   return (
-    <svg className={className} viewBox="360 8 1280 925" aria-hidden="true">
+    <svg className={className} viewBox={`0 0 ${MERCHANT_IMAGE_WIDTH} ${MERCHANT_IMAGE_HEIGHT}`} width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT}
+      preserveAspectRatio="xMidYMid meet" role="img" aria-label="Quartermaster Kevin with his wagon and no-refunds sign">
       <defs>
-        <clipPath id={stallId}>
-          <path d={MERCHANT_STALL_OUTLINE} />
-          <path d={MERCHANT_CHEST_OUTLINE} />
-          <path d={MERCHANT_LEFT_SUPPLIES_OUTLINE} />
-          <path d={MERCHANT_RIGHT_SUPPLIES_OUTLINE} />
+        <clipPath id={signId}>
+          <path d={MERCHANT_SIGN_OUTLINE} />
         </clipPath>
-        <clipPath id={merchantId}>
-          <path d={MERCHANT_OUTLINE} />
-        </clipPath>
-        <MerchantCutoutMask id={merchantMaskId} />
+        <mask id={signMaskId} maskUnits="userSpaceOnUse" x={0} y={0} width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT}>
+          <rect width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT} fill="white" />
+          <path d={MERCHANT_SIGN_OUTLINE} fill="black" />
+        </mask>
       </defs>
-      <MerchantImage clipId={stallId} maskId={merchantMaskId} />
-      <MerchantImage clipId={merchantId} />
+      {turned ? <>
+        <g transform={`translate(${MERCHANT_IMAGE_WIDTH} 0) scale(-1 1)`}>
+          <image href={MERCHANT_IMAGE} width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT} mask={`url(#${signMaskId})`} />
+        </g>
+        <g transform={`translate(${signTurnX} 0)`}>
+          <MerchantImage clipId={signId} />
+        </g>
+      </> : <image href={MERCHANT_IMAGE} width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT} />}
     </svg>
   );
 }

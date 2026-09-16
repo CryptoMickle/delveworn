@@ -1,6 +1,7 @@
 @import "./monster-speech.css";
 
 .dungeon-scene-notes { position:absolute; inset:0 0 auto; aspect-ratio:3/2; z-index:1; pointer-events:none; }
+.dungeon-scene-notes:has(.monster-speech) { z-index:3; }
 .room-parchments,
 .descent-monster-reveal {
   --parchment-book-font:var(--font-parchment,Palatino),"Palatino Linotype","Book Antiqua",Georgia,serif;

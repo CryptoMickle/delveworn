@@ -52,6 +52,7 @@ export default function DescentGame() {
   const [confirmRestart,setConfirmRestart] = useState(false);
   const [shopOpen,setShopOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousPhase = useRef<ReturnType<typeof phase> | null>(null), actionFocusPending = useRef(false);
   const sceneArea = useRef<HTMLDivElement>(null), merchantArea = useRef<HTMLElement>(null), shopDialog = useRef<HTMLDialogElement>(null), logDialog = useRef<HTMLDialogElement>(null);
   const p = run ? phase(run) : null;
   const audio = useGameAudio({ bossActive: p === "combat" && run?.game.monsterType === 3, encounter: p === "combat" && run ? ENEMY_ART[run.game.monsterType].name : undefined, encounterKey: run ? roomNumber(run) : undefined });
@@ -84,6 +85,21 @@ export default function DescentGame() {
     if (shopOpen && !dialog.open) dialog.showModal();
     if (!shopOpen && dialog.open) dialog.close();
   },[shopOpen,run]);
+
+  useEffect(() => {
+    if (!run || !p) return;
+    if (previousPhase.current !== p) {
+      previousPhase.current=p;
+      actionFocusPending.current=["explore","combat","recovery","reward","won","lost"].includes(p);
+    }
+    if (!actionFocusPending.current || busy || !window.matchMedia("(pointer: fine)").matches) return;
+    const root=sceneArea.current?.closest("main");
+    const next=[...(root?.querySelectorAll<HTMLElement>('[data-keyboard-actions] [data-keyboard-default="true"]:not(:disabled)') ?? [])]
+      .find(element => element.getClientRects().length > 0 && window.getComputedStyle(element).visibility !== "hidden");
+    if (!next) return;
+    next.focus({preventScroll:true});
+    actionFocusPending.current=false;
+  },[run,p,busy]);
 
   async function start(replace = false) {
     if (lock.current) return;
@@ -161,7 +177,7 @@ export default function DescentGame() {
   if (!run || confirmRestart) return <main className="descent-shell">{header}<section className="descent-entrance">
     <div className="descent-entrance-intro"><p className="descent-kicker">TEN ROOMS · NO WALLET NEEDED</p><h1>Management<br />is expecting you.</h1><p>Walk into the dungeon. Attack for a reliable hit, risk a Storm, or use a potion when you need it.</p></div>
     {(saveNotice || confirmRestart) && <p className="descent-notice" role="status">{confirmRestart ? "Starting again replaces your current First Descent. Your other modes are kept." : saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
-    <div className="descent-start-card"><div><p className="descent-kicker">YOUR STARTING KIT</p><h2>100 HP · 3 potions · no relic</h2><p>Gold and upgrades stay on the floor until you walk over and pick them up.</p></div><button disabled={saveBlocked} onClick={() => void start(invalidSave || confirmRestart)}>{invalidSave ? "Replace saved run & start" : confirmRestart ? "Start a new run" : "Start run"} <span>↗</span></button></div>
+    <div className="descent-start-card" data-keyboard-action-scope data-keyboard-actions><div><p className="descent-kicker">YOUR STARTING KIT</p><h2>100 HP · 3 potions · no relic</h2><p>Gold and upgrades stay on the floor until you walk over and pick them up.</p></div><button data-keyboard-default="true" disabled={saveBlocked} onClick={() => void start(invalidSave || confirmRestart)}>{invalidSave ? "Replace saved run & start" : confirmRestart ? "Start a new run" : "Start run"} <span>↗</span></button></div>
     <p className="descent-subtle">Saved in this browser when available. No payment, account or onchain rewards.</p>
     <div className="descent-entrance-links">{confirmRestart && <button onClick={() => setConfirmRestart(false)}>Keep playing</button>}<Link href="/practice">Endless Practice</Link><Link href="/">All modes</Link></div>
   </section></main>;
@@ -204,10 +220,10 @@ export default function DescentGame() {
   const renderMerchant=(mobile=false) => hasMerchant ? <section className={`descent-merchant ${mobile ? "descent-mobile-sheet-card" : ""}`} ref={mobile ? undefined : merchantArea} tabIndex={-1} aria-label="Kevin's shop">
     {mobile && <header className="dungeon-shop-title"><h2>Kevin&apos;s shop</h2><button onClick={() => setShopOpen(false)} aria-label="Close Kevin's shop">Close</button></header>}
     {mobile && renderSaveRecovery()}
-    <ShopVitals hp={g.hp} maxHp={g.maxHp} gold={g.gold} potions={g.potions} weapon={g.weaponLevel} armor={g.armorLevel} /><ShopKeeper camp={room === 9} /><div>{shop.map(item => <button key={item.action} disabled={busy || item.disabled || g.gold < item.cost} onClick={() => void act(item.action)}><strong>{item.title}<span>{item.cost} gold</span></strong><small>{item.detail}</small></button>)}</div>
+    <ShopVitals hp={g.hp} maxHp={g.maxHp} gold={g.gold} potions={g.potions} weapon={g.weaponLevel} armor={g.armorLevel} /><ShopKeeper camp={room === 9} /><div className="descent-shop-actions" data-keyboard-actions>{shop.map((item,index) => <button key={item.action} data-keyboard-default={index === 0 ? "true" : undefined} disabled={busy || item.disabled || g.gold < item.cost} onClick={() => void act(item.action)}><strong>{item.title}<span>{item.cost} gold</span></strong><small>{item.detail}</small></button>)}</div>
   </section> : null;
-  const renderReward=(mobile=false) => rewardRelic?.imageSrc ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} aria-label="Boss relic reward"><p className="descent-kicker">MANAGEMENT DEFEATED</p><h2>The org chart has a vacancy.</h2>{mobile && renderSaveRecovery()}<Image src={rewardRelic.imageSrc} alt="" width={105} height={105} /><h3>{rewardRelic.name}</h3><p>{rewardRelic.effect}</p><p className="descent-subtle">The relic is yours. Choose whether to equip it.</p><div className={`descent-result-actions ${mobile ? "descent-mobile-result-actions" : ""}`}><button disabled={busy} onClick={() => void act("claim")}>Keep relic</button><button disabled={busy} onClick={() => void act("claim-equip")}>Equip relic & finish</button></div></section> : null;
-  const renderTerminal=(mobile=false) => terminal ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`}><p className="descent-kicker">{p === "won" ? "DESCENT COMPLETE" : "EXIT INTERVIEW"}</p><h2>{p === "won" ? "You survived management." : "A short career. A useful lesson."}</h2>{mobile && renderSaveRecovery()}{mobile && <div className="descent-result-actions descent-mobile-result-actions"><button onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<dl><div><dt>Rooms cleared</dt><dd>{g.roomsCleared} / 10</dd></div><div><dt>Turns</dt><dd>{run.turns}</dd></div><div><dt>Damage dealt</dt><dd>{run.damageDealt}</dd></div><div><dt>Potions used</dt><dd>{run.potionsUsed}</dd></div></dl><p>{p === "lost" ? `Your last reply cost ${g.lastMonsterDamage} HP. Watch your remaining HP and use potions before the next exchange.` : "The next run starts at 100 HP with three potions and no relic."}</p>{!mobile && <><button onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></>}</section> : null;
+  const renderReward=(mobile=false) => rewardRelic?.imageSrc ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} data-keyboard-action-scope aria-label="Boss relic reward"><p className="descent-kicker">MANAGEMENT DEFEATED</p><h2>The org chart has a vacancy.</h2>{mobile && renderSaveRecovery()}<Image src={rewardRelic.imageSrc} alt="" width={105} height={105} /><h3>{rewardRelic.name}</h3><p>{rewardRelic.effect}</p><p className="descent-subtle">The relic is yours. Choose whether to equip it.</p><div className={`descent-result-actions ${mobile ? "descent-mobile-result-actions" : ""}`} data-keyboard-actions><button data-keyboard-default="true" disabled={busy} onClick={() => void act("claim")}>Keep relic</button><button disabled={busy} onClick={() => void act("claim-equip")}>Equip relic & finish</button></div></section> : null;
+  const renderTerminal=(mobile=false) => terminal ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} data-keyboard-action-scope><p className="descent-kicker">{p === "won" ? "DESCENT COMPLETE" : "EXIT INTERVIEW"}</p><h2>{p === "won" ? "You survived management." : "A short career. A useful lesson."}</h2>{mobile && renderSaveRecovery()}{mobile && <div className="descent-result-actions descent-mobile-result-actions" data-keyboard-actions><button data-keyboard-default="true" onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<dl><div><dt>Rooms cleared</dt><dd>{g.roomsCleared} / 10</dd></div><div><dt>Turns</dt><dd>{run.turns}</dd></div><div><dt>Damage dealt</dt><dd>{run.damageDealt}</dd></div><div><dt>Potions used</dt><dd>{run.potionsUsed}</dd></div></dl><p>{p === "lost" ? `Your last reply cost ${g.lastMonsterDamage} HP. Watch your remaining HP and use potions before the next exchange.` : "The next run starts at 100 HP with three potions and no relic."}</p>{!mobile && <div className="descent-result-actions" data-keyboard-actions><button data-keyboard-default="true" onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}</section> : null;
   const recoveryPotion=recovery ? <button disabled={potionDisabled} onClick={() => void act("potion")} aria-label={`Potion, heal 25 HP safely, ${g.potions} remaining`}>Use potion · +25 HP · {g.potions} left</button> : null;
   const mobileTopOverlay=<div className="descent-mobile-top">
     <div className="descent-mobile-topbar">
@@ -241,7 +257,7 @@ export default function DescentGame() {
     </div>
     <div className="descent-layout"><div className="descent-world" ref={sceneArea}>
       <DungeonScene key={`${run.runId}:${room}`} view={{room,seed:run.seed,enemy:g.monsterType,enemyName:art.name,enemyHp:g.monsterHp,hp:g.hp,relic:g.equippedRelic,weapon:g.weaponLevel,armor:g.armorLevel,phase:p!,loot:sceneLoot,pending:busy,cue,cueId:run.revision,damage:g.lastPlayerDamage,incoming:g.lastMonsterDamage}}
-        actions={{approach:() => void act("engage"),enter:() => void act("enter"),collect:() => void act("collect"),skipLoot:() => void act("skip-loot"),interact:() => audio.playAction("click"),merchant:hasMerchant ? () => { if (window.matchMedia("(max-width: 760px)").matches) setShopOpen(true); else { merchantArea.current?.scrollIntoView({behavior:"auto",block:"nearest"}); merchantArea.current?.focus({preventScroll:true}); } } : undefined}}
+        actions={{approach:() => void act("engage"),enter:() => void act("enter"),collect:() => void act("collect"),skipLoot:() => void act("skip-loot"),interact:() => audio.playAction("click"),merchant:hasMerchant ? () => { if (window.matchMedia("(max-width: 760px)").matches) setShopOpen(true); else { merchantArea.current?.scrollIntoView({behavior:"auto",block:"nearest"}); (merchantArea.current?.querySelector<HTMLElement>('.descent-shop-actions button:not(:disabled)') ?? merchantArea.current)?.focus({preventScroll:true}); } } : undefined}}
         topOverlay={mobileTopOverlay} footer={mobileFooter}
         roomNotes={<RoomParchments monster={g.monsterHp > 0 ? {name:art.name,role:art.role,description:monsterDescription} : undefined}
           speech={{name:art.name,monsterType:g.monsterType,room,phase:p!,cue,cueId:run.revision,roomTurns:run.roomTurns,hp:g.monsterHp,maxHp:g.monsterMaxHp,damage:g.lastPlayerDamage}} />}

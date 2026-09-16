@@ -109,6 +109,20 @@ test("a proof is replay verified, links to its challenge and rejects changed byt
   );
 });
 
+test("the published V1 week 38 replay fixture keeps its exact result and proof", async () => {
+  const created=await createChallengeProof(completeRun());
+  assert.deepEqual(created.result,{
+    challengeId:"2026-W38",rulesVersion:1,seed:3678871334,outcome:"cleared",
+    roomsCleared:10,hp:18,gold:145,potions:0,weaponLevel:1,armorLevel:0,
+    relicId:0,actionCount:64,score:105695,
+  });
+  assert.equal(created.run.actions.join(""),"AAANAAANAAANAAAAANAAAPABTNAAAANAAAPAAPAANAAPANAAARCCNAAAAAPAPAAA");
+  assert.equal(created.runId,"f8d0f0c9f20c");
+  assert.equal(created.proof,"WzEsIjIwMjYtVzM4IiwiQUFBTkFBQU5BQUFOQUFBQUFOQUFBUEFCVE5BQUFBTkFBQVBBQVBBQU5BQVBBTkFBQVJDQ05BQUFBQVBBUEFBQSIsImY4ZDBmMGM5ZjIwY2Q2MmUwYWEwYmI2NTgxZTE0MDBmMDcwOGQ1NDRkOTEyMmM0YTYyOTlhM2FjNWNkNWQ3ZGQiXQ");
+  const verified=await verifyChallengeProof("2026-W38",created.proof);
+  assert.deepEqual(verified.result,created.result);
+});
+
 test("illegal and post-completion actions are rejected instead of becoming a score", () => {
   const started = startChallengeRun(definition());
   assert.throws(() => applyChallengeAction(started, "next-room"), /next room cannot be entered/i);

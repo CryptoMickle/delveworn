@@ -1,6 +1,10 @@
 # Delveworn
 
-Delveworn is a fully onchain dungeon crawler. The upgraded frontend at `delveworn.app` uses Somnia Shannon Testnet, Thirdweb session keys for Popup-free Play, MetaMask standard transactions and Somnia Native VRF. The original `delveworn.vercel.app` keeps its RISE Testnet configuration. Popup-free Play is enabled on `delveworn.app`; the player approves an eight-hour session with MetaMask before playing without repeated wallet approvals.
+Delveworn is a chain-agnostic dungeon crawler with wallet-free First Descent,
+Endless Practice and Weekly Challenge modes. Its optional onchain mode targets
+Somnia Shannon Testnet. Wallet, RPC and VRF are never required for the local
+game modes. The original `delveworn.vercel.app` keeps its separate RISE Testnet
+configuration.
 
 ## Status
 
@@ -111,3 +115,26 @@ active `/onchain` runs use the same room with confirmed contract snapshots.
 reuse their original artwork, and Kevin’s shop keeps player stats visible.
 See [`ENDLESS_GRID.md`](../ENDLESS_GRID.md) for reward authority, saves, testing
 and the unresolved live Somnia verification boundary.
+
+## Current controls and regression route
+
+- Hold WASD to walk freely. Use the arrow keys to select visible actions and
+  Enter to activate the selected action. J, K and M are not action shortcuts.
+- New runs begin with 100 HP, three potions and no relic. The first relic is
+  earned after the room 10 boss.
+- Loot is collected automatically when the player reaches it. Walking directly
+  to the open door leaves ordinary loot behind. Kevin enters from the door and
+  parks with his wagon at the upper-left side of eligible rooms.
+- In combat, a potion adds 25 HP, applies the reduced enemy retaliation, and
+  then caps the result at maximum HP. Between rooms, potion healing is safe.
+
+Before a preview is marked ready, verify this route without a wallet:
+
+1. Start First Descent and walk to the room 1 monster.
+2. Complete a fight using Attack, Storm and Potion with arrow/Enter controls.
+3. Collect one loot drop and bypass another through the door.
+4. Visit Kevin in rooms 5 and 9, make a purchase and leave without purchasing.
+5. Defeat the room 10 boss, keep or equip the relic, and finish the run.
+6. Reload during combat, while loot is waiting and after a completed transition.
+7. Confirm that an existing Practice save and an old Weekly proof still restore
+   without being rewritten.
