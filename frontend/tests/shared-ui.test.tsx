@@ -65,26 +65,23 @@ test("the dock shows current health beside potion consequences and disables ever
   assert.match(markup, /heal, then take half retaliation/);
   assert.ok(markup.indexOf("practice-storm-action") < markup.indexOf("practice-attack-action"));
   assert.ok(markup.indexOf("practice-attack-action") < markup.indexOf("practice-potion-action"));
-  assert.match(markup, /aria-label="⚡ STORM J · DAMAGE 0–40 · unpredictable, no critical"/);
-  assert.match(markup, /aria-label="⚔️ ATTACK K · DAMAGE 8–14 · reliable, 15% critical"/);
-  assert.match(markup, /data-keyboard-shortcut="j"/);
-  assert.match(markup, /data-keyboard-shortcut="k"/);
-  assert.match(markup, /data-keyboard-shortcut="m"/);
+  assert.match(markup, /aria-label="⚡ STORM · DAMAGE 0–40 · unpredictable, no critical"/);
+  assert.match(markup, /aria-label="⚔️ ATTACK · DAMAGE 8–14 · reliable, 15% critical"/);
+  assert.doesNotMatch(markup, /keyboard-shortcut|keyshortcuts|<kbd>[JKM]<\/kbd>/);
   const pending = renderToStaticMarkup(<CombatActionDock {...actionProps} busy hp={17} maxHp={100} />);
   assert.equal((pending.match(/disabled=""/g) ?? []).length, 3);
   assert.match(pending, /aria-busy="true"/);
   assert.match(pending, /Resolving action/);
-  const withoutOptionalHealth = renderToStaticMarkup(<CombatActionDock {...actionProps} keyboardEnabled={false} />);
+  const withoutOptionalHealth = renderToStaticMarkup(<CombatActionDock {...actionProps} />);
   assert.match(withoutOptionalHealth, /YOUR TURN/);
   assert.doesNotMatch(withoutOptionalHealth, /undefined|NaN|aria-keyshortcuts|<kbd>/);
 });
 
-test("safe recovery potions expose the same M shortcut as combat potions", () => {
+test("safe recovery potions remain in arrow and Enter navigation without a letter shortcut", () => {
   const enabled = renderToStaticMarkup(<InventoryPotions potions={2} onUse={() => {}} />);
   assert.match(enabled, /data-keyboard-actions="true"/);
-  assert.match(enabled, /data-keyboard-shortcut="m"/);
-  assert.match(enabled, /aria-keyshortcuts="M"/);
-  assert.match(enabled, /Use potion M/);
+  assert.match(enabled, /Use potion · 2 left/);
+  assert.doesNotMatch(enabled, /keyboard-shortcut|keyshortcuts|<kbd>/);
   const disabled = renderToStaticMarkup(<InventoryPotions potions={0} onUse={() => {}} />);
   assert.match(disabled, /disabled=""/);
 });

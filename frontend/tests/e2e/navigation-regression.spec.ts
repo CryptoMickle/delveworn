@@ -126,7 +126,7 @@ test("battle arrows stay in the action field and retain the selected vertical la
 test("boss reward arrows enter KEEP from above and EQUIP from below", async ({ page }) => {
   await restore(page, { roomsCleared: 9, monsterType: 3, monsterHp: 1 });
   await resetFocus(page);
-  await page.keyboard.press("k");
+  await attack(page).click();
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "loot");
   await clickRoomPoint(page, { x: 450, y: 65 });
   await expect(page.locator(".endless-room")).toHaveAttribute("data-descent-phase", "reward");

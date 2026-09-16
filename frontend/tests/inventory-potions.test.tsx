@@ -8,8 +8,9 @@ test("the inventory exposes safe healing and delegates one use to its existing a
   const control = InventoryPotions({ potions: 3, onUse: () => { uses++; } });
   const markup = renderToStaticMarkup(control);
   assert.match(markup, /<button type="button"/);
-  assert.match(markup, /Use potion M · 3 left · Restore up to 25 HP. No enemy retaliation./);
-  assert.match(markup, /data-keyboard-actions="true" data-keyboard-shortcut="m" aria-keyshortcuts="M"/);
+  assert.match(markup, /Use potion · 3 left · Restore up to 25 HP. No enemy retaliation./);
+  assert.match(markup, /data-keyboard-actions="true"/);
+  assert.doesNotMatch(markup, /keyboard-shortcut|keyshortcuts|<kbd>/);
   assert.match(markup, /POTION · 3\/5/);
   assert.match(markup, /\+25 HP · No enemy retaliation/);
   control.props.onClick();

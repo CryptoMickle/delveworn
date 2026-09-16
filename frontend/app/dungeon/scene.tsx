@@ -6,7 +6,7 @@ import type { LootType, MonsterType } from "../practice/engine";
 import { createRoomSteering, isRoomPoint, movementFacing, movementOrientation, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Orientation, type Point } from "./movement";
 import { HIGHER_TIER_ART, deepTierRoomHeight, type DungeonEnemyArt } from "./tier-art";
 import { MERCHANT_ROOM_ART_LAYOUT } from "./merchant-art";
-import { createMerchantArrivalGate, MERCHANT_ENTRY, RoomMerchant } from "./merchant-room";
+import { createMerchantArrivalGate, RoomMerchant, type MerchantRoomActors } from "./merchant-room";
 import { GoldLootSprite } from "./gold-loot-art";
 import { AvatarSprite } from "./avatar-art";
 export { AvatarSprite } from "./avatar-art";
@@ -43,7 +43,7 @@ export const ENEMY_ART = [
   { name: "Gary", role: "Goblin", src: "/monsters/goblin-1-gary.webp", width: 766, height: 431, roomHeight: 110,
     crop: "202 35 363 390", outline: "M338 46 L339 70 L359 55 L352 80 L379 64 L370 88 Q389 80 405 85 Q414 98 422 111 Q452 104 480 85 L509 62 L516 65 Q498 85 486 104 Q474 125 468 144 L468 155 Q463 164 452 170 Q473 174 489 190 Q502 205 518 216 Q528 230 532 248 Q534 259 546 270 Q556 281 559 298 Q557 309 548 315 Q540 321 533 317 Q529 312 532 302 L539 291 Q534 286 527 285 Q520 287 515 297 Q511 306 504 311 Q496 311 492 305 Q488 296 491 285 Q499 276 502 269 Q501 256 495 248 Q486 242 477 239 Q467 237 458 233 Q452 249 455 263 Q459 277 468 287 Q473 298 474 310 Q477 323 493 335 Q500 345 499 356 Q509 365 520 374 Q532 386 536 397 Q537 407 531 413 Q520 418 506 418 L481 417 Q469 414 466 405 Q464 390 465 379 Q461 369 455 365 Q445 359 438 352 Q428 349 420 341 L413 332 Q405 337 400 348 L393 356 L381 337 L366 359 L353 350 L339 359 L327 369 Q320 376 311 382 Q302 391 297 397 Q285 404 272 404 Q259 404 251 397 Q248 389 255 382 Q267 373 284 369 Q299 364 307 352 Q305 340 301 329 Q304 314 309 301 Q319 285 331 276 Q335 267 332 259 Q318 267 306 277 Q296 283 286 285 Q281 299 271 307 Q264 311 257 310 Q242 309 230 300 Q224 294 223 287 Q222 281 226 275 L230 269 L216 265 Q212 261 212 254 Q213 249 226 243 Q219 228 216 213 Q214 190 216 166 Q216 156 222 152 Q226 165 230 181 L238 212 Q242 228 250 240 L265 244 L260 253 Q270 253 279 259 Q287 255 296 247 L304 239 L321 224 Q307 218 298 207 Q289 194 288 178 L275 169 L260 160 Q245 149 238 132 L228 111 Q245 113 264 118 L291 136 Q289 122 296 109 L302 101 L301 82 L314 91 L311 65 L326 81 Z" },
   { name: "Thud", role: "Orc", src: "/monsters/orc-1-thud.webp", width: 1672, height: 941, roomHeight: 146,
-    crop: "490 138 590 635", outline: "M796 199 L801 183 799 171 805 177 818 159 842 145 833 156 819 171 821 178 834 165 850 168 870 179 879 184 892 174 885 186 873 190 856 187 864 197 884 204 888 212 867 207 853 198 864 219 850 211 831 204 814 205 799 215 781 215 765 230 753 250 747 254 728 250 725 255 736 270 740 287 747 302 742 320 727 330 715 347 710 367 707 390 713 400 705 408 700 427 697 438 681 450 675 466 665 483 657 488 650 505 638 516 624 521 620 516 620 506 612 499 610 480 599 477 598 464 589 457 594 446 584 447 580 430 584 416 574 409 577 390 565 395 552 386 542 387 539 377 533 388 522 389 511 400 500 405 503 412 496 424 498 437 505 447 499 465 514 457 528 475 542 489 557 503 573 516 588 526 591 538 594 546 590 554 591 565 599 574 600 584 609 590 618 600 639 604 648 615 659 620 676 614 680 606 676 592 664 585 665 574 669 560 680 558 687 547 699 541 708 526 714 513 726 485 736 463 749 449 758 459 758 481 760 503 740 515 734 530 721 552 716 572 709 586 704 605 710 624 712 642 711 651 715 666 719 688 711 698 692 702 672 710 660 718 650 730 650 737 668 744 704 745 734 741 758 736 775 729 785 720 782 705 778 688 790 674 790 658 786 647 781 628 773 615 786 614 790 636 800 627 817 655 829 634 839 621 852 646 864 619 878 638 888 619 899 637 901 653 910 669 909 682 918 700 917 715 912 730 904 746 904 758 918 766 943 766 973 765 997 761 1007 754 1007 743 996 725 977 707 975 693 984 678 983 660 977 646 970 640 970 624 960 614 956 592 959 576 956 553 949 538 949 523 951 510 966 514 966 494 957 481 952 462 956 440 960 428 974 442 991 451 994 465 999 478 997 497 1002 508 994 516 981 524 974 536 969 550 965 565 969 579 968 590 977 593 984 590 987 581 982 570 989 566 999 573 1001 585 994 599 989 608 988 616 999 620 1009 618 1017 622 1029 616 1037 608 1049 606 1059 599 1063 585 1066 566 1067 540 1066 532 1071 526 1068 513 1073 503 1071 489 1066 483 1068 464 1064 444 1056 424 1045 409 1040 390 1029 366 1017 353 1011 332 1002 316 986 303 968 297 965 291 948 283 941 276 925 273 909 272 917 244 921 231 899 237 878 247 868 236 858 221 844 214 831 207 Z" },
+    crop: "490 138 590 635", outline: "M796 199 L801 183 799 171 805 177 818 159 842 145 833 156 819 171 821 178 834 165 850 168 870 179 879 184 892 174 885 186 873 190 856 187 864 197 884 204 888 212 867 207 853 198 864 219 850 211 831 204 814 205 799 215 781 215 765 230 753 250 747 253 727 248 723 254 733 271 738 288 745 303 741 320 727 330 715 347 710 367 707 390 713 400 705 408 700 427 697 438 681 450 675 466 665 483 657 488 650 505 638 516 624 521 620 516 620 506 612 499 610 480 599 477 598 464 589 457 594 446 584 447 580 430 584 416 574 409 577 390 565 395 552 386 542 387 539 377 533 388 522 389 511 400 500 405 503 412 496 424 498 437 505 447 499 465 514 457 528 475 542 489 557 503 573 516 588 526 591 538 594 546 590 554 591 565 599 574 600 584 609 590 618 600 639 604 648 615 659 620 676 614 680 606 676 592 664 585 665 574 669 560 680 558 687 547 699 541 708 526 714 513 726 485 736 463 749 449 758 459 758 481 760 503 740 515 734 530 721 552 716 572 709 586 704 605 710 624 712 642 711 651 715 666 719 688 711 698 692 702 672 710 660 718 650 730 650 737 668 744 704 745 734 741 758 736 775 729 785 720 782 705 778 688 790 674 790 658 786 647 781 628 773 615 786 614 790 636 800 627 817 655 829 634 839 621 852 646 864 619 878 638 888 619 899 637 901 653 910 669 909 682 918 700 917 715 912 730 904 746 904 758 918 766 943 766 973 765 997 761 1007 754 1007 743 996 725 977 707 975 693 984 678 983 660 977 646 970 640 970 624 960 614 956 592 959 576 956 553 949 538 949 523 951 510 966 514 966 494 957 481 952 462 956 440 960 428 974 442 991 451 994 465 999 478 997 497 1002 508 994 516 981 524 974 536 969 550 965 565 969 579 968 590 977 593 984 590 987 581 982 570 989 566 999 573 1001 585 994 599 989 608 988 616 999 620 1009 618 1017 622 1029 616 1037 608 1049 606 1059 599 1063 585 1066 566 1067 540 1066 532 1071 526 1068 513 1073 503 1071 489 1066 483 1068 464 1064 444 1056 424 1045 409 1040 390 1029 366 1017 353 1011 332 1002 316 986 303 968 297 965 291 948 283 941 276 925 273 909 272 917 244 921 231 899 237 878 247 868 236 858 221 844 214 831 207 Z" },
   { name: "Dungeon Lord", role: "Management", src: "/monsters/boss-1-dungeon-lord.webp", width: 1672, height: 941, roomHeight: 178,
     crop: "445 25 765 905", outline: "M818 36 L833 39 846 45 855 55 860 68 867 75 875 78 879 90 883 99 876 97 882 110 894 116 901 120 906 130 902 139 889 141 887 151 894 159 899 170 896 180 883 185 885 196 903 178 919 164 940 153 935 175 928 192 944 196 980 166 974 197 986 201 1008 183 1000 205 1008 211 1046 206 1024 229 1018 238 1023 250 1047 275 1028 280 1018 278 1019 289 1011 301 1016 320 1030 328 1051 326 1060 330 1074 325 1086 325 1094 318 1106 308 1120 306 1129 300 1135 288 1142 287 1147 289 1146 300 1141 308 1135 313 1139 325 1146 331 1155 331 1160 338 1167 332 1170 331 1176 334 1180 330 1186 333 1185 340 1192 340 1194 346 1188 349 1193 354 1187 359 1178 360 1174 368 1165 368 1152 370 1138 371 1123 366 1116 368 1103 362 1093 368 1097 374 1090 385 1084 395 1080 386 1070 395 1064 388 1051 392 1039 386 1034 397 1039 434 1047 473 1058 516 1072 557 1090 599 1107 638 1117 666 1106 646 1094 635 1081 625 1064 619 1058 625 1050 619 1045 631 1037 618 1033 637 1026 640 1029 648 1018 654 1015 646 1006 659 994 646 991 665 982 680 973 733 967 710 961 667 955 611 950 582 942 591 949 632 959 674 969 718 973 772 973 798 982 815 968 835 979 854 985 879 985 898 978 909 967 916 954 920 938 920 927 915 916 906 909 894 908 880 910 864 917 843 911 827 902 814 896 803 889 784 876 765 866 745 854 713 837 677 825 650 817 636 816 660 802 688 797 733 791 755 781 774 782 810 793 828 789 850 781 860 758 869 728 875 694 878 670 877 654 873 650 865 655 856 668 850 691 846 717 837 740 821 741 809 737 793 741 776 744 752 735 722 729 695 725 667 720 644 717 619 706 604 701 635 690 669 685 699 676 719 669 711 652 751 653 721 659 692 667 642 675 592 682 547 688 501 697 464 701 426 705 396 696 400 679 406 665 405 648 399 635 399 629 407 618 401 610 409 592 416 574 417 562 411 552 413 540 395 529 378 516 372 507 360 507 349 500 343 500 335 507 328 510 328 502 315 487 299 477 286 470 281 465 275 463 264 462 254 457 244 458 235 470 231 497 222 507 218 509 205 515 196 524 193 531 197 535 207 534 211 542 207 549 211 550 213 566 204 577 202 585 211 612 278 621 280 630 286 635 301 641 315 653 332 671 336 680 324 688 306 695 291 686 282 666 269 687 265 695 258 705 250 687 218 715 232 721 224 717 200 739 221 749 214 742 201 737 181 755 184 773 181 786 174 778 168 767 165 760 157 752 156 753 151 765 148 765 139 762 127 761 118 763 107 770 96 759 103 751 94 756 87 757 73 760 89 766 94 773 87 774 79 779 70 789 58 784 58 789 49 803 44 Z" },
 ] as const;
@@ -152,10 +152,6 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
   const latest = useRef({ view, actions });
   const [merchantGate]=useState(createMerchantArrivalGate);
-  const [merchantPosition,setMerchantPosition]=useState<Point>(MERCHANT_ENTRY);
-  const merchantPositionChanged=useCallback((next: Point) => {
-    setMerchantPosition(previous => previous.x === next.x && previous.y === next.y ? previous : {x:next.x,y:next.y});
-  },[]);
   const openMerchant=useCallback(() => {
     const current=latest.current;
     if (current.view.pending || !["loot","recovery"].includes(current.view.phase) || !current.actions.merchant) {
@@ -398,7 +394,6 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
     <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
   </g> : null;
-  const merchantActor=merchantPoint ? <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged} onPositionChange={merchantPositionChanged} /> : null;
   const avatarActor=<g className="dungeon-actor-position" data-room-depth-actor="avatar" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`} data-avatar-facing={facing}><g transform={`scale(${camera.actorScale})`}>
     <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
     <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
@@ -413,12 +408,15 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       <image href={relic.imageSrc ?? undefined} x="-63" y="-118" width="36" height="36" clipPath={`url(#${relicClip})`} />
     </g>}
   </g></g>;
-  const depthActors=orderRoomDepthActors([
+  const renderDepthActors=(merchant: MerchantRoomActors | null) => orderRoomDepthActors([
     ...(enemyActor ? [{id:"enemy",footY:GUARD.y,content:enemyActor}] : []),
     ...(lootActor ? [{id:"loot",footY:lootPoint.y,content:lootActor}] : []),
-    ...(merchantActor ? [{id:"merchant",footY:merchantPosition.y,content:merchantActor}] : []),
+    ...(merchant ? [
+      {id:"wagon",footY:merchant.wagonPosition.y,content:merchant.wagon},
+      {id:"merchant",footY:merchant.position.y,content:merchant.figure},
+    ] : []),
     {id:"avatar",footY:position.y,content:avatarActor},
-  ]);
+  ]).map(actor => <Fragment key={actor.id}>{actor.content}</Fragment>);
 
   return <div className={`dungeon-scene-wrap ${view.phase} ${view.enemy === 3 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room}>
     {topOverlay && <div className="dungeon-scene-top-overlay">{topOverlay}</div>}
@@ -427,7 +425,9 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       <image href="/dungeon/stone-room.webp" width="900" height="600" />
       <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
       {cleared && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.phase === "won" ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
-      {depthActors.map(actor => <Fragment key={actor.id}>{actor.content}</Fragment>)}
+      <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged}>
+        {renderDepthActors}
+      </RoomMerchant>
       <g style={{transform:`translate(${position.x}px,${position.y}px)`}} data-room-actor-effects="avatar"><g transform={`scale(${camera.actorScale})`}>
         {(view.cue === "potion" || view.cue === "revive") && <g key={`heal-${view.cueId}`} className="dungeon-heal"><ellipse cx="0" cy="-3" rx="53" ry="21" /><text x="0" y="-164" textAnchor="middle">{view.cue === "revive" ? "REVIVED" : "+ HEAL"}</text></g>}
         {view.cue && view.incoming > 0 && <text key={`reply-${view.cueId}`} x="-36" y="-150" className="dungeon-damage incoming">−{view.incoming}</text>}
@@ -445,7 +445,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     <div className="dungeon-floor-controls" data-keyboard-actions>
       {view.phase === "explore" && <button data-keyboard-default="true" onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending}>Approach {view.enemyName} <span>↗</span></button>}
       {view.phase === "recovery" && <><button className="dungeon-enter-room" data-keyboard-default="true" onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint,camera),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
-      {view.phase === "combat" && !children && <span>Your turn · J Storm · K Attack · M Potion</span>}
+      {view.phase === "combat" && !children && <span>Your turn · Arrow keys to choose · Enter to act</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>
     {!children && <p className="dungeon-controls-help">Hold WASD to walk · E to interact · Arrows + Enter for buttons</p>}

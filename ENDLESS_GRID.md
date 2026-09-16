@@ -16,10 +16,14 @@ boss cadence, relic rules and respective randomness authorities.
   input/dialog. Walking into the enemy's approach range starts combat. **E** walks
   to the current interaction: the enemy before combat or the north door after it.
   Arrow keys only move focus among visible action buttons, and **Enter** selects
-  the focused button. Combat uses **K** for Attack, **J** for Storm and **M** for
-  Potion; each physical press resolves at most one action. In Kevin's shop,
+  the focused button. Attack, Storm and Potion use the same arrow-and-Enter
+  navigation; there are no J/K/M action shortcuts. Each physical Enter press
+  resolves at most one action. After approaching, clearing a room, closing the
+  boss reward, or entering a new room, the enabled default action receives focus.
+  A pending onchain action delays this handoff until its controls are ready.
+  In Kevin's shop,
   arrows move between its buttons and Enter activates the selected button;
-  movement and combat shortcuts remain paused while the dialog is open.
+  room movement remains paused while the dialog is open.
 - On desktop, compact combat controls sit in the right sidebar directly below
   the monster card: Storm left, Attack right, Potion beneath. Player/enemy HP,
   damage ranges, potion stock and encounter limits stay in the panel. Phones
@@ -52,7 +56,7 @@ boss cadence, relic rules and respective randomness authorities.
   details. Picking up loot no longer replaces the potion count with Relics.
 - After a kill, the original green **POTION** style is used below the report
   on mobile (in the recovery sidebar on desktop). It works before and after
-  collecting loot, and **M** activates the same safe heal. Full HP, empty stock
+  collecting loot, and can be selected with arrows and Enter. Full HP, empty stock
   and pending actions disable healing;
   floor loot and room turns are preserved. **Relics** has its own header button
   during recovery, and **Enter room** uses the original orange action style.
@@ -92,10 +96,15 @@ boss cadence, relic rules and respective randomness authorities.
   collecting loot; purchases spend only gold already held. Shopping leaves the
   floor reward intact, and door arrival can still leave it behind. Picking up
   loot neither restarts Kevin's walk nor remounts him.
-  He stands on the right/inward side of his turned wagon. The original wagon,
+  He leads the wagon to the far left, parks it, walks around its south side,
+  then turns himself and the wagon toward the room. He stands on the
+  right/inward side with the wagon behind him. The original wagon,
   stock and no-refunds sign travel with him; the sign's lettering stays readable.
+  Shopping waits for the complete arrival and turn. Resizing preserves the current
+  stage instead of replaying the entrance.
   Characters are drawn in floor-depth order: walking behind Kevin or his wagon
-  places the avatar behind them, including during Kevin's entrance. Damage and
+  places the avatar behind them, including during Kevin's entrance. Kevin and
+  the wagon each use their own floor position for this ordering. Damage and
   healing feedback remain visible above the actors.
   Reduced-motion settings skip the entrance animation. Walk to him or use
   **Visit Kevin**. His shop shows the complete original rectangular painting,

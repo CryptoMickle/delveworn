@@ -102,7 +102,7 @@ test("ended local run offers a copyable fallback when clipboard permission is de
   expect((await savedGame(page)).roomsCleared).toBe(13);
 });
 
-test("a new run must approach before combat hotkeys can change the game", async ({ page }) => {
+test("a new run must approach before combat actions become available", async ({ page }) => {
   await zeroLocalRolls(page);
   await page.goto("/practice");
   await page.getByRole("button", { name: /START LOCAL RUN/ }).click();

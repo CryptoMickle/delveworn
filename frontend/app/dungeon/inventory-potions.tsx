@@ -16,10 +16,9 @@ export function InventoryPotions({ potions, maxPotions = 5, onUse, disabledReaso
   const reason = disabledReason ?? (potions <= 0 ? "No potions available." : null);
   const description = reason ?? `Restore up to ${healAmount} HP. No enemy retaliation.`;
   return <button type="button" className="dungeon-inventory-potions" disabled={reason !== null}
-    data-keyboard-actions data-keyboard-shortcut="m" aria-keyshortcuts="M"
-    aria-label={`Use potion M · ${potions} left · ${description}`} title={description}
+    data-keyboard-actions aria-label={`Use potion · ${potions} left · ${description}`} title={description}
     onClick={() => { if (reason === null) onUse(); }}>
-    <span>🧪 POTION · {potions}/{maxPotions} <kbd>M</kbd></span>
+    <span>🧪 POTION · {potions}/{maxPotions}</span>
     <small>{reason ?? `+${healAmount} HP · No enemy retaliation`}</small>
   </button>;
 }

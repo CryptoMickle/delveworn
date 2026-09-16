@@ -241,13 +241,14 @@ async function expectScoreStopped(page: Page) {
   expect(after.scoreStarts).toBe(before.scoreStarts);
 }
 
-test("pointer and keyboard share each action cue without duplicates or a room drone", async ({ page }) => {
+test("pointer and Enter share each action cue without duplicates or a room drone", async ({ page }) => {
   await seed(page);
   expect((await probe(page)).contexts).toBe(0);
   await attack(page).click();
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   const pointerResult = await confirmedGame(page);
-  await page.keyboard.press("k");
+  await attack(page).focus();
+  await page.keyboard.press("Enter");
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   const keyboardResult = await confirmedGame(page);
   await expect.poll(async () => (await probe(page)).actionCues.attack?.length ?? 0).toBe(2);
@@ -255,13 +256,15 @@ test("pointer and keyboard share each action cue without duplicates or a room dr
   const pointerAttack = actionWithConfirmedOutcome(actions[0], "attack", pointerResult);
   expect(pointerAttack).toEqual(["noise:", "tone:920", "tone:145"]);
   expect(actionWithConfirmedOutcome(actions[1], "attack", keyboardResult)).toEqual(pointerAttack);
-  await page.keyboard.down("k");
+  await attack(page).focus();
+  await page.keyboard.down("Enter");
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
-  await page.keyboard.down("k");
-  await page.keyboard.up("k");
+  await page.keyboard.down("Enter");
+  await page.keyboard.up("Enter");
   expect((await probe(page)).actionCues.attack).toHaveLength(3);
   expect(actionWithConfirmedOutcome((await probe(page)).actionCues.attack[2], "attack", await confirmedGame(page))).toEqual(pointerAttack);
-  await page.keyboard.press("j");
+  await page.getByRole("button", { name: /⚡ STORM/ }).focus();
+  await page.keyboard.press("Enter");
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   const keyboardStormResult = await confirmedGame(page);
   await page.getByRole("button", { name: /⚡ STORM/ }).click();
@@ -275,7 +278,8 @@ test("pointer and keyboard share each action cue without duplicates or a room dr
   const pointerStorm = actionWithConfirmedOutcome(storm[1], "storm", pointerStormResult);
   expect(keyboardStorm.map(note => note.split(":")[0])).toEqual(["tone", "tone", "tone", "tone", "tone", "noise", "tone"]);
   expect(pointerStorm.map(note => note.split(":")[0])).toEqual(keyboardStorm.map(note => note.split(":")[0]));
-  await page.keyboard.press("m");
+  await page.getByRole("button", { name: /POTION ·/ }).focus();
+  await page.keyboard.press("Enter");
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   await page.getByRole("button", { name: /POTION ·/ }).click();
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");

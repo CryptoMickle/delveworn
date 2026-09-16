@@ -228,7 +228,7 @@ test("held WASD moves continuously, combines directions and stops on release or 
   await expect(avatar).not.toHaveClass(/is-walking/);
 });
 
-test("walking up to the enemy starts combat and a held K commits one turn",async({page})=>{
+test("walking up to the enemy starts combat and held Enter commits one selected turn",async({page})=>{
   const run=createDescent(12345,"walk-to-combat");
   await seed(page,run);
   await page.keyboard.down("w");
@@ -237,14 +237,16 @@ test("walking up to the enemy starts combat and a held K commits one turn",async
   } finally { await page.keyboard.up("w"); }
   expect(await saved(page)).toEqual(transition(run,"engage"));
   const before=await saved(page);
-  await page.keyboard.down("k");
+  const attack=page.getByRole("button",{name:/Attack/i});
+  await expect(attack).toBeFocused();
+  await page.keyboard.down("Enter");
   await expect.poll(async()=>(await saved(page)).revision).toBe(before.revision+1);
   await expect(page.getByRole("group",{name:"Combat actions"})).toHaveAttribute("aria-busy","false");
   const attacked=await saved(page);
-  await page.keyboard.down("k");
+  await page.keyboard.down("Enter");
   await page.waitForTimeout(350);
-  expect(await saved(page),"a repeated keydown while K remains held must not attack twice").toEqual(attacked);
-  await page.keyboard.up("k");
+  expect(await saved(page),"a repeated keydown while Enter remains held must not attack twice").toEqual(attacked);
+  await page.keyboard.up("Enter");
   for (const key of ["w","a","s","d"]) await page.keyboard.press(key);
   await page.waitForTimeout(180);
   expect(await saved(page),"WASD must never dispatch a battle action").toEqual(attacked);
@@ -348,13 +350,14 @@ test("random floor loot is credited automatically when keyboard or pointer movem
   await expect(recoveryPotion).toHaveAccessibleName(/Use potion/);
 });
 
-test("M safely heals before and after WASD loot pickup without spending a turn",async({page})=>{
+test("selected safe potion heals before and after WASD loot pickup without spending a turn",async({page})=>{
   const combat=transition(createDescent(199,"keyboard-safe-potion"),"engage");
   const loot=transition({...combat,game:{...combat.game,hp:40,monsterHp:1}},"attack");
   expect(phase(loot)).toBe("loot");
   await seed(page,loot);
 
-  await page.keyboard.press("m");
+  await safePotion(page).focus();
+  await page.keyboard.press("Enter");
   const healedBeforePickup=transition(loot,"potion");
   await expect.poll(async()=>(await saved(page)).revision).toBe(healedBeforePickup.revision);
   expect(await saved(page)).toEqual(healedBeforePickup);
@@ -369,7 +372,8 @@ test("M safely heals before and after WASD loot pickup without spending a turn",
   expect(await saved(page)).toEqual(collected);
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","recovery");
 
-  await page.keyboard.press("m");
+  await safePotion(page).focus();
+  await page.keyboard.press("Enter");
   const healedAfterPickup=transition(collected,"potion");
   await expect.poll(async()=>(await saved(page)).revision).toBe(healedAfterPickup.revision);
   expect(await saved(page)).toEqual(healedAfterPickup);
@@ -394,7 +398,8 @@ test("the safe potion below the room heals with loot waiting and the door can st
   await expect(potion).toContainText(`POTION · ${run.game.potions}/5`);
   await expect(potion).toContainText("+25 HP · No enemy retaliation");
 
-  await page.keyboard.press("m");
+  await potion.focus();
+  await page.keyboard.press("Enter");
   const healed=transition(run,"potion");
   await expect.poll(async()=>(await saved(page)).revision).toBe(healed.revision);
   expect(await saved(page)).toEqual(healed);
@@ -541,9 +546,11 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     const merchantFacing="right", avatarFacing="left";
     await expect(kevin).toHaveAttribute("data-merchant-facing",merchantFacing);
     expect(merchant.y,"Kevin parks near the north side in both rooms").toBeLessThan(300);
+    const wagon=floor.locator('[data-merchant-part="wagon"]');
+    await expect(wagon).toHaveAttribute("data-wagon-facing","right");
     const [wagonBox,figureBox]=await Promise.all([
-      kevin.locator(":scope > svg").boundingBox(),
-      kevin.locator(":scope > g > svg").boundingBox(),
+      wagon.boundingBox(),
+      kevin.boundingBox(),
     ]);
     expect(wagonBox!.x+wagonBox!.width/2,"the wagon is on Kevin's outer-left side")
       .toBeLessThan(figureBox!.x+figureBox!.width/2);
@@ -551,6 +558,8 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     expect(kevinBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
     expect(kevinBox!.x+kevinBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
     expect(kevinBox!.x).toBeLessThan(floorBox!.x+floorBox!.width/2);
+    expect(wagonBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
+    expect(wagonBox!.x+wagonBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
     const shop=isMobile
       ? page.locator(".descent-mobile-shop").getByRole("region",{name:"Kevin's shop"})
       : page.locator(".descent-sidebar").getByRole("region",{name:"Kevin's shop"});

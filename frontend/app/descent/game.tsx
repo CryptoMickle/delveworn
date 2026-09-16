@@ -212,7 +212,7 @@ export default function DescentGame() {
     <div className="descent-mobile-topbar">
       <details className="descent-mobile-menu"><summary aria-label="Open game menu">☰ <span>Menu</span></summary><div className="descent-mobile-menu-panel">
         <p className="descent-kicker">THE FIRST DESCENT</p><h2>Dungeon menu</h2>
-        <details><summary>How to play</summary><p>Tap the floor or use WASD to walk. Use the arrow keys and Enter to choose room actions. In combat, press K for Attack, J for Storm, or M for Potion. After a victory, tap the loot or use the door to continue.</p></details>
+        <details><summary>How to play</summary><p>Tap the floor or use WASD to walk. Use the arrow keys to choose room and combat actions, then press Enter. After a victory, tap the loot or use the door to continue.</p></details>
         {p !== "loot" && <details><summary>Dungeon journal · {run.turns} turns</summary><div className="descent-mobile-journal">{g.log.map((line,i) => <p key={i}>{line}</p>)}</div></details>}
         {recoveryPotion}
         <button onClick={() => setConfirmRestart(true)} disabled={busy}>Start again</button><Link href="/practice">Endless Practice</Link><Link href="/">All modes</Link>

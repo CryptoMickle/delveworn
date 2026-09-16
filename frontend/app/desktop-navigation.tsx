@@ -10,21 +10,6 @@ const SCROLL_HEADER = "[data-keyboard-scroll-header]";
 
 export type ArrowDirection = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 export type NavigationRect = Pick<DOMRect, "left" | "right" | "top" | "bottom">;
-export type GameplayShortcut = "k" | "j" | "m";
-
-export function gameplayShortcut(key: string): GameplayShortcut | null {
-  const lower = key.toLowerCase();
-  return lower === "k" || lower === "j" || lower === "m" ? lower : null;
-}
-
-export function shortcutTarget<T>(
-  candidates: ReadonlyArray<{ item: T; shortcut?: string }>,
-  shortcut: GameplayShortcut,
-  selected: T | null,
-): T | null {
-  const matches = candidates.filter(candidate => candidate.shortcut === shortcut);
-  return matches.find(candidate => candidate.item === selected)?.item ?? matches[0]?.item ?? null;
-}
 
 /** Keep vertical movement in the same column through a full-width control. */
 export function spatialTarget<T>(
@@ -75,7 +60,7 @@ function available(element: HTMLElement): boolean {
 }
 
 export function KeyboardHint() {
-  return <p className="desktop-keyboard-hint">↑ ↓ ← → navigate · Enter select · K Attack · J Storm · M Potion</p>;
+  return <p className="desktop-keyboard-hint">↑ ↓ ← → choose an action · Enter select</p>;
 }
 
 /**
@@ -90,7 +75,6 @@ export function DesktopNavigation() {
     const root = marker.current?.closest("main");
     if (!root) return;
     let enterHeld = false;
-    const shortcutsHeld = new Set<GameplayShortcut>();
     let preferredX: number | null = null;
     let remembered: HTMLElement | null = null;
     const forgetSelection = () => { remembered = null; preferredX = null; };
@@ -117,8 +101,7 @@ export function DesktopNavigation() {
       if (event.key === "Tab") { forgetSelection(); return; }
       if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey
         || event.metaKey || event.shiftKey) return;
-      const shortcut = gameplayShortcut(event.key);
-      if (event.key !== "Enter" && !shortcut && !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+      if (event.key !== "Enter" && !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
       const targetElement = event.target instanceof Element ? event.target : null;
       const target = targetElement instanceof HTMLElement ? targetElement : null;
       if (targetElement?.closest(EDITABLE) || targetElement?.closest(EXCLUDED)) return;
@@ -129,9 +112,9 @@ export function DesktopNavigation() {
       if (openModal && !root.contains(openModal)) return;
       const modal = openModal;
       if (modal) {
-        // Combat shortcuts never pass through a dialog. Native Enter activates
-        // its focused button; arrows below only move focus inside this modal.
-        if (shortcut || event.key === "Enter") return;
+        // Native Enter activates its focused button; arrows below only move
+        // focus inside this modal.
+        if (event.key === "Enter") return;
         if (targetElement && targetElement !== document.body && targetElement !== document.documentElement
           && !modal.contains(targetElement)) return;
       }
@@ -163,21 +146,6 @@ export function DesktopNavigation() {
       // while requiring it to be enabled again before it can be activated.
       const selected = targetControl
         ?? (unfocused && remembered?.isConnected && items.includes(remembered) ? remembered : null);
-      if (shortcut) {
-        const shortcutItem = shortcutTarget(
-          items.map(item => ({ item, shortcut: item.dataset.keyboardShortcut })),
-          shortcut,
-          selected,
-        );
-        if (!shortcutItem) return;
-        event.preventDefault();
-        if (event.repeat || shortcutsHeld.has(shortcut)) return;
-        shortcutsHeld.add(shortcut);
-        // Follow the same guarded click callback as pointer and Enter input.
-        // Do not move focus: the player can keep steering from the room floor.
-        shortcutItem.click();
-        return;
-      }
       if (event.key === "Enter") {
         if (!selected || !items.includes(selected)) return;
         event.preventDefault();
@@ -211,10 +179,8 @@ export function DesktopNavigation() {
     };
     const release = (event: KeyboardEvent) => {
       if (event.key === "Enter") enterHeld = false;
-      const shortcut = gameplayShortcut(event.key);
-      if (shortcut) shortcutsHeld.delete(shortcut);
     };
-    const reset = () => { enterHeld = false; shortcutsHeld.clear(); forgetSelection(); };
+    const reset = () => { enterHeld = false; forgetSelection(); };
     const focusChanged = (event: FocusEvent) => {
       const target = event.target;
       if (target instanceof HTMLElement && target !== remembered && target.matches(CONTROLS)) forgetSelection();

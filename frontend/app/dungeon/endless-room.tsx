@@ -50,6 +50,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
   const [panel, setPanel] = useState<{ room: number; kind: "menu" | "shop" | "relics" | "log" | "status" } | null>(null);
   const sidebarControls = useRoomSidebar();
   const dialog = useRef<HTMLDialogElement>(null), rewardDialog = useRef<HTMLDialogElement>(null);
+  const previousPhase = useRef(view.phase), actionFocusPending = useRef(false);
   const art = getEnemyArt(view.enemy, view.room);
   const combat = view.phase === "combat", recovery = view.phase === "recovery";
   const safeHealing = view.enemyHp === 0 && (view.phase === "loot" || recovery);
@@ -85,9 +86,26 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
   useEffect(() => {
     const element = rewardDialog.current;
     if (!element) return;
-    if (view.phase === "reward" && !element.open) element.showModal();
-    if (view.phase !== "reward" && element.open) element.close();
-  }, [view.phase]);
+    if (previousPhase.current !== view.phase) {
+      previousPhase.current = view.phase;
+      actionFocusPending.current = view.phase === "explore" || view.phase === "combat" || view.phase === "recovery";
+    }
+    if (view.phase === "reward") {
+      if (!element.open) element.showModal();
+      return;
+    }
+    if (element.open) element.close();
+    // A phase change unmounts the previously focused action. This is especially
+    // visible after the boss reward dialog closes and the document body regains
+    // focus. Wait for an onchain action to finish, then select the enabled
+    // default for the new room phase.
+    if (!actionFocusPending.current || view.pending) return;
+    const next = element.closest<HTMLElement>(".endless-room")
+      ?.querySelector<HTMLElement>('[data-keyboard-actions] [data-keyboard-default="true"]:not(:disabled)');
+    if (!next) return;
+    next.focus({ preventScroll: true });
+    actionFocusPending.current = false;
+  }, [view.phase, view.pending]);
 
   const renderReport = (mobile = false) => <div className={`descent-report ${mobile ? "descent-mobile-report" : ""}`} role="status" aria-live="polite">
     <strong>{report.title}</strong><p>{report.detail}</p><button className="descent-report-log" onClick={() => open("log")} aria-label="Open dungeon log">Log ›</button>
@@ -127,7 +145,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
     </aside></div>
     <dialog ref={dialog} className="descent-log-dialog endless-room-dialog" aria-label={activePanel ? titleByPanel[activePanel] : "Dungeon panel"} onClose={() => setPanel(null)} onCancel={() => setPanel(null)}>
       <header><h2>{activePanel ? titleByPanel[activePanel] : "Dungeon panel"}</h2><button autoFocus onClick={() => setPanel(null)} aria-label={activePanel ? `Close ${titleByPanel[activePanel]}` : "Close panel"}>Close</button></header>
-      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use WASD to walk. Use the arrow keys and Enter for room actions. In combat, press K for Attack, J for Storm, or M for Potion. Between rooms, M uses a Potion safely and Relics opens your collection.</p>{safeHealing && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
+      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use WASD to walk. Use the arrow keys to choose room and combat actions, then press Enter. Between rooms, Relics opens your collection.</p>{safeHealing && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
       {activePanel === "shop" && <div><ShopVitals hp={view.hp} maxHp={maxHp} gold={gold} potions={potions} weapon={view.weapon} armor={view.armor} /><ShopKeeper camp={view.room % 10 === 9} />{notices}{shop}</div>}
       {activePanel === "relics" && <div>{notices}{relics}</div>}
       {activePanel === "status" && notices}

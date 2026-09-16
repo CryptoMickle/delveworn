@@ -729,7 +729,6 @@ export function CombatActionDock({
   enemyHp,
   enemyMaxHp,
   lastExchange,
-  keyboardEnabled = true,
   onStorm,
   onPotion,
   onAttack,
@@ -753,7 +752,6 @@ export function CombatActionDock({
   enemyHp?: number;
   enemyMaxHp?: number;
   lastExchange?: { dealt: number; taken: number; critical: boolean };
-  keyboardEnabled?: boolean;
   onStorm: () => void;
   onPotion: () => void;
   onAttack: () => void;
@@ -770,8 +768,8 @@ export function CombatActionDock({
         <span data-critical={lastExchange?.critical || undefined}>{lastExchange?.critical ? "🔥 CRITICAL!" : "DEALT"} <b>{lastExchange ? `${lastExchange.dealt} HP` : "—"}</b></span>
       </div>
       <div className="practice-combat-actions grid grid-cols-2 gap-2" data-keyboard-actions>
-        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM${keyboardEnabled ? " J" : ""} · DAMAGE ${stormDamage} · unpredictable, no critical`} aria-keyshortcuts={keyboardEnabled ? "J" : undefined} data-keyboard-shortcut={keyboardEnabled ? "j" : undefined} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
-          <p className="font-black">⚡ STORM {keyboardEnabled && <kbd>J</kbd>}</p>
+        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM · DAMAGE ${stormDamage} · unpredictable, no critical`} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
+          <p className="font-black">⚡ STORM</p>
           <p className="mt-1 text-sm font-black">DAMAGE {stormDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] text-violet-200">Unpredictable · no critical</p>
           {stormRelicSummary && (
@@ -780,8 +778,8 @@ export function CombatActionDock({
             </p>
           )}
         </button>
-        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK${keyboardEnabled ? " K" : ""} · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical`} aria-keyshortcuts={keyboardEnabled ? "K" : undefined} data-keyboard-shortcut={keyboardEnabled ? "k" : undefined} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
-          <p className="font-black">⚔️ ATTACK {keyboardEnabled && <kbd>K</kbd>}</p>
+        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical`} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
+          <p className="font-black">⚔️ ATTACK</p>
           <p className="mt-1 text-sm font-black">DAMAGE {attackDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] opacity-70">Reliable · {criticalChance}% critical</p>
           {attackRelicSummary && (
@@ -795,14 +793,12 @@ export function CombatActionDock({
           type="button"
           onClick={onPotion}
           disabled={busy || potionDisabled}
-          aria-keyshortcuts={keyboardEnabled ? "M" : undefined}
-          data-keyboard-shortcut={keyboardEnabled ? "m" : undefined}
           className={busy || potionDisabled
             ? "practice-potion-action order-3 col-span-2 w-full cursor-not-allowed rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-zinc-400 opacity-70 lg:order-3 lg:col-span-1 lg:p-5"
             : "practice-potion-action order-3 col-span-2 w-full rounded-xl border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-emerald-200 p-3 text-emerald-950 shadow-[0_8px_24px_rgba(52,211,153,0.12)] transition hover:from-white hover:to-emerald-100 lg:order-3 lg:col-span-1 lg:p-5"}
         >
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="font-black">{potionLabel} {keyboardEnabled && <kbd>M</kbd>}</p>
+            <p className="font-black">{potionLabel}</p>
             <p className={potionLimitReached ? "practice-potion-description mt-1 text-[10px] text-red-300" : potionDisabled ? "practice-potion-description mt-1 text-[10px] text-zinc-400" : "practice-potion-description mt-1 text-[10px] text-emerald-800"}>
               {potionUnavailable ?? potionDetail}
             </p>

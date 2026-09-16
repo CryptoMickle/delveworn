@@ -65,7 +65,10 @@ test("arrows and Enter reach Practice from Home and start the local run", async 
   await expect(approach).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(attack(page)).toBeEnabled();
+  await expect(attack(page)).toBeFocused();
   await page.keyboard.press("ArrowLeft");
+  await expect(storm(page)).toBeFocused();
+  await page.keyboard.press("ArrowRight");
   await expect(attack(page)).toBeFocused();
 });
 
@@ -103,44 +106,45 @@ test("battle arrows follow Storm/Attack/Potion geometry, preserve the vertical l
   ]);
 });
 
-test("K, J and M resolve once per press while WASD never dispatches battle actions", async ({ page }) => {
+test("letter keys do nothing while arrows and Enter resolve one selected battle action", async ({ page }) => {
   await seed(page);
-  await page.keyboard.down("k");
-  await expect(dock(page)).toHaveAttribute("aria-busy", "false");
+  const initial = await storedRun(page);
+  for (const key of ["k", "K", "j", "J", "m", "M"]) await page.keyboard.press(key);
+  expect(await storedRun(page)).toEqual(initial);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(attack(page)).toBeFocused();
+  await page.keyboard.down("Enter");
   await expect.poll(async () => (await storedRun(page)).monsterHp).toBeLessThan(9999);
   const attacked = await storedRun(page);
   const cues = await page.evaluate(() => (window as KeyboardAudioWindow).__keyboardAttackCues);
   expect(cues).toBe(1);
-  await page.keyboard.down("k");
+  await page.keyboard.down("Enter");
   await page.waitForTimeout(350);
   expect(await storedRun(page)).toEqual(attacked);
   expect(await page.evaluate(() => (window as KeyboardAudioWindow).__keyboardAttackCues)).toBe(cues);
-  await page.keyboard.up("k");
+  await page.keyboard.up("Enter");
 
-  await page.keyboard.down("j");
+  await page.keyboard.press("ArrowLeft");
+  await expect(storm(page)).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect.poll(async () => JSON.stringify(await storedRun(page))).not.toBe(JSON.stringify(attacked));
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   const stormed = await storedRun(page);
-  await page.keyboard.down("j");
-  await page.waitForTimeout(350);
-  expect(await storedRun(page)).toEqual(stormed);
-  await page.keyboard.up("j");
 
-  await page.keyboard.down("m");
+  await page.keyboard.press("ArrowDown");
+  await expect(potion(page)).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect.poll(async () => (await storedRun(page)).potions).toBe(stormed.potions - 1);
   await expect(dock(page)).toHaveAttribute("aria-busy", "false");
   const healed = await storedRun(page);
-  await page.keyboard.down("m");
-  await page.waitForTimeout(350);
-  expect(await storedRun(page)).toEqual(healed);
-  await page.keyboard.up("m");
 
   for (const key of ["w", "a", "s", "d"]) await page.keyboard.press(key);
   await page.waitForTimeout(350);
   expect(await storedRun(page)).toEqual(healed);
 });
 
-test("disabled actions, editable controls and dialogs isolate every game shortcut", async ({ page }) => {
+test("disabled actions, editable controls and dialogs isolate keyboard navigation", async ({ page }) => {
   await seed(page, { hp: 100, potions: 0 });
   await expect(potion(page)).toBeDisabled();
   const before = await storedRun(page);
@@ -240,7 +244,7 @@ test("camp equipment, next room and a boss relic can be selected with arrows and
   // resolves its actual local combat and relic rules through the same callback.
   const rewardPage = await page.context().newPage();
   await seed(rewardPage, { roomsCleared: 9, monsterType: 3, monsterHp: 1 });
-  await rewardPage.keyboard.press("k");
+  await attack(rewardPage).click();
   const keep = rewardPage.getByRole("button", { name: "KEEP NO RELIC" });
   await expect(keep).toBeEnabled();
   await keep.focus();
@@ -251,5 +255,13 @@ test("camp equipment, next room and a boss relic can be selected with arrows and
   await expect(equip).toBeFocused();
   await rewardPage.keyboard.press("Enter");
   await expect.poll(async () => (await storedRun(rewardPage)).equippedRelic).toBeGreaterThan(0);
+  const enterRoomEleven = rewardPage.getByRole("button", { name: /Enter room 11/ });
+  await expect(enterRoomEleven).toBeFocused();
+  await rewardPage.keyboard.press("Enter");
+  const approachRoomEleven = rewardPage.getByRole("button", { name: /^Approach / });
+  await expect(approachRoomEleven).toBeFocused();
+  await rewardPage.keyboard.press("Enter");
+  await expect(attack(rewardPage)).toBeEnabled();
+  await expect(attack(rewardPage)).toBeFocused();
   await rewardPage.close();
 });

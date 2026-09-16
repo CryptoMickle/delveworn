@@ -1,6 +1,53 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — quieter speech, no final monster remark
+## Current correction — keyboard focus and Kevin's entrance
+
+These changes are local. The protected Vercel preview still serves source
+`c404944`; the previously rejected upload remains pending explicit approval.
+No deployment, Git push, wallet action or contract transaction was attempted.
+
+- Removed J/K/M action handlers and button badges across shared combat and
+  safe-healing controls. Arrows select actions and Enter activates them.
+  WASD movement and E interaction remain. Disabled actions are skipped;
+  dialogs retain their own navigation, and holding Enter cannot repeat attacks.
+- Reproduced the boss reward defect: after its focused button unmounted,
+  Enter from the document body did nothing. The shared room now transfers focus
+  to its enabled default after an actionable phase change, waiting for pending
+  actions to complete. A mounted saved Practice boss-room-10 test confirms:
+  reward closes, Enter room 11 receives focus, Enter starts the walk, and room 11
+  opens exactly once only after doorway arrival. Enter then selects Approach.
+- Kevin leads his wagon to the left, parks it, walks around its south side,
+  and turns inward with the wagon behind him. Figure and wagon have independent
+  floor-depth positions. Early visits wait for the entire entrance and turn;
+  pickup, viewport changes and depth crossings do not replay it. Reduced motion
+  skips directly to the ready pose. No inventory, combat or RNG rules changed.
+- Thud's small viewer-left ear already exists in the original painting. Its
+  silhouette now retains the clipped green rim, with a 1–3 source-pixel contour
+  correction. The original raster, anatomy, crop and tier size remain unchanged.
+
+Verification of this exact working tree:
+
+- **180 automated tests passed, zero failed/skipped.** Four merchant timeline
+  tests were added; two obsolete J/K/M helper tests were removed.
+- Full ESLint: zero errors and the same 14 existing warnings. Whitespace checks
+  pass. Somnia-standard production build, including TypeScript, passes.
+- Mounted no-DOM probes pass for arrow navigation, uppercase/lowercase J/K/M
+  inactivity, disabled/modal guards, Enter repeat prevention, boss-room focus
+  and travel, merchant motion, independent depth, queued trade, cancellation,
+  pickup continuity, resize and reduced motion. All animation timers are cleaned up.
+- Six static SVG illustrations show Kevin during towing, circling and arrival
+  at desktop and portrait sizes. Thud's original and corrected edge were compared
+  enlarged and at room scale. These are illustrations, not browser screenshots.
+- 220 E2E scenarios discovered; they were not run. Browser interaction remains
+  blocked by the earlier mandatory administration-policy check. No alternate
+  browser was used. Actual desktop/phone validation remains outstanding.
+
+First local check: reload `/practice`, use arrows and Enter through Approach,
+Storm/Attack/Potion, then defeat the room-10 boss, finish the relic choice and
+press Enter without clicking. Confirm the door walk and room-11 Approach.
+At a supply stop, watch Kevin park his wagon and circle to its inward side.
+
+## Previous correction — quieter speech, no final monster remark
 
 Source `202287a` is committed locally and available on the local development
 server. The protected Vercel preview remains on the previous version: automatic

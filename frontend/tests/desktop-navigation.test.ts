@@ -1,29 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gameplayShortcut, shortcutTarget, spatialTarget, type NavigationRect } from "../app/desktop-navigation";
+import { spatialTarget, type NavigationRect } from "../app/desktop-navigation";
 
 const rect = (left: number, top: number, width = 100, height = 60): NavigationRect => ({
   left, right: left + width, top, bottom: top + height,
-});
-
-test("gameplay shortcuts reserve K, J and M without legacy movement conflicts", () => {
-  assert.equal(gameplayShortcut("K"), "k");
-  assert.equal(gameplayShortcut("j"), "j");
-  assert.equal(gameplayShortcut("M"), "m");
-  for (const legacy of ["a", "s", "p", "1", "2", "3", "ArrowLeft"]) {
-    assert.equal(gameplayShortcut(legacy), null);
-  }
-});
-
-test("shortcut targeting stays inside the caller's active scope and chooses one action", () => {
-  const actions = [
-    { item: "storm", shortcut: "j" },
-    { item: "attack", shortcut: "k" },
-    { item: "potion", shortcut: "m" },
-  ];
-  assert.equal(shortcutTarget(actions, "k", null), "attack");
-  assert.equal(shortcutTarget(actions, "m", "potion"), "potion");
-  assert.equal(shortcutTarget([{ item: "pending retry" }], "k", null), null);
 });
 
 test("horizontal arrows move by geometry rather than DOM order", () => {

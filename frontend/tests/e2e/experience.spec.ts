@@ -116,9 +116,11 @@ test("potion preserves combat layout, shows net HP and survives reload", async (
   await expect(page.getByRole("button", { name: /POTION · 2\/5/ })).toBeVisible();
 });
 
-test("keyboard and pointer attacks share guarded result path", async ({ page }) => {
+test("Enter and pointer attacks share the guarded result path", async ({ page }) => {
   await seed(page, { monsterHp: 1 });
-  await page.keyboard.press("k");
+  const attack = page.getByRole("button", { name: /⚔️ ATTACK/ });
+  await attack.focus();
+  await page.keyboard.press("Enter");
   await waitForPhase(page, "loot");
   await expect(playerHud(page).getByRole("progressbar", { name: "Player health" })).toHaveAttribute("aria-valuenow", "60");
   await passLootAtDoor(page, "explore");

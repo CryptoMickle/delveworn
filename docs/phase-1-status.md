@@ -24,7 +24,28 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — compact combat and a more coherent room
+## Current checkpoint — arrows and Enter, merchant entrance
+
+J/K/M shortcuts are removed from the shared room. Arrows and Enter select combat
+and healing actions; WASD and E retain movement and interaction. Boss reward
+closure and subsequent room/combat transitions transfer focus to the next
+enabled default, fixing the reproduced room-10-to-11 Enter dead end.
+
+Kevin now leads the wagon left, parks it, circles to the inward side and turns
+both toward the room. Independent depth ordering keeps player crossings correct.
+Early trade waits for the complete entrance; pickup and resize preserve it.
+Thud's ear contour retains its original outer rim without changing the artwork.
+The earlier quiet speech/no-final-remark correction remains included.
+
+All 180 automated tests, mounted input/motion probes and the Somnia-standard
+production build pass. ESLint has zero errors and 14 existing warnings. The 220
+browser scenarios were discovered only; actual desktop/phone validation remains
+outstanding. See [verification](phase-1-evidence/verification.md).
+
+These changes are local. Vercel still serves source `c404944`; automatic approval
+review rejected the previous upload and a new explicit approval remains pending.
+
+## Previous checkpoint — compact combat and a more coherent room
 
 Desktop Storm/Attack/Potion controls are compact and sit under the monster card;
 mobile keeps one in-room action panel. The original HP/status information stays
