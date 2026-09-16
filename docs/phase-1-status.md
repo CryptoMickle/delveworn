@@ -24,7 +24,27 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — arrows and Enter, merchant entrance
+## Current checkpoint — readable dialogue and complete room input
+
+Source `63f5947` includes discreet speech with larger upright text, the missing
+Enter fallback from the floor/document to Approach and Enter room, and Kevin's
+complete face-wagon/turn/push-to-left-wall sequence. It also includes all prior
+keyboard, avatar, monster-art, loot and shared Practice/onchain room changes.
+
+All 180 automated tests and the Somnia-standard production build pass. Full
+ESLint has zero errors and 14 existing warnings. Mounted no-DOM checks cover
+keyboard defaults, one activation per press, room-11 travel, speech cleanup,
+merchant stage order/depth and lifecycle. The 223 browser scenarios are listed
+only; the mandatory browser-policy block remains, so actual device QA is pending.
+
+The user explicitly approved the updated protected Vercel preview. Source
+`63f5947450c83e4aeedecc43c1956c5b1b9d38a1` is **READY** on deployment
+`dpl_7GBVH2drwKDTwP4giRxgMwe5onRj`:
+[Practice preview](https://delveworn-5ze1kq0yg-crypto-mickle.vercel.app/practice).
+Preview protection remains unchanged; use existing Vercel login if prompted.
+See [verification](phase-1-evidence/verification.md) for exact evidence and limits.
+
+## Previous checkpoint — arrows and Enter, merchant entrance
 
 J/K/M shortcuts are removed from the shared room. Arrows and Enter select combat
 and healing actions; WASD and E retain movement and interaction. Boss reward

@@ -6,6 +6,20 @@ The user explicitly approved uploading the updated code to the existing,
 protected Delveworn Vercel preview after the speech correction, and then asked
 for the Approach/Enter-room keyboard defect to be included before that upload.
 
+### Protected preview — READY
+
+- Source `63f5947450c83e4aeedecc43c1956c5b1b9d38a1`; deployment
+  `dpl_7GBVH2drwKDTwP4giRxgMwe5onRj` is **READY**, verified through Vercel's API.
+- [Practice preview](https://delveworn-5ze1kq0yg-crypto-mickle.vercel.app/practice)
+- The tracked frontend was uploaded to the existing `crypto-mickle/delveworn-app`
+  project. Somnia standard, session keys disabled; preview target only.
+- Existing Vercel login is required where protection prompts. Protection was not
+  changed and no share/bypass token was created. No Git push, production promotion,
+  wallet action or contract transaction occurred. Actual protected-page delivery
+  and gameplay were not browser-tested.
+
+### Changes and checks
+
 Speech uses upright Georgia at 17px on desktop and 16px on phones, brighter
 cream text on an opaque dark-plum background and no text shadow. The discreet
 frame has a muted border, soft shadow and smaller tail, with no gold trim or
@@ -37,6 +51,11 @@ speech lifetime/kill cleanup, merchant stage order, final pushing, continuous
 positions, independent depth, queued trade, resize, reduced motion and cleanup.
 Playwright discovers 223 scenarios; browser execution remains blocked by the
 earlier administration-policy check, so actual phone/desktop QA is outstanding.
+
+First check: open the Practice preview, approach from the floor with Enter,
+read a monster line, clear a room and use Enter for the door. At the next supply
+stop, watch Kevin face the wagon, turn it, push it left and face back into the room.
+Continue through the first boss reward into room 11 without clicking an action.
 
 ## Previous correction — keyboard focus and Kevin's entrance
 
