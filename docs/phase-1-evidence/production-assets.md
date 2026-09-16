@@ -31,3 +31,32 @@ Use case: precise-object-edit. Change ONLY the checkerboard behind this avatar t
 ## avatarAndrogynousPrompt
 
 Use case: precise-object-edit. Asset type: Delveworn production player avatar. User correction: make the adventurer more androgynous, less binary in gender expression. Edit the attached avatar to have an average, gently slender, gender-ambiguous build with less broad shoulders, modest practical shoulder armor, straight relaxed torso and comfortable loose trousers. Keep face fully hidden in the hood; gender is unspecified. No exaggerated gender-coded body features, no sexualization. Preserve the exact detailed dimensional fantasy rendering, worn plum hooded cloak, bronze-and-leather materials, rear three-quarter elevated camera, fullbody standing pose, short sword, centered composition. Keep a perfectly solid PURE BLACK #000000 background with no checkerboard, no floor, no ground shadow, no gradients, no text, no relic. Clothing remains practical dungeon gear. One figure only.
+
+## Directional avatar — 2026-09-16
+
+The user requested that the avatar face its movement direction and visibly walk.
+The original `frontend/public/dungeon/adventurer.webp` remains the north/rear
+view. The added south/front view is saved as
+`frontend/public/dungeon/adventurer-south.webp` (480×499, 28,602 bytes), encoded
+from built-in ImageGen output `exec-1d71e0a4-0cb6-46bf-a4d7-84e5be416ec2.png`.
+Both views retain the plum hood, hidden face, practical armor and original
+androgynous identity. Left/right travel mirrors the appropriate view.
+
+The first front output (`exec-6a5401ac-e7a7-4d0b-81bc-e4b60f9ab4e7.png`) drew an
+opaque checkerboard instead of alpha and was not integrated. A built-in edit
+replaced only its background with solid black. The room's existing SVG filter
+removes that background at presentation time. No software raster repainting was
+used. The selected output was resized and WebP-encoded for delivery.
+
+Walking uses SVG clips and separately articulated legs; the idle bitmap is
+unchanged. The game room and avatar position are not bounced or zoomed to fake
+a stride. Reduced-motion users retain a still pose. These are presentation
+changes, without changes to turns, game state or random outcomes.
+
+### Front-view prompt (built-in ImageGen)
+
+Use case: identity-preserve. Asset type: production directional sprite for the existing Delveworn top-down dungeon game. The input image is the approved character identity/reference. Create ONE matching full-body sprite of precisely this same androgynous hooded adventurer seen from FRONT THREE-QUARTER, facing toward the viewer and toward screen RIGHT (southeast in a dungeon). Keep the same plum/burgundy hood and ragged cloak, brown leather and bronze armor, plain practical proportions, gloved hands, exact style of boots and sword. Keep the face deep in hood shadow, neutral and non gendered. The cloak should be behind the body when viewed from front; both trouser legs and boots clearly separate below the tunic so they can be independently animated. Neutral relaxed standing pose, feet planted, sword held angled out to screen right with the same diagonal blade as original, no attack pose. Same elevated game camera, realistic richly detailed painted dark-fantasy material style, warm neutral lighting, exact same overall body proportions and framing as original; full hood, full cloak and entire sword and boots inside image. One character only. TRUE transparent alpha background, no ground, no pedestal, no rectangle, no checkerboard drawn into image, no cast ground shadow, no text. Do not redesign, beautify, masculinize or feminize the character. This is a direction turn of the existing figure for a game, not a new character.
+
+### Final background correction prompt (built-in ImageGen)
+
+Use case: precise-object-edit. The input is the edit target. Change ONLY the entire background: replace every checkerboard square and all folds in the background with perfectly uniform pure black RGB 0,0,0. The intended transparency failed, so this production sprite now requires a flat black background that the game's existing shader removes. Preserve the character pixel appearance, style, position, scale, pose, hidden face, sword, boots, cloak and all silhouette details exactly. Do not add any cast shadow, pedestal, glow or texture. Pure flat black all around the character and in the spaces between legs/arm/sword. Keep exact same framing and dimensions. Do not draw checkerboard anywhere. One identical character, only background replacement.

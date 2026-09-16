@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, IM_Fell_English } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_ORIGIN } from "./site-origin";
 import { onchainMetadataCopy } from "./deployment-copy";
@@ -16,6 +16,15 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const parchmentFont = IM_Fell_English({
+  variable: "--font-parchment",
+  weight: "400",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 const { title, description } = onchainMetadataCopy(
@@ -57,7 +66,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${parchmentFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}

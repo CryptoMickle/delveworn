@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
-import { createRoomSteering, isRoomPoint, movementFacing, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Point } from "./movement";
+import { createRoomSteering, isRoomPoint, movementFacing, movementOrientation, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Orientation, type Point } from "./movement";
 import { HIGHER_TIER_ART, type DungeonEnemyArt } from "./tier-art";
 import { MERCHANT_ROOM_ART_LAYOUT } from "./merchant-art";
 import { createMerchantArrivalGate, RoomMerchant } from "./merchant-room";
 import { GoldLootSprite } from "./gold-loot-art";
+import { AvatarSprite } from "./avatar-art";
+export { AvatarSprite } from "./avatar-art";
 export { MerchantSprite } from "./merchant-art";
 
 export type { Point } from "./movement";
@@ -51,16 +53,6 @@ export function EnemySprite({ type, room = 1, className }: { type: MonsterType; 
   </svg>;
 }
 
-export function AvatarSprite() {
-  const id = useId();
-  return <svg viewBox="0 0 1230 1278" aria-hidden="true" className="dungeon-avatar-art">
-    <defs><filter id={id} colorInterpolationFilters="sRGB">
-      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  20 20 20 0 -0.1" result="alpha" />
-      <feComposite in="SourceGraphic" in2="alpha" operator="in" />
-    </filter></defs>
-    <image href="/dungeon/adventurer.webp" width="1230" height="1278" filter={`url(#${id})`} />
-  </svg>;
-}
 
 const ENTRY = { x: 420, y: 496 }, STAGING = { x: 400, y: 391 }, DOOR = { x: 450, y: 92 };
 const GUARD = { x: DOOR.x, y: 236 }, DOOR_HALF_WIDTH = 65;
@@ -135,10 +127,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const [position, setPosition] = useState<Point>(view.phase === "explore" ? ENTRY : STAGING);
   const [walking, setWalking] = useState(false);
   const [facing, setFacing] = useState<Facing>("right");
+  const [orientation, setOrientation] = useState<Orientation>("north");
   const point = useRef(position), stopWalk = useRef<(() => void) | null>(null);
   const steering = useRef<ReturnType<typeof createRoomSteering> | null>(null);
   const keyboardInteract = useRef<(() => void) | null>(null);
   const walkGoal = useRef<WalkGoal | null>(null);
+  const movementBlocked = useRef<(target?: EventTarget | null) => boolean>(() => false);
   const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
   const latest = useRef({ view, actions });
   const [merchantGate]=useState(createMerchantArrivalGate);
@@ -222,16 +216,19 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       return Boolean(target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox'], [role='combobox'], [role='slider'], [data-wallet-controls], [data-keyboard-exclude], [inert]"))
         || (target !== document.body && target !== document.documentElement && !root.contains(target));
     };
+    movementBlocked.current=blocked;
     const control=createRoomSteering(() => point.current, target => {
       const {view:current,actions:callbacks}=latest.current;
       if (!canWalk(current) || blocked()) return false;
       const bounds=currentCamera.current;
       const from=point.current;
       const next=clampRoomPoint(target,current.enemyHp === 0,bounds);
-      setFacing(previous => movementFacing(point.current,next,previous));
+      setFacing(previous => movementFacing(from,next,previous));
+      setOrientation(previous => movementOrientation(from,next,previous));
       point.current=next; setPosition(next);
       if (current.phase === "explore" && Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125) {
-        setFacing(previous => movementFacing(next,GUARD,previous)); callbacks.approach(); return false;
+        setFacing(previous => movementFacing(next,GUARD,previous));
+        setOrientation(previous => movementOrientation(next,GUARD,previous)); callbacks.approach(); return false;
       }
       if ((current.phase === "loot" || current.phase === "recovery") && next.y <= 130 && inDoorLane(next)) {
         callbacks.enter(current.phase === "loot"); return false;
@@ -244,14 +241,22 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         const distance=Math.hypot(next.x-merchant.x,next.y-merchant.y);
         if (distance <= 64 && distance < Math.hypot(from.x-merchant.x,from.y-merchant.y)) {
           setFacing(previous => movementFacing(next,merchant,previous));
+          setOrientation(previous => movementOrientation(next,merchant,previous));
           walkGoal.current={target:roomMerchantApproach(merchant),destination:"merchant"};
           playerArrivedAtMerchant(); return false;
         }
       }
     },setWalking);
     steering.current=control;
+    const stopAllMovement = () => {
+      merchantGate.cancel();
+      control.stop();
+      stopWalk.current?.(); stopWalk.current=null;
+      walkGoal.current=null;
+      setWalking(false);
+    };
     const keydown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { control.stop(); return; }
+      if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { stopAllMovement(); return; }
       const current=latest.current.view;
       if (!canWalk(current)) return;
       const key=roomMovementKey(event.key);
@@ -267,12 +272,13 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       } else keyboardInteract.current?.();
     };
     const keyup = (event: KeyboardEvent) => { const key=roomMovementKey(event.key); if (key) control.release(key); };
-    const focusChanged = (event: FocusEvent) => { if (blocked(event.target)) control.stop(); };
+    const focusChanged = (event: FocusEvent) => { if (blocked(event.target)) stopAllMovement(); };
     document.addEventListener("keydown",keydown);
     document.addEventListener("keyup",keyup);
     document.addEventListener("focusin",focusChanged);
     return () => {
       control.stop(); steering.current=null;
+      movementBlocked.current=() => false;
       document.removeEventListener("keydown",keydown);
       document.removeEventListener("keyup",keyup);
       document.removeEventListener("focusin",focusChanged);
@@ -289,19 +295,23 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
 
   function moveTo(target: Point, destination?: WalkGoal["destination"], interact = true, bounds = camera) {
     const {view: currentView,actions: currentActions}=latest.current;
-    if (!canWalk(currentView) || !isRoomPoint(target)) return;
+    if (!canWalk(currentView) || !isRoomPoint(target) || movementBlocked.current()) return;
     merchantGate.cancel();
     steering.current?.stop();
     if (interact) currentActions.interact?.();
     stopWalk.current?.();
+    const from=point.current;
     const next = clampRoomPoint(target,currentView.enemyHp === 0,bounds);
     // A door gesture means leaving the room, even if its straight path crosses loot.
     if (currentView.enemyHp === 0 && next.y <= 130 && inDoorLane(next)) destination = "door";
     walkGoal.current={target,destination};
-    setFacing(previous => movementFacing(point.current,next,previous)); setWalking(true);
-    stopWalk.current=startRoomWalk(point.current,next,step => {
+    setFacing(previous => movementFacing(from,next,previous));
+    setOrientation(previous => movementOrientation(from,next,previous)); setWalking(true);
+    stopWalk.current=startRoomWalk(from,next,step => {
       const current=latest.current;
-      if (!canWalk(current.view)) { stopWalk.current=null; walkGoal.current=null; setWalking(false); return false; }
+      if (!canWalk(current.view) || movementBlocked.current()) {
+        merchantGate.cancel(); stopWalk.current=null; walkGoal.current=null; setWalking(false); return false;
+      }
       point.current=step; setPosition(step);
       if (destination !== "door" && current.view.phase === "loot" && current.view.loot && nearRoomLoot(step,currentLootPoint.current)) {
         stopWalk.current=null; walkGoal.current=null; setWalking(false); current.actions.collect?.(); return false;
@@ -313,11 +323,13 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       const current = latest.current;
       if (current.view.pending) return;
       if (current.view.phase === "explore" && (destination === "enemy" || Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125)) {
-        setFacing(previous => movementFacing(next,GUARD,previous)); current.actions.approach();
+        setFacing(previous => movementFacing(next,GUARD,previous));
+        setOrientation(previous => movementOrientation(next,GUARD,previous)); current.actions.approach();
       }
       else if ((current.view.phase === "recovery" || current.view.phase === "loot") && destination === "door") current.actions.enter(current.view.phase === "loot");
       else if (current.view.phase === "recovery" && current.actions.merchant && destination === "merchant") {
         setFacing(previous => movementFacing(next,roomMerchantPoint(bounds),previous));
+        setOrientation(previous => movementOrientation(next,roomMerchantPoint(bounds),previous));
         playerArrivedAtMerchant();
       }
     });
@@ -378,7 +390,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
         <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
         <g key={view.cue ? `avatar-${view.cueId}` : "avatar-idle"} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
-          <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite /></svg>
+          <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite walking={walking && !view.pending} orientation={orientation} /></svg>
           {view.weapon > 0 && <path d="M34 -57 L66 -92" stroke="#f9dea3" strokeWidth="2" opacity=".8" />}
         </g>
         </g>

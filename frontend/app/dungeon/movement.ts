@@ -1,8 +1,13 @@
 export type Point = { x: number; y: number };
 export type Facing = "left" | "right";
+export type Orientation = "north" | "south";
 
 export function movementFacing(from: Point, to: Point, previous: Facing): Facing {
-  return Math.abs(to.x - from.x) < 1 ? previous : to.x < from.x ? "left" : "right";
+  return to.x === from.x ? previous : to.x < from.x ? "left" : "right";
+}
+
+export function movementOrientation(from: Point, to: Point, previous: Orientation): Orientation {
+  return to.y === from.y ? previous : to.y < from.y ? "north" : "south";
 }
 
 export type RoomFrames = {

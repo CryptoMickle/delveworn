@@ -1,6 +1,6 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — door and native pointer regressions, shop controls and coin stacks
+## Current correction — room controls, walking avatar and parchment typography
 
 ### Reproduced failures and fixes
 
@@ -23,35 +23,63 @@
   stack uses the original Delveworn coin face; labels and rewards are unchanged.
 - The tier-two goblin is **Gribnob the Unqualified** across visible personas,
   artwork labels and new logs. Original asset filenames and saved logs remain.
+- The avatar turns on even subpixel horizontal steps and switches between the
+  original rear view and a matching front view for north/south travel. Clipped
+  lower legs alternate while walking; the upper body and camera stay steady.
+  Walking stops on arrival, key release and pending actions. Reduced motion
+  leaves the leg transforms still. No combat turn or randomness is consumed.
+- Opening a menu or dialog cancels pointer walking and queued merchant intent,
+  including overlays that open without moving keyboard focus. Closing the
+  overlay does not resume a cancelled trip; ordinary game-button focus still
+  allows walking.
+- Parchments use **IM Fell English**, normal and italic, served locally through
+  the existing Next font pipeline. Headings and labels share the book style;
+  mobile copy and label sizes increase slightly. No font service is contacted
+  by the player's browser.
 
 ### Actual verification
 
-- **170 automated tests passed, 0 failed, 0 skipped.** ESLint: **0 errors,
+- **171 automated tests passed, 0 failed, 0 skipped.** ESLint: **0 errors,
   14 existing warnings**. Whitespace checks pass.
 - All three existing frontend build configurations passed locally: RISE
   compatibility, Somnia session keys and Somnia standard, including TypeScript.
 - Mounted no-DOM probes passed native-coordinate floor clicks, retargeting,
   dead/pending guards, held doorway crossing, continuous WASD, merchant arrival
   and cancellation, safe Practice healing/loot bypass, and modal arrow isolation.
-- **212 browser scenarios in 11 files discovered, not executed.** New coverage
+  A mounted direction probe also passed north/south and subpixel reversals,
+  click direction, alternating leg layers and movement lifecycle cleanup. The
+  modal probe passed both focus-triggered and per-frame overlay cancellation.
+- **220 browser scenarios in 11 files discovered, not executed.** New coverage
   includes held doorway crossing after healing, the original merchant painting,
-  keyboard shop purchases and blocking underlying gameplay shortcuts.
+  keyboard shop purchases, blocking underlying gameplay shortcuts, directional
+  walking, changing leg transforms, reduced motion and cancelling a pointer
+  trip when the dungeon log opens.
 - [Three coin stack sizes](gold-stack-review.png) were rendered from the actual
   SVG component and visually inspected. The exported images preserve alpha.
   This is a static art review, not a browser screenshot or responsive-layout test.
+- Both avatar views and stride extremes were inspected as static illustrations
+  at source and room size on grey. The temporary art renderer approximates the
+  black-background filter; this checks clipping, not browser compositing or
+  animation performance. The font variable and local font files are present in
+  compiled production CSS; actual browser typography still needs review.
 - Browser/device QA remains blocked by the previously reported automatic
   approval-review administration policy. No alternate browser was used.
 
-Changed files: shared `scene.tsx`, `gold-loot-art.tsx`, `shop-vitals.tsx/.css`,
+Changed files: shared `scene.tsx/.css`, `movement.ts`, `avatar-art.tsx/.css`,
+`room-parchments.css`, root `layout.tsx`, new `adventurer-south.webp`,
+`gold-loot-art.tsx`, `shop-vitals.tsx/.css`,
 `desktop-navigation.tsx`; the goblin name in `tier-art.ts`, `game-ui.tsx`,
 `onchain-game.tsx`, Practice `page.tsx`/`log-copy.ts`; movement, scene, gold and
 tier-art tests; `e2e/descent.spec.ts`, `e2e/shop-keyboard.spec.ts`; `ENDLESS_GRID.md`
 and the phase status/evidence records. No contract or original raster changed.
+New avatar prompt and provenance: [production-assets.md](production-assets.md).
 
 First external check: resume the existing local run, click empty floor while
 Approach is still available, defeat the monster, heal and hold W through the
 door. At Kevin, use arrows and Enter to buy an item. Compare the three gold
 amounts on desktop and phone. **Review preview; not production-approved.**
+Also reverse WASD direction, click both upper/lower floor positions, and inspect
+the leg movement and parchment readability without changing the saved run.
 
 ## Previous correction — intact artwork, free floor movement and Kevin's entrance
 

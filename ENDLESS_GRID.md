@@ -23,6 +23,12 @@ boss cadence, relic rules and respective randomness authorities.
 - Click or tap empty floor to walk there, including during combat. Another
   floor click retargets the walk immediately. This changes only presentation:
   it does not spend a turn, heal, dodge an attack or consume randomness.
+- The avatar faces left/right on even subpixel steps and uses the matching
+  rear/front view when moving north/south. The same hooded character is retained.
+  The legs alternate during movement and return to the original standing pose
+  on arrival, release or pause. Reduced-motion settings keep the legs still.
+- Opening a menu/dialog cancels the current walk, including click-to-walk.
+  Closing it does not restart the cancelled trip.
 - After victory, tap the loot in the grid for automatic pickup on arrival, or
   **tap the north doorway directly** to walk past the loot and continue.
   There is no separate pickup/bypass button. E uses the door; WASD can walk onto
@@ -50,6 +56,8 @@ boss cadence, relic rules and respective randomness authorities.
   right. They take no pointer input, do not change room size, and sit beneath
   the timed monster artwork. Phones show a compact excerpt; the full log
   remains available. The cosmetic armor ring over the avatar is removed.
+  The notes use IM Fell English, served with the app through the existing font
+  pipeline, with book-serif fallbacks and slightly larger mobile text.
 - The tier-two goblin is **Gribnob the Unqualified**; **Quartermaster Kevin**
   remains the merchant. Every monster uses its original painting, with its
   own traced silhouette; bitmap files and tier heights are unchanged.

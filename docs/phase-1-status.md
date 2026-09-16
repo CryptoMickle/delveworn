@@ -40,6 +40,12 @@ The tier-two goblin is now **Gribnob the Unqualified**, replacing the rejected
 Nevin name across Practice, onchain presentation, room art and new log entries.
 Original filenames and already saved logs are preserved.
 
+Avatar direction now follows small steps and north/south travel, using a matching
+front view alongside the original rear view. Separately articulated lower legs
+alternate while moving; idle and reduced-motion poses stay still. The room and
+camera do not bounce. Parchment notes use the self-hosted IM Fell English font
+through the existing Next font pipeline, with readable serif fallbacks.
+
 ## Previous checkpoint — complete figures, room loot and a moving merchant
 
 All sixteen monster silhouettes are reviewed against the unchanged original

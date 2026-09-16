@@ -4,6 +4,7 @@ import {
   createRoomFrameClock,
   createRoomSteering,
   movementFacing,
+  movementOrientation,
   roomLootPoint,
   roomMovementKey,
   startRoomWalk,
@@ -11,6 +12,18 @@ import {
   type RoomFrameHost,
 } from "../app/dungeon/movement";
 import { clampRoomPoint, nearRoomLoot, portraitRoomCamera } from "../app/dungeon/scene";
+
+test("direction follows subpixel steps and reversals without turning at rest", () => {
+  const from={x:400,y:391};
+  for (const distance of [.001,.25,.96,2]) {
+    assert.equal(movementFacing(from,{x:from.x+distance,y:from.y},"left"),"right");
+    assert.equal(movementFacing(from,{x:from.x-distance,y:from.y},"right"),"left");
+    assert.equal(movementOrientation(from,{x:from.x,y:from.y+distance},"north"),"south");
+    assert.equal(movementOrientation(from,{x:from.x,y:from.y-distance},"south"),"north");
+  }
+  assert.equal(movementFacing(from,from,"left"),"left");
+  assert.equal(movementOrientation(from,from,"south"),"south");
+});
 
 test("held movement crosses the cleared doorway at normal and high frame rates", () => {
   for (const frameMs of [4, 8, 16, 32, 80]) for (const x of [400, 450, 500]) {

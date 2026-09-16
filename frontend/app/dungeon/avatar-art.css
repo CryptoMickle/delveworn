@@ -1,0 +1,17 @@
+.dungeon-avatar-art { overflow:visible; }
+.dungeon-avatar-art .dungeon-avatar-leg { transform-box:view-box; will-change:transform; }
+.dungeon-avatar-art.is-walking .dungeon-avatar-leg-back { animation:dungeon-avatar-step-back .52s ease-in-out infinite; }
+.dungeon-avatar-art.is-walking .dungeon-avatar-leg-front { animation:dungeon-avatar-step-front .52s ease-in-out infinite; }
+
+@keyframes dungeon-avatar-step-back {
+  0%,100% { transform:rotate(-10deg) translate(-12px,6px); }
+  50% { transform:rotate(12deg) translate(16px,-4px); }
+}
+@keyframes dungeon-avatar-step-front {
+  0%,100% { transform:rotate(12deg) translate(16px,-4px); }
+  50% { transform:rotate(-10deg) translate(-12px,6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dungeon-avatar-art.is-walking .dungeon-avatar-leg { animation:none; transform:none; }
+}

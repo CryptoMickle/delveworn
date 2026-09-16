@@ -454,6 +454,59 @@ test("empty floor clicks move and retarget freely before and during combat witho
   }
 });
 
+test("opening a dialog cancels pointer walking and closing it does not resume the trip",async({page,isMobile})=>{
+  const run=transition(createDescent(12345,"dialog-stops-pointer-walk"),"engage");
+  await seed(page,run);
+  const floor=page.getByRole("group",{name:/Room 1 floor/});
+  const start=await avatarPoint(page);
+  await tapRoomPoint(page,floor,{x:400,y:500},isMobile);
+  await expect(page.locator(".dungeon-avatar")).toHaveClass(/is-walking/);
+  await expect.poll(async()=>distance(await avatarPoint(page),start)).toBeGreaterThan(2);
+
+  await page.getByRole("button",{name:"Open dungeon log"}).click();
+  const dialog=page.getByRole("dialog",{name:"Dungeon log"});
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+  const stopped=await avatarPoint(page);
+  await page.waitForTimeout(250);
+  expect(distance(await avatarPoint(page),stopped),"the pointer trip must stop behind the dialog").toBeLessThanOrEqual(2);
+
+  await dialog.getByRole("button",{name:"Close dungeon log"}).click();
+  await expect(dialog).not.toBeVisible();
+  await page.waitForTimeout(250);
+  expect(distance(await avatarPoint(page),stopped),"closing a dialog cannot revive the cancelled trip").toBeLessThanOrEqual(2);
+  await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+  expect(await saved(page)).toEqual(run);
+});
+
+test("walking turns north and south, alternates legs and respects reduced motion",async({page})=>{
+  await page.emulateMedia({reducedMotion:"no-preference"});
+  const run=transition(createDescent(12345,"avatar-walk"),"engage");
+  await seed(page,run);
+  const art=page.locator(".dungeon-avatar-art");
+  await page.keyboard.down("s");
+  try {
+    await expect(art).toHaveAttribute("data-avatar-orientation","south");
+    const front=art.locator('[data-avatar-part="front-leg"]');
+    const back=art.locator('[data-avatar-part="back-leg"]');
+    const first=await front.evaluate(element=>getComputedStyle(element).transform);
+    await expect.poll(()=>front.evaluate(element=>getComputedStyle(element).transform)).not.toBe(first);
+    expect(await front.evaluate(element=>getComputedStyle(element).transform))
+      .not.toBe(await back.evaluate(element=>getComputedStyle(element).transform));
+  } finally { await page.keyboard.up("s"); }
+  await expect(art).toHaveAttribute("data-avatar-walking","false");
+  await expect(art.locator('[data-avatar-part="front-leg"]')).toHaveCount(0);
+
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.keyboard.down("w");
+  try {
+    await expect(art).toHaveAttribute("data-avatar-orientation","north");
+    const leg=art.locator('[data-avatar-part="front-leg"]');
+    expect(await leg.evaluate(element=>getComputedStyle(element).animationName)).toBe("none");
+  } finally { await page.keyboard.up("w"); }
+  expect(await saved(page)).toEqual(run);
+});
+
 test("held W crosses the cleared doorway after healing and enters exactly one room",async({page})=>{
   const recovered=recoveryAtRoom(1);
   const run=transition(recovered,"potion");
