@@ -3,8 +3,6 @@
 .dungeon-scene-wrap { --dungeon-room-background:url('/dungeon/stone-room.webp'); position:relative; min-width:0; background-color:#100d10; border:1px solid #735a35; }
 .dungeon-scene { display:block; width:100%; height:auto; touch-action:pan-y; outline-offset:-4px; }
 .dungeon-scene:focus-visible { outline:2px solid #eed197; }
-.dungeon-room-tint { fill:#35154b; opacity:.055; pointer-events:none; }
-.boss-room .dungeon-room-tint { fill:#820f1b; opacity:.19; }
 .dungeon-avatar { transform-origin:0 0; animation:dungeon-breathe 3.8s ease-in-out infinite; }
 .dungeon-avatar.is-walking { animation:none; }
 .dungeon-avatar.is-attacking { animation:dungeon-attack .5s ease-out; }

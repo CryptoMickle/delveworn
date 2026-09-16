@@ -93,13 +93,18 @@ boss cadence, relic rules and respective randomness authorities.
   Gold has three stack silhouettes using the original Delveworn coin face:
   1–9 gold is one short stack, 10–24 is two stacks, and 25+ is three stacks.
   The label continues to report the exact reward.
-- The room background follows the confirmed monster family: zombies use the
-  original crypt, goblins a storeroom, orcs an armory, and bosses a banner-lined
-  hall. Each family keeps its room through combat, loot and recovery, across
-  tiers and shared modes. The variants retain the central floor, north doorway
-  and south stairs; all movement, pickup and merchant coordinates are unchanged.
-  Mobile's surrounding background uses the same image. See
-  `frontend/public/dungeon/rooms/README.md` for assets and generation prompts.
+- The room background follows the exact original monster illustration: sixteen
+  rooms match the four monster families and their four artwork tiers. Each was
+  generated with the existing room as the floor-plan reference and the matching
+  original painting as the environmental reference. Purple crypts, torch-lit
+  goblin passages, damp green orc chambers and red bureaucratic boss offices use
+  the architecture, materials, lighting and details seen behind those monsters.
+  The room changes on the same ten-room tier boundaries as the monster artwork;
+  tier-four rooms continue in deeper runs. It stays stable through combat, loot
+  and recovery. Central floor, north doorway, south stairs, movement, pickup and
+  merchant coordinates are preserved. Mobile uses the same surrounding image.
+  See `frontend/public/dungeon/rooms/original/README.md` for all assets, source
+  paintings and exact generation prompts.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. All monsters grow with each

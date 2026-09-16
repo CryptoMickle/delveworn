@@ -1,6 +1,41 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — monster rooms, Field Notes and reachable loot
+## Current correction — rooms derived from the original monster paintings
+
+The user requested that room designs follow the backgrounds in the original
+monster illustrations. Sixteen new room images now correspond one-to-one with
+the sixteen original paintings. Each was generated with the existing room as
+the camera/floor-plan reference and its exact original monster painting as the
+environmental reference. The originals remain untouched.
+
+The rooms carry the source's architecture, floor materials, light and details:
+purple zombie crypts, amber goblin passages, damp green orc chambers and red
+boss offices with paperwork, filing cabinets and other source-specific decor.
+The former generic background tint is removed. Environment selection follows
+the same ten-room art tiers as the monster: tier-four art continues in deeper
+runs, and combat, loot and recovery preserve the current room.
+
+All sixteen WebPs and the exact prompts/reference observations are documented
+in `frontend/public/dungeon/rooms/original/README.md`. The shared scene uses the
+same room on desktop and mobile. Movement, floor bounds, targets, seeds, combat,
+loot and merchant behavior are unchanged. Static comparisons show each original
+painting, its room with the real enemy sprite, and the open doorway. No actors
+are baked into these backgrounds. The Chairman's desk and Meatwall's lower-left
+decoration were refined to keep the playable floor open.
+
+Validation: **188/188 automated tests pass**, with zero failed/skipped. Tests
+check all sixteen asset/reference pairs, art-tier boundaries (including deep
+runs), actual shared-scene rendering and phase stability. Full ESLint reports
+zero errors and 14 existing warnings. The Somnia-standard production build
+with session keys disabled passes, including TypeScript. All sixteen images
+were inspected in static source/room/open-door comparisons; final goblin edits
+also removed character-derived weapon/regalia decorations. Playwright scenarios
+are discovered only; no browser was run.
+
+Browser execution remains blocked by the earlier policy check. Static visual
+review does not replace actual mobile/desktop gameplay QA.
+
+## Previous correction — monster rooms, Field Notes and reachable loot
 
 ### Protected preview — READY
 

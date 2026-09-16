@@ -1,5 +1,10 @@
 # Monster-family room backgrounds
 
+**Superseded by the sixteen rooms based on the original monster paintings.**
+See [current room assets and source references](original/README.md).
+The three files below remain as earlier design iterations and are no longer
+selected by the game.
+
 Created 2026-09-16 with the built-in ImageGen edit tool, using the existing
 `../stone-room.webp` as the composition and style reference. No CLI/API fallback.
 Selected PNG outputs were converted to WebP quality 90 with Sharp, without

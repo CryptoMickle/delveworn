@@ -210,7 +210,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const hasRoomHud=Boolean(topOverlay);
   const hasMerchant=(view.phase === "loot" || view.phase === "recovery") && Boolean(actions.merchant);
   const merchantPoint=hasMerchant ? roomMerchantPoint(camera) : undefined;
-  const roomTheme=getRoomTheme(view.enemy);
+  const roomTheme=getRoomTheme(view.enemy,view.room);
   // Reuse the engine's ten-room tier cadence; tier-four art continues in deep runs.
   const art = getEnemyArt(view.enemy,view.room), spriteHeight = art.roomHeight;
   const [, , cropWidth, cropHeight] = art.crop.split(" ").map(Number);
@@ -453,12 +453,11 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   ]).map(actor => <Fragment key={actor.id}>{actor.content}</Fragment>);
 
   return <div className={`dungeon-scene-wrap ${view.phase} ${view.enemy === 3 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room} data-room-theme={roomTheme.id}
-    style={{"--dungeon-room-background":`url("${roomTheme.backgroundSrc}")`} as CSSProperties}>
+    data-room-art-tier={roomTheme.artTier} style={{"--dungeon-room-background":`url("${roomTheme.backgroundSrc}")`} as CSSProperties}>
     {topOverlay && <div className="dungeon-scene-top-overlay">{topOverlay}</div>}
     <svg ref={svg} viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice" className="dungeon-scene" tabIndex={0} role="group" aria-label={`Room ${view.room} floor. Hold WASD to walk; E to ${cleared ? "use the door" : "approach the enemy"}. Arrow keys select buttons; Enter activates.`}
       onPointerDown={e => { pointer.current={x:e.clientX,y:e.clientY}; }} onPointerUp={floor} onPointerCancel={() => {pointer.current=null;}}>
       <image href={roomTheme.backgroundSrc} width="900" height="600" />
-      <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
       {cleared && <g className="dungeon-door-open"><path d={roomTheme.openDoorPath} fill="#030205" /><path d={roomTheme.doorLightPath} fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.phase === "won" ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
       <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged}>
         {renderDepthActors}

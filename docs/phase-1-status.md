@@ -24,7 +24,25 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — monster-specific rooms and shared Field Notes
+## Current checkpoint — original-art environments for all sixteen monsters
+
+The room now follows the background in the exact original monster painting,
+including its artwork tier. Sixteen new empty environments use each original
+as a direct image reference: purple crypts, amber passages, damp green chambers
+and red bureaucratic boss offices. The generic family rooms are superseded.
+Tier-four backgrounds continue beyond room 40, matching the monster art cadence.
+
+The scene preserves walking, doors, loot, Kevin and combat. Theme selection is
+presentation-only and stays stable through the room's phases. Original monster
+art is unchanged. Every background and its exact prompt/source reference are
+listed in `frontend/public/dungeon/rooms/original/README.md`.
+
+All 188 automated tests and the Somnia-standard build pass. ESLint has zero
+errors and 14 existing warnings. Static original/room/open-door images were
+reviewed; actual mobile/desktop gameplay QA remains pending due to the existing
+browser-policy block.
+
+## Previous checkpoint — monster-specific rooms and shared Field Notes
 
 The shared grid now selects a room by monster family: the original zombie crypt,
 goblin storeroom, orc armory or boss hall. Three generated background variants
