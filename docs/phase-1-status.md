@@ -48,6 +48,13 @@ has zero errors and 14 existing warnings. Static room/door and cutout images
 were reviewed; no-DOM input/loot/shop probes pass. Actual browser/device QA
 remains outstanding because browser execution is blocked by policy.
 
+Source `4c75c174a66a5210645ab545a11cd6a0da1fd65d` is **READY** on protected
+preview deployment `dpl_2Kw6yjZusMbpMs5xE2AJ9XyzX5m4`:
+[Practice preview](https://delveworn-n9es7bzvt-crypto-mickle.vercel.app/practice).
+Uploaded under the user's existing explicit approval, with unchanged Vercel
+protection, Somnia standard and session keys disabled. No production promotion
+or contract transaction occurred.
+
 ## Previous checkpoint — readable dialogue and complete room input
 
 Source `63f5947` includes discreet speech with larger upright text, the missing

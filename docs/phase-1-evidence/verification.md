@@ -2,6 +2,22 @@
 
 ## Current correction — monster rooms, Field Notes and reachable loot
 
+### Protected preview — READY
+
+- Source `4c75c174a66a5210645ab545a11cd6a0da1fd65d`; deployment
+  `dpl_2Kw6yjZusMbpMs5xE2AJ9XyzX5m4` is **READY**, verified through Vercel's API.
+- [Practice preview](https://delveworn-n9es7bzvt-crypto-mickle.vercel.app/practice)
+- Uploaded the tracked frontend to the existing `crypto-mickle/delveworn-app`
+  project under the user's existing explicit preview approval. Somnia standard,
+  session keys disabled, preview target only. Preview protection is unchanged;
+  use existing Vercel login if prompted. No share/bypass token, Git push,
+  production promotion, wallet action or contract transaction occurred.
+- First check: approach with Enter, inspect Field Notes through **View monster**,
+  clear several monster families and compare rooms. At a supply stop, collect
+  the separated loot while Kevin is present, then use Enter for the next door.
+
+### Changes and checks
+
 The speech bubble now shares Field Notes' exact parchment background, ink,
 border color and body typography through common CSS variables. Both use the
 existing IM Fell English/book-serif stack at 12px/1.48 on desktop and
