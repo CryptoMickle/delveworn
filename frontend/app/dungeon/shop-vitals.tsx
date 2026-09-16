@@ -1,4 +1,4 @@
-import { MerchantSprite } from "./scene";
+import { MerchantShopArtwork } from "./merchant-art";
 import "./shop-vitals.css";
 
 export function ShopVitals({ hp, maxHp, gold, potions, weapon, armor }: {
@@ -12,5 +12,5 @@ export function ShopVitals({ hp, maxHp, gold, potions, weapon, armor }: {
 }
 
 export function ShopKeeper({ camp = false }: { camp?: boolean }) {
-  return <div className="dungeon-shop-keeper"><svg viewBox="0 0 104 150" role="img" aria-label="Quartermaster Kevin"><MerchantSprite /></svg><div><p className="descent-kicker">{camp ? "CAMP BEFORE MANAGEMENT" : "SUPPLY STOP"}</p><h2>Quartermaster Kevin</h2><p>{camp ? "Rest, restock, and improve your equipment." : "Heal here or take a potion with you."}</p></div></div>;
+  return <div className="dungeon-shop-keeper"><div className="dungeon-shop-keeper-art" role="img" aria-label="Quartermaster Kevin with his wagon and no-refunds sign"><MerchantShopArtwork /></div><div><p className="descent-kicker">{camp ? "CAMP BEFORE MANAGEMENT" : "SUPPLY STOP"}</p><h2>Quartermaster Kevin</h2><p>{camp ? "Rest, restock, and improve your equipment." : "Heal here or take a potion with you."}</p></div></div>;
 }

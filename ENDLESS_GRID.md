@@ -18,6 +18,9 @@ boss cadence, relic rules and respective randomness authorities.
   Arrow keys only move focus among visible action buttons, and **Enter** selects
   the focused button. Combat uses **K** for Attack, **J** for Storm and **M** for
   Potion; each physical press resolves at most one action.
+- Click or tap empty floor to walk there, including during combat. Another
+  floor click retargets the walk immediately. This changes only presentation:
+  it does not spend a turn, heal, dodge an attack or consume randomness.
 - After victory, tap the loot in the grid for automatic pickup on arrival, or
   **tap the north doorway directly** to walk past the loot and continue.
   There is no separate pickup/bypass button. E uses the door; WASD can walk onto
@@ -46,16 +49,21 @@ boss cadence, relic rules and respective randomness authorities.
   the timed monster artwork. Phones show a compact excerpt; the full log
   remains available. The cosmetic armor ring over the avatar is removed.
 - The tier-two goblin is **Nevin the Unqualified**; **Quartermaster Kevin**
-  remains the merchant. Nevin uses the original painting with both ears
-  preserved in its transparent clipping mask.
+  remains the merchant. Every monster uses its original painting, with its
+  own traced silhouette; bitmap files and tier heights are unchanged.
+  Larger gold drops use a small pile of the original coin illustration, while
+  the label continues to report the exact reward.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. Difficulty continues to
   follow the existing engine/contract; art selection creates no room cap.
-- Kevin appears at the existing supply/camp stops, at the left outer visible
-  floor edge for supplies and the right edge for camps, facing inward. Walk to
-  him or use **Visit Kevin**. His shop shows the full clipped character and
-  current HP, gold, potion count, weapon and armor above the purchase controls.
+- Kevin enters through the north door at existing supply/camp stops and walks
+  to one fixed upper-left position, adjusted to the visible mobile floor.
+  He turns inward there. His original wagon, stock and no-refunds sign travel
+  with him; the wagon is never mirrored, so the lettering stays readable.
+  Reduced-motion settings skip the entrance animation. Walk to him or use
+  **Visit Kevin**. His shop shows the full character and wagon, with current
+  HP, gold, potion count, weapon and armor above the purchase controls.
 - The original monster illustration opens at fresh combat for two seconds after
   image load/error. Attacks, pending transactions, damage, and even a killing
   blow neither shorten nor restart that timer. **Close artwork** closes it
@@ -103,6 +111,14 @@ Onchain walking and pending floor loot are presentation state. Reload resumes
 canonical chain state rather than recreating a reward from stale `lastLoot`.
 Wallet/player identity scopes presentation separately from gameplay authority.
 
+## Artwork review
+
+`frontend/scripts/render-dungeon-art.tsx` exports all 16 current monster masks
+against a neutral background, both enlarged and at the mobile room scale.
+The committed `docs/phase-1-evidence/monster-cutout-review.png` records the
+latest static review. This catches clipped body parts and background chunks;
+it does not validate browser input, responsive layout or actual gameplay.
+
 ## Verification and first phone check
 
 Exact automated results and the current preview are recorded in
@@ -112,13 +128,16 @@ are not substitutes for mobile browser verification.
 
 First test on the phone:
 
-1. Start `/practice`, walk freely, approach, attack during the artwork display.
+1. Start `/practice`, tap empty floor to walk and retarget, approach, attack
+   during the artwork display, then tap empty floor again during combat.
 2. Defeat the enemy and tap the doorway directly while loot is still visible.
    The avatar walks to the door and enters without collecting. Repeat by tapping
    the loot itself; it is collected automatically on arrival. Retarget a door
    walk to the floor and confirm loot is still available. Reload around both choices.
-3. Visit Kevin after room 5. Check his face, HP, gold, potion count, weapon and
-   armor; buy a supply and confirm the displayed values update.
+3. After room 5, watch Kevin enter from the door and settle upper left with
+   his wagon and readable sign. Visit him; check HP, gold, potions, weapon and
+   armor, buy a supply and confirm the values update. He uses the same side
+   at the next supply/camp stop.
 4. Continue past the first boss and its relic decision into room 11. Confirm the
    next tier's original monster artwork appears and the run continues.
 

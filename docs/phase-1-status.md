@@ -24,7 +24,24 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — desktop input and room atmosphere
+## Current checkpoint — complete figures, room loot and a moving merchant
+
+All sixteen monster silhouettes are reviewed against the unchanged original
+paintings. Clipping now follows the subjects rather than interior seams;
+room heights still follow the existing tier progression. A reproducible
+static contact sheet records the enlarged and room-size cutouts.
+
+Gold uses modest coin piles with exact reward labels. Quartermaster Kevin
+keeps his wagon and readable no-refunds sign, enters from the north doorway,
+and walks to a fixed upper-left shop position at every supply/camp stop.
+He faces inward after arrival; reduced motion skips the walk. The existing
+shop, inventory values, prices and callbacks remain authoritative.
+
+Click/tap on empty floor now works during combat as well as exploration,
+loot and recovery. Retargeting keeps the current position. Walking consumes
+no game turn or randomness; pending actions and finished runs remain guarded.
+
+## Previous checkpoint — desktop input and room atmosphere
 
 Hold WASD for continuous movement from the page or any game control, including
 immediately after a new room mounts. Movement no longer waits for OS key repeat

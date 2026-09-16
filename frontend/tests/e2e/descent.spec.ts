@@ -437,6 +437,22 @@ test("the safe potion below the room stays discoverable but disabled at full hea
   await expect(page.getByRole("img",{name:/Loot on the floor/})).toBeVisible();
 });
 
+test("empty floor clicks move and retarget freely before and during combat without spending a turn",async({page,isMobile})=>{
+  for(const combat of [false,true]) {
+    const initial=createDescent(12345,`free-floor-${combat}`);
+    const run=combat ? transition(initial,"engage") : initial;
+    await seed(page,run);
+    const floor=page.getByRole("group",{name:/Room 1 floor/});
+    const before=await avatarPoint(page);
+    await tapRoomPoint(page,floor,{x:450,y:430},isMobile);
+    await expect.poll(async()=>distance(await avatarPoint(page),before)).toBeGreaterThan(1);
+    await tapRoomPoint(page,floor,{x:400,y:470},isMobile);
+    await expect.poll(async()=>distance(await avatarPoint(page),{x:400,y:470})).toBeLessThan(2);
+    await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
+    expect(await saved(page),"floor navigation does not consume HP, turns, rewards or RNG").toEqual(run);
+  }
+});
+
 test("Kevin is a reachable room figure in both merchant recoveries and opens the shop only on arrival",async({page,isMobile})=>{
   const rooms=[5,9];
   for(const [index,room] of rooms.entries()) {
@@ -450,15 +466,16 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     const floor=page.getByRole("group",{name:new RegExp(`Room ${room} floor`)});
     const kevin=page.getByRole("img",{name:"Quartermaster Kevin. Walk here to trade."});
     await expect(kevin).toBeVisible();
-    await expect(kevin.locator("image")).toHaveAttribute("href","/characters/merchant-quartermaster-kevin.webp");
+    await expect(kevin.locator("image").first()).toHaveAttribute("href","/characters/merchant-quartermaster-kevin.webp");
+    await expect(kevin).toHaveAttribute("data-merchant-arrived","true");
     const merchant=roomPoint(await kevin.getAttribute("data-merchant-position"));
-    const merchantFacing=room === 5 ? "right" : "left", avatarFacing=room === 5 ? "left" : "right";
+    const merchantFacing="right", avatarFacing="left";
     await expect(kevin).toHaveAttribute("data-merchant-facing",merchantFacing);
-    expect(room === 5 ? merchant.x < 450 : merchant.x >= 450,"Kevin stands on the room-specific outer side").toBe(true);
+    expect(merchant.x < 450 && merchant.y < 300,"Kevin parks at the upper-left side in both rooms").toBe(true);
     const [floorBox,kevinBox]=await Promise.all([floor.boundingBox(),kevin.boundingBox()]);
     expect(kevinBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
     expect(kevinBox!.x+kevinBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
-    expect(room === 5 ? kevinBox!.x+kevinBox!.width/2 < floorBox!.x+floorBox!.width/2 : kevinBox!.x+kevinBox!.width/2 > floorBox!.x+floorBox!.width/2).toBe(true);
+    expect(kevinBox!.x).toBeLessThan(floorBox!.x+floorBox!.width/2);
     const shop=isMobile
       ? page.locator(".descent-mobile-shop").getByRole("region",{name:"Kevin's shop"})
       : page.locator(".descent-sidebar").getByRole("region",{name:"Kevin's shop"});
@@ -480,12 +497,17 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
     const arrived=await avatarPoint(page);
     expect(distance(arrived,merchant),"the avatar must stand beside the figure before trade opens").toBeLessThanOrEqual(64);
-    expect(room === 5 ? arrived.x > merchant.x : arrived.x < merchant.x,"the avatar approaches Kevin from inside the room").toBe(true);
+    expect(arrived.x > merchant.x,"the avatar approaches Kevin from inside the room").toBe(true);
     await expect(page.locator("[data-avatar-facing]")).toHaveAttribute("data-avatar-facing",avatarFacing);
     if(isMobile) {
       await expect(shop).toBeVisible();
       await page.getByRole("button",{name:"Close Kevin's shop"}).click();
-    } else await expect(shop).toBeFocused();
+    } else {
+      await expect(shop).toBeFocused();
+      await page.keyboard.down("d");
+      await expect.poll(async()=>(await avatarPoint(page)).x).toBeGreaterThan(arrived.x+12);
+      await page.keyboard.up("d");
+    }
     expect(await saved(page)).toEqual(run);
   }
 });

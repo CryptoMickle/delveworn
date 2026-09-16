@@ -3,6 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { clampRoomPoint, DungeonScene, ENEMY_ART, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
+import { createMerchantArrivalGate } from "../app/dungeon/merchant-room";
 import { roomLootPoint } from "../app/dungeon/movement";
 
 test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
@@ -73,9 +74,9 @@ test("Kevin taps approach the figure in recovery while loot rooms do not invent 
   ].map(([width,height])=>portraitRoomCamera(width,height))];
   for(const bounds of cameras) {
     for(const room of [5,9]) {
-      const merchant=roomMerchantPoint(bounds,room), approach=roomMerchantApproach(merchant);
-      assert.deepEqual(merchant,{x:room === 5 ? bounds.minX : bounds.maxX,y:320},"Kevin uses the room's outer walkable edge");
-      assert.deepEqual(approach,{x:merchant.x+(room === 5 ? 48 : -48),y:merchant.y+36},"the avatar approaches from inside the room");
+      const merchant=roomMerchantPoint(bounds), approach=roomMerchantApproach(merchant);
+      assert.deepEqual(merchant,{x:bounds.minX,y:270},"Kevin has one upper-left position in every room");
+      assert.deepEqual(approach,{x:merchant.x+48,y:merchant.y+36},"the avatar approaches from inside the room");
       assert.ok(approach.x >= bounds.minX && approach.x <= bounds.maxX,"the approach remains inside the mobile camera");
       assert.ok(Math.hypot(approach.x-merchant.x,approach.y-merchant.y) <= 64,"the shop opens from beside Kevin");
       const figureCenter={x:merchant.x,y:merchant.y-75};
@@ -88,16 +89,38 @@ test("Kevin taps approach the figure in recovery while loot rooms do not invent 
   }
 });
 
+test("Kevin's shop waits for both walks, cancels stale intent and opens once", () => {
+  let opens=0;
+  const gate=createMerchantArrivalGate();
+  const playerArrived=() => { const ready=gate.playerArrived(); if(ready) opens++; return ready; };
+  const merchantArrived=(arrived:boolean) => { const ready=gate.merchantArrived(arrived); if(ready) opens++; return ready; };
+
+  assert.equal(playerArrived(),false,"an early player arrival waits for Kevin");
+  assert.equal(gate.waiting,true);
+  assert.equal(merchantArrived(true),true,"Kevin's arrival completes the queued trade");
+  assert.equal(opens,1);
+  assert.equal(merchantArrived(true),false,"repeated arrival signals cannot reopen the shop");
+
+  assert.equal(playerArrived(),true,"reduced motion also works when Kevin arrives first");
+  assert.equal(opens,2);
+  merchantArrived(false);
+  assert.equal(playerArrived(),false);
+  gate.cancel();
+  assert.equal(merchantArrived(true),false,"walking elsewhere cancels the queued trade");
+  assert.equal(opens,2);
+});
+
 test("the original Kevin figure follows the confirmed merchant callback between rooms", () => {
   const base:RoomView={room:5,enemy:0,enemyName:"Grave Belle",enemyHp:0,hp:85,
     relic:0,weapon:0,armor:0,phase:"recovery",pending:false,cue:null,cueId:0,damage:0,incoming:0};
   const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
     view:{...base,...overrides},actions:{approach:()=>{},enter:()=>{},collect:()=>{},merchant:()=>{}},
   }));
-  for(const [room,position,facing,mirror] of [[5,"170,320","right","-1"],[9,"733,320","left","1"]] as const) {
+  for(const room of [5,9]) {
     const markup=render({room});
-    assert.match(markup,new RegExp(`data-merchant-facing="${facing}" data-merchant-position="${position}"`));
-    assert.match(markup,new RegExp(`data-merchant-position="${position}"[\\s\\S]*?<g transform="scale\\(${mirror} 1\\)">`),"the painting faces into the room");
+    assert.match(markup,/data-merchant-position="450,92"/,"Kevin starts at the north doorway");
+    assert.match(markup,/data-merchant-destination="170,270"/,"both stops use the upper-left position");
+    assert.match(markup,/data-merchant-arrived="false"/,"entry has not teleported to the final spot");
     assert.match(markup,/role="img" aria-label="Quartermaster Kevin\. Walk here to trade\."/);
     assert.match(markup,/\/characters\/merchant-quartermaster-kevin\.webp/);
   }

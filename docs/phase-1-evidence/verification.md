@@ -1,6 +1,85 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — continuous desktop movement, button navigation and room notes
+## Current correction — intact artwork, free floor movement and Kevin's entrance
+
+### Behavior
+
+- All 16 monsters retain their original WebP paintings and tier heights. Each
+  figure has a subject-specific SVG contour. Independent contours now combine
+  as a union, so opposite winding cannot cut holes through overlapping limbs.
+  Crops include the preserved ears, hands, feet, weapons and cloth. Nevin remains
+  the tier-two goblin; Quartermaster Kevin remains the merchant.
+- Gold drops use a small pile of the original coin painting, increasing modestly
+  with the amount. The label reports the exact reward; pickup and reward rules
+  are unchanged.
+- Kevin and his original wagon enter from the north doorway and settle at the
+  upper-left visible floor edge at every merchant stop. Kevin then faces inward;
+  the wagon and no-refunds sign are never mirrored. The shop portrait includes
+  the full merchant and wagon, with the existing sticky inventory information.
+- Trading waits for both Kevin and the player to arrive. Retargeting to floor,
+  door or WASD cancels queued trade, as do pending actions, phase and focus loss.
+  Walking away from Kevin does not immediately trigger his proximity interaction.
+  Reduced motion skips his entrance; mobile camera resizing retargets the walk.
+- Clicking/tapping empty floor moves the avatar there during exploration, combat,
+  loot and recovery. A new click retargets the walk. Moving neither consumes a
+  combat turn nor changes HP, rewards or RNG. Pending actions and dead/finished
+  runs still reject movement. Merchant interaction uses the painted figure/cart,
+  so the empty area around the wagon stays walkable.
+
+### Actual checks
+
+- **165 automated tests passed, 0 failed, 0 skipped.** Includes the new two-arrival
+  merchant gate regression, plus existing movement, loot bypass, deterministic
+  replay, safe-healing, input and state regressions.
+- ESLint: **0 errors, 14 existing warnings**. Whitespace checks pass.
+- All three existing frontend CI build configurations passed locally on the
+  final application source: RISE compatibility, Somnia session keys and Somnia
+  standard. Each completed compilation and TypeScript validation. No remote
+  GitHub CI run was triggered.
+- **205 browser scenarios in 10 files discovered, not executed.** Added the
+  empty-floor exploration/combat check and revised Kevin's arrival/position and
+  walking-away checks.
+- Mounted no-DOM probes exercised actual scene callbacks for empty-floor
+  movement/retargeting during combat, no game-action callback on empty floor,
+  pending/dead guards, continuous WASD, modal/focus guards and room entry.
+- Mounted merchant probes passed door entry, intermediate position, resize
+  continuity, final inward facing, reduced motion and cleanup. Actual scene
+  integration passed waiting for both walkers, exactly one trade, and cancellation
+  by floor, walking away, pending state and doorway. Empty floor near Kevin does
+  not open trade.
+- The existing Practice callback probe passed original HUD/Gear/Relics values,
+  potion before/after loot, no extra RNG, pending-loot preservation, stale/full-HP/
+  empty-stock guards, door bypass and legacy save restoration. The K/J/M and
+  arrow/Enter callback probe also passes.
+- [Static artwork review](monster-cutout-review.png): all sixteen masks were
+  rendered from the actual EnemySprite component, enlarged and at mobile room
+  scale, and inspected against the originals. Kevin's final room composition was
+  also rendered at wide and portrait dimensions. These are SVG illustrations,
+  **not browser screenshots** and not evidence of responsive app layout.
+
+Browser/device QA remains blocked by the administration-policy decision from
+previous automatic approval review; no browser retry or alternate browser was
+used. The build remains a **review preview, not production-approved**. No Git
+push/merge, production release, contract change or onchain transaction occurred.
+The unresolved Somnia VRF adapter setup remains outside this verification.
+
+### Files in this correction
+
+- `frontend/app/dungeon/scene.tsx`, `tier-art.ts`, `gold-loot-art.tsx`,
+  `merchant-art.tsx`, `merchant-room.tsx`, `shop-vitals.tsx`, `shop-vitals.css`.
+- `frontend/tests/dungeon-scene.test.ts`, `tier-art.test.ts`,
+  `e2e/descent.spec.ts`; `frontend/scripts/render-dungeon-art.tsx`.
+- `ENDLESS_GRID.md`, `docs/phase-1-status.md`, this verification record and
+  `docs/phase-1-evidence/monster-cutout-review.png`.
+
+First external test: open the Practice preview without a wallet on desktop and
+phone. Click empty floor before and during combat, retarget, then use held WASD
+and K/J/M on desktop. Compare coin piles, bypass one drop through the doorway,
+and collect the next. At room 5, click Kevin early and confirm trade waits for
+both walkers; walk away afterward. Confirm the same upper-left stop at room 9,
+then continue through tier two and compare the original character details.
+
+## Previous correction — continuous desktop movement, button navigation and room notes
 
 ### Correction
 

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
 import { createRoomSteering, isRoomPoint, movementFacing, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Point } from "./movement";
 import { HIGHER_TIER_ART, type DungeonEnemyArt } from "./tier-art";
+import { MERCHANT_ROOM_ART_LAYOUT } from "./merchant-art";
+import { createMerchantArrivalGate, RoomMerchant } from "./merchant-room";
+import { GoldLootSprite } from "./gold-loot-art";
+export { MerchantSprite } from "./merchant-art";
 
 export type { Point } from "./movement";
 export type SceneCue = "attack" | "storm" | "potion" | "critical" | "revive" | null;
@@ -17,17 +21,21 @@ export type RoomView = {
   loot?: RoomLoot;
   pending: boolean; cue: SceneCue; cueId: number; damage: number; incoming: number;
 };
+/** Walking is presentation only; it never spends a combat turn or rolls RNG. */
+function canWalk(view: RoomView) {
+  return !view.pending && view.hp > 0 && ["explore","combat","loot","recovery"].includes(view.phase);
+}
 type WalkGoal = { target: Point; destination?: "enemy" | "door" | "merchant" | "loot" };
 export type RoomActions = { approach: () => void; enter: (leaveLoot?: boolean) => void; collect?: () => void; skipLoot?: () => void; merchant?: () => void; interact?: () => void };
 export const ENEMY_ART = [
   { name: "Grave Belle", role: "Zombie", src: "/monsters/zombie-1-grave-belle.webp", width: 1672, height: 941, roomHeight: 120,
-    crop: "565 30 490 770", outline: "M590 777 L615 691 640 608 674 552 712 498 742 451 751 409 776 378 754 331 713 364 694 405 683 449 662 477 640 477 619 466 618 444 637 387 661 346 700 311 716 272 744 241 694 230 671 201 679 146 716 84 748 55 822 47 863 63 889 103 914 156 919 185 877 204 893 218 919 221 941 273 956 324 974 368 981 416 998 451 1033 474 1039 503 1013 535 1004 512 998 493 983 486 981 517 967 523 956 502 955 478 941 447 932 421 927 464 912 478 916 541 937 599 961 638 978 681 1007 710 1001 755 985 779 936 784 931 772 948 746 956 715 936 680 907 654 874 613 852 583 843 538 817 527 782 571 745 611 707 653 672 694 655 740 659 776 643 788 613 788 Z" },
+    crop: "580 35 465 760", outline: "M744 61 C759 36 782 45 799 47 L820 49 839 58 852 70 879 82 871 82 861 78 868 96 883 106 897 103 888 113 877 116 898 124 916 143 922 166 914 158 911 148 913 172 925 168 918 177 906 171 895 151 884 144 894 161 900 180 894 198 886 187 875 198 860 192 852 200 867 211 888 205 904 208 914 220 922 239 927 258 935 273 944 284 937 286 941 301 946 306 951 328 960 345 965 365 976 368 976 390 981 411 985 440 995 457 1009 468 1025 475 1033 479 1037 493 1036 509 1034 519 1027 525 1027 507 1021 491 1010 488 1015 500 1017 513 1012 527 1013 534 1006 538 1003 533 1004 520 1000 508 987 497 976 490 969 496 969 505 974 514 971 524 965 522 959 511 956 500 958 487 959 476 953 462 953 444 949 419 942 409 938 389 930 379 927 357 915 330 905 316 897 297 890 285 894 312 890 335 887 347 893 362 899 366 905 383 910 393 919 405 920 419 931 440 934 458 940 473 938 493 942 521 951 543 948 559 943 547 936 542 938 568 930 558 926 547 919 548 919 530 907 554 905 582 921 591 936 609 949 630 951 644 963 656 966 672 978 687 989 695 999 688 1006 697 1007 712 1001 730 1000 749 1005 761 1004 774 997 781 980 784 947 783 933 781 929 773 934 761 947 750 956 733 958 717 949 704 948 693 934 680 920 665 909 659 895 640 878 627 860 613 851 599 847 582 846 557 847 533 837 552 829 544 821 566 816 561 811 590 806 581 811 558 806 540 799 544 791 540 781 554 770 577 752 598 731 615 712 632 700 651 686 681 673 696 665 721 657 741 652 752 658 767 658 781 649 786 627 787 608 784 592 780 589 772 595 755 602 740 611 723 615 702 621 687 627 658 637 628 644 610 651 589 661 574 674 572 688 558 698 538 709 514 711 503 721 484 727 466 715 469 729 452 743 435 757 418 771 409 777 391 782 377 792 358 789 347 782 336 778 326 765 315 758 304 748 315 738 330 729 341 721 353 712 360 703 365 695 374 684 380 673 379 669 386 674 397 686 411 686 421 692 433 695 443 688 447 683 440 681 430 674 424 667 426 656 446 650 455 650 464 657 467 653 472 646 469 646 477 650 479 650 486 641 481 635 474 629 471 626 460 619 457 616 449 620 437 627 427 631 409 636 395 639 377 649 368 650 352 664 332 683 327 699 314 713 302 713 294 722 284 721 276 735 268 740 249 749 232 761 223 777 217 760 211 743 214 731 225 720 241 716 238 722 232 717 222 708 219 705 231 700 226 700 214 693 201 687 214 689 222 682 219 681 207 687 191 694 176 682 189 680 197 675 182 678 162 691 140 687 136 675 133 669 126 681 130 690 121 695 99 711 84 728 68 Z" },
   { name: "Gary", role: "Goblin", src: "/monsters/goblin-1-gary.webp", width: 766, height: 431, roomHeight: 110,
-    crop: "202 35 363 390", outline: "M210 158 L221 155 238 211 249 235 266 244 263 253 280 267 281 278 274 294 256 309 236 304 223 286 231 270 215 265 213 253 226 242 214 214 Z M229 110 L265 115 292 130 300 104 304 76 321 85 316 56 337 76 355 42 355 71 380 54 368 79 398 75 410 99 444 91 506 61 510 65 487 91 468 124 468 151 450 168 476 177 498 205 521 218 531 242 535 258 550 275 559 299 549 314 533 320 531 303 539 291 526 285 514 297 504 312 491 306 490 285 501 269 496 248 477 238 457 233 453 266 470 287 474 311 495 334 499 355 520 374 536 396 533 413 507 418 478 417 466 405 464 378 456 366 442 354 427 345 416 330 402 340 391 352 380 332 364 356 351 348 337 355 327 367 314 376 298 397 277 403 258 399 252 388 264 375 288 366 306 349 300 329 308 300 327 280 333 263 315 244 298 229 287 207 287 175 260 160 Z" },
+    crop: "202 35 363 390", outline: "M338 46 L339 70 L359 55 L352 80 L379 64 L370 88 Q389 80 405 85 Q414 98 422 111 Q452 104 480 85 L509 62 L516 65 Q498 85 486 104 Q474 125 468 144 L468 155 Q463 164 452 170 Q473 174 489 190 Q502 205 518 216 Q528 230 532 248 Q534 259 546 270 Q556 281 559 298 Q557 309 548 315 Q540 321 533 317 Q529 312 532 302 L539 291 Q534 286 527 285 Q520 287 515 297 Q511 306 504 311 Q496 311 492 305 Q488 296 491 285 Q499 276 502 269 Q501 256 495 248 Q486 242 477 239 Q467 237 458 233 Q452 249 455 263 Q459 277 468 287 Q473 298 474 310 Q477 323 493 335 Q500 345 499 356 Q509 365 520 374 Q532 386 536 397 Q537 407 531 413 Q520 418 506 418 L481 417 Q469 414 466 405 Q464 390 465 379 Q461 369 455 365 Q445 359 438 352 Q428 349 420 341 L413 332 Q405 337 400 348 L393 356 L381 337 L366 359 L353 350 L339 359 L327 369 Q320 376 311 382 Q302 391 297 397 Q285 404 272 404 Q259 404 251 397 Q248 389 255 382 Q267 373 284 369 Q299 364 307 352 Q305 340 301 329 Q304 314 309 301 Q319 285 331 276 Q335 267 332 259 Q318 267 306 277 Q296 283 286 285 Q281 299 271 307 Q264 311 257 310 Q242 309 230 300 Q224 294 223 287 Q222 281 226 275 L230 269 L216 265 Q212 261 212 254 Q213 249 226 243 Q219 228 216 213 Q214 190 216 166 Q216 156 222 152 Q226 165 230 181 L238 212 Q242 228 250 240 L265 244 L260 253 Q270 253 279 259 Q287 255 296 247 L304 239 L321 224 Q307 218 298 207 Q289 194 288 178 L275 169 L260 160 Q245 149 238 132 L228 111 Q245 113 264 118 L291 136 Q289 122 296 109 L302 101 L301 82 L314 91 L311 65 L326 81 Z" },
   { name: "Thud", role: "Orc", src: "/monsters/orc-1-thud.webp", width: 1672, height: 941, roomHeight: 146,
-    crop: "482 142 608 630", outline: "M495 426 L511 402 531 382 552 387 574 409 595 452 616 500 626 524 652 520 668 506 679 469 702 431 707 380 736 330 737 303 725 271 748 284 763 248 782 218 799 181 824 151 854 165 878 175 882 185 853 190 850 208 874 230 907 234 918 230 907 257 922 278 965 281 1007 310 1037 350 1051 396 1065 439 1069 475 1061 504 1073 538 1069 578 1053 607 1031 619 1015 609 1032 585 1029 570 1014 591 997 593 1000 569 986 558 980 579 969 566 973 536 990 515 1002 508 994 466 965 429 951 466 955 523 972 568 972 611 984 648 977 693 1002 733 1006 754 991 763 918 761 902 749 913 728 923 694 910 664 896 652 881 610 868 610 855 643 835 629 821 643 809 619 785 611 775 637 760 645 764 678 756 704 732 736 678 742 650 733 655 719 688 699 712 682 710 650 708 616 708 587 721 555 711 539 688 558 675 578 674 599 659 617 647 606 629 597 611 595 603 578 585 566 588 544 602 533 581 509 552 490 521 469 Z" },
+    crop: "490 138 590 635", outline: "M796 199 L801 183 799 171 805 177 818 159 842 145 833 156 819 171 821 178 834 165 850 168 870 179 879 184 892 174 885 186 873 190 856 187 864 197 884 204 888 212 867 207 853 198 864 219 850 211 831 204 814 205 799 215 781 215 765 230 753 250 747 254 728 250 725 255 736 270 740 287 747 302 742 320 727 330 715 347 710 367 707 390 713 400 705 408 700 427 697 438 681 450 675 466 665 483 657 488 650 505 638 516 624 521 620 516 620 506 612 499 610 480 599 477 598 464 589 457 594 446 584 447 580 430 584 416 574 409 577 390 565 395 552 386 542 387 539 377 533 388 522 389 511 400 500 405 503 412 496 424 498 437 505 447 499 465 514 457 528 475 542 489 557 503 573 516 588 526 591 538 594 546 590 554 591 565 599 574 600 584 609 590 618 600 639 604 648 615 659 620 676 614 680 606 676 592 664 585 665 574 669 560 680 558 687 547 699 541 708 526 714 513 726 485 736 463 749 449 758 459 758 481 760 503 740 515 734 530 721 552 716 572 709 586 704 605 710 624 712 642 711 651 715 666 719 688 711 698 692 702 672 710 660 718 650 730 650 737 668 744 704 745 734 741 758 736 775 729 785 720 782 705 778 688 790 674 790 658 786 647 781 628 773 615 786 614 790 636 800 627 817 655 829 634 839 621 852 646 864 619 878 638 888 619 899 637 901 653 910 669 909 682 918 700 917 715 912 730 904 746 904 758 918 766 943 766 973 765 997 761 1007 754 1007 743 996 725 977 707 975 693 984 678 983 660 977 646 970 640 970 624 960 614 956 592 959 576 956 553 949 538 949 523 951 510 966 514 966 494 957 481 952 462 956 440 960 428 974 442 991 451 994 465 999 478 997 497 1002 508 994 516 981 524 974 536 969 550 965 565 969 579 968 590 977 593 984 590 987 581 982 570 989 566 999 573 1001 585 994 599 989 608 988 616 999 620 1009 618 1017 622 1029 616 1037 608 1049 606 1059 599 1063 585 1066 566 1067 540 1066 532 1071 526 1068 513 1073 503 1071 489 1066 483 1068 464 1064 444 1056 424 1045 409 1040 390 1029 366 1017 353 1011 332 1002 316 986 303 968 297 965 291 948 283 941 276 925 273 909 272 917 244 921 231 899 237 878 247 868 236 858 221 844 214 831 207 Z" },
   { name: "Dungeon Lord", role: "Management", src: "/monsters/boss-1-dungeon-lord.webp", width: 1672, height: 941, roomHeight: 178,
-    crop: "437 25 790 905", outline: "M648 856 L672 823 690 792 693 745 700 679 698 616 671 555 654 488 623 442 573 428 539 390 510 345 487 306 459 272 457 237 501 212 528 217 563 201 588 212 626 240 655 230 677 216 707 233 735 216 758 208 761 188 752 156 757 101 776 66 814 40 853 35 880 60 886 90 910 104 901 119 927 137 907 158 914 176 897 196 873 206 883 219 919 216 939 178 956 213 980 226 999 206 998 240 1043 245 1019 261 1026 287 1047 311 1065 335 1093 347 1107 332 1117 301 1137 286 1149 294 1143 322 1172 322 1197 337 1203 350 1191 372 1156 380 1124 376 1093 387 1057 382 1022 366 1006 420 1019 478 1029 537 1042 586 1056 661 1058 705 1034 690 1013 645 996 619 986 700 978 756 979 804 1008 833 1005 881 993 912 961 923 929 905 912 869 916 833 902 793 874 732 850 673 827 645 810 687 793 739 781 792 789 827 778 858 735 869 685 877 656 870 Z" },
+    crop: "445 25 765 905", outline: "M818 36 L833 39 846 45 855 55 860 68 867 75 875 78 879 90 883 99 876 97 882 110 894 116 901 120 906 130 902 139 889 141 887 151 894 159 899 170 896 180 883 185 885 196 903 178 919 164 940 153 935 175 928 192 944 196 980 166 974 197 986 201 1008 183 1000 205 1008 211 1046 206 1024 229 1018 238 1023 250 1047 275 1028 280 1018 278 1019 289 1011 301 1016 320 1030 328 1051 326 1060 330 1074 325 1086 325 1094 318 1106 308 1120 306 1129 300 1135 288 1142 287 1147 289 1146 300 1141 308 1135 313 1139 325 1146 331 1155 331 1160 338 1167 332 1170 331 1176 334 1180 330 1186 333 1185 340 1192 340 1194 346 1188 349 1193 354 1187 359 1178 360 1174 368 1165 368 1152 370 1138 371 1123 366 1116 368 1103 362 1093 368 1097 374 1090 385 1084 395 1080 386 1070 395 1064 388 1051 392 1039 386 1034 397 1039 434 1047 473 1058 516 1072 557 1090 599 1107 638 1117 666 1106 646 1094 635 1081 625 1064 619 1058 625 1050 619 1045 631 1037 618 1033 637 1026 640 1029 648 1018 654 1015 646 1006 659 994 646 991 665 982 680 973 733 967 710 961 667 955 611 950 582 942 591 949 632 959 674 969 718 973 772 973 798 982 815 968 835 979 854 985 879 985 898 978 909 967 916 954 920 938 920 927 915 916 906 909 894 908 880 910 864 917 843 911 827 902 814 896 803 889 784 876 765 866 745 854 713 837 677 825 650 817 636 816 660 802 688 797 733 791 755 781 774 782 810 793 828 789 850 781 860 758 869 728 875 694 878 670 877 654 873 650 865 655 856 668 850 691 846 717 837 740 821 741 809 737 793 741 776 744 752 735 722 729 695 725 667 720 644 717 619 706 604 701 635 690 669 685 699 676 719 669 711 652 751 653 721 659 692 667 642 675 592 682 547 688 501 697 464 701 426 705 396 696 400 679 406 665 405 648 399 635 399 629 407 618 401 610 409 592 416 574 417 562 411 552 413 540 395 529 378 516 372 507 360 507 349 500 343 500 335 507 328 510 328 502 315 487 299 477 286 470 281 465 275 463 264 462 254 457 244 458 235 470 231 497 222 507 218 509 205 515 196 524 193 531 197 535 207 534 211 542 207 549 211 550 213 566 204 577 202 585 211 612 278 621 280 630 286 635 301 641 315 653 332 671 336 680 324 688 306 695 291 686 282 666 269 687 265 695 258 705 250 687 218 715 232 721 224 717 200 739 221 749 214 742 201 737 181 755 184 773 181 786 174 778 168 767 165 760 157 752 156 753 151 765 148 765 139 762 127 761 118 763 107 770 96 759 103 751 94 756 87 757 73 760 89 766 94 773 87 774 79 779 70 789 58 784 58 789 49 803 44 Z" },
 ] as const;
 
 export function getEnemyArt(type: MonsterType, room = 1): DungeonEnemyArt {
@@ -38,17 +46,8 @@ export function getEnemyArt(type: MonsterType, room = 1): DungeonEnemyArt {
 export function EnemySprite({ type, room = 1, className }: { type: MonsterType; room?: number; className?: string }) {
   const id = useId(), art = getEnemyArt(type,room);
   return <svg className={className} viewBox={art.crop} aria-hidden="true">
-    <defs><clipPath id={id}><path d={art.outline} />{type === 1 && room <= 10 && <path d="M259 264 L280 252 301 230 332 235 330 260 303 278 278 287 262 282Z" />}</clipPath></defs>
+    <defs><clipPath id={id}>{art.outline.split(/(?=M)/).map((contour,index) => <path key={index} d={contour} />)}</clipPath></defs>
     <image href={art.src} width={art.width} height={art.height} clipPath={`url(#${id})`} />
-  </svg>;
-}
-
-/** Keep the original merchant painting; clip its background just like enemies. */
-export function MerchantSprite() {
-  const id=useId();
-  return <svg viewBox="399 94 575 836" aria-hidden="true">
-    <defs><clipPath id={id}><path d="M645 150 Q653 111 704 109 Q754 97 778 148 L779 190 Q804 199 796 235 L823 234 Q910 259 950 322 Q982 376 954 410 L919 451 L910 486 Q939 523 949 583 Q947 619 928 630 L861 656 L859 748 L824 804 L824 844 Q845 880 819 913 Q786 929 743 915 L733 898 L733 866 L721 826 L698 785 L674 764 L642 785 L628 839 L624 867 Q592 885 546 882 L513 869 Q504 853 530 845 L568 827 L581 794 L564 758 L540 699 L510 674 L489 675 L478 650 Q425 648 412 617 L420 579 L430 535 L447 502 L470 503 L477 471 L487 408 L497 376 L470 368 Q435 360 426 332 L423 291 L420 266 L424 249 L433 232 L447 222 L443 195 L462 191 L486 194 L479 227 L491 239 L494 269 L511 280 L548 279 L572 259 L600 244 L626 241 L650 218 L646 188Z" /></clipPath></defs>
-    <image href="/characters/merchant-quartermaster-kevin.webp" width="1672" height="941" clipPath={`url(#${id})`} />
   </svg>;
 }
 
@@ -85,8 +84,8 @@ export function clampRoomPoint(point: Point, cleared: boolean): Point {
   return { x: Math.max(170, Math.min(733, point.x)), y: Math.max(northEdge, Math.min(505, point.y)) };
 }
 
-export function roomMerchantPoint(bounds = {minX:170,maxX:733}, room = 5): Point {
-  return {x:room % 10 === 9 ? bounds.maxX : bounds.minX,y:320};
+export function roomMerchantPoint(bounds = {minX:170,maxX:733}): Point {
+  return {x:bounds.minX,y:270};
 }
 
 export function roomMerchantApproach(merchant: Point): Point {
@@ -98,7 +97,11 @@ export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterTy
   const guard = Math.abs(point.x - GUARD.x) < 90 && point.y >= GUARD.y - getEnemyArt(enemy,room).roomHeight - 15 && point.y <= GUARD.y + 25;
   if (!cleared && (door || guard)) return { point: STAGING, destination: "enemy" };
   const lootImage = lootPoint && Math.abs(point.x-lootPoint.x) <= 45 && point.y >= lootPoint.y-80 && point.y <= lootPoint.y+25;
-  const merchantHit = merchantPoint && Math.abs(point.x-merchantPoint.x) <= 48 && point.y >= merchantPoint.y-150 && point.y <= merchantPoint.y+22;
+  const merchantSide = merchantPoint && merchantPoint.x < 450 ? "left" : "right";
+  const stall = MERCHANT_ROOM_ART_LAYOUT.stall;
+  const merchantLeft = Math.min(-52,stall.xByOuterSide[merchantSide]);
+  const merchantRight = Math.max(52,stall.xByOuterSide[merchantSide]+stall.width);
+  const merchantHit = merchantPoint && point.x >= merchantPoint.x+merchantLeft && point.x <= merchantPoint.x+merchantRight && point.y >= merchantPoint.y+stall.y && point.y <= merchantPoint.y+22;
   if (cleared && door) return { point: DOOR, destination: "door" };
   if (cleared && lootPoint && (lootImage || nearRoomLoot(point,lootPoint))) return { point: lootPoint, destination: "loot" };
   if (cleared && !lootPoint && merchantHit) return {point:roomMerchantApproach(merchantPoint),destination:"merchant"};
@@ -132,6 +135,20 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const walkGoal = useRef<WalkGoal | null>(null);
   const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
   const latest = useRef({ view, actions });
+  const [merchantGate]=useState(createMerchantArrivalGate);
+  const openMerchant=useCallback(() => {
+    const current=latest.current;
+    if (current.view.pending || current.view.phase !== "recovery" || !current.actions.merchant) {
+      merchantGate.cancel(); return false;
+    }
+    walkGoal.current=null;
+    current.actions.merchant();
+    return true;
+  },[merchantGate]);
+  const playerArrivedAtMerchant=useCallback(() => merchantGate.playerArrived() && openMerchant(),[merchantGate,openMerchant]);
+  const merchantArrivalChanged=useCallback((arrived: boolean) => {
+    if (merchantGate.merchantArrived(arrived)) openMerchant();
+  },[merchantGate,openMerchant]);
   useEffect(() => { latest.current = { view, actions }; }, [view, actions]);
   const svg = useRef<SVGSVGElement>(null), pointer = useRef<Point | null>(null);
   const [camera,setCamera] = useState({actorScale:1,minX:170,maxX:733});
@@ -146,7 +163,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const loot = view.phase === "loot" ? view.loot : undefined;
   const hasRoomHud=Boolean(topOverlay);
   const hasMerchant=view.phase === "recovery" && Boolean(actions.merchant);
-  const merchantPoint=hasMerchant ? roomMerchantPoint(camera,view.room) : undefined;
+  const merchantPoint=hasMerchant ? roomMerchantPoint(camera) : undefined;
   // Reuse the engine's ten-room tier cadence; tier-four art continues in deep runs.
   const art = getEnemyArt(view.enemy,view.room), spriteHeight = art.roomHeight;
   const [, , cropWidth, cropHeight] = art.crop.split(" ").map(Number);
@@ -183,12 +200,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   },[hasRoomHud]);
 
   useEffect(() => {
-    const stop = () => { steering.current?.stop(); stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false); };
+    const stop = () => { merchantGate.cancel(); steering.current?.stop(); stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null; setWalking(false); };
     window.addEventListener("blur",stop);
     window.addEventListener("pagehide",stop);
     document.addEventListener("visibilitychange",stop);
     return () => { stopWalk.current?.(); window.removeEventListener("blur",stop); window.removeEventListener("pagehide",stop); document.removeEventListener("visibilitychange",stop); };
-  }, []);
+  }, [merchantGate]);
 
   useEffect(() => {
     const root=svg.current?.closest("main");
@@ -201,8 +218,9 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     };
     const control=createRoomSteering(() => point.current, target => {
       const {view:current,actions:callbacks}=latest.current;
-      if (current.pending || !["explore","loot","recovery"].includes(current.phase) || blocked()) return false;
+      if (!canWalk(current) || blocked()) return false;
       const bounds=currentCamera.current;
+      const from=point.current;
       const next=clampRoomPoint({...target,x:Math.max(bounds.minX,Math.min(bounds.maxX,target.x))},current.enemyHp === 0);
       setFacing(previous => movementFacing(point.current,next,previous));
       point.current=next; setPosition(next);
@@ -216,9 +234,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         callbacks.collect?.(); return false;
       }
       if (current.phase === "recovery" && callbacks.merchant) {
-        const merchant=roomMerchantPoint(bounds,current.room);
-        if (Math.hypot(next.x-merchant.x,next.y-merchant.y) <= 64) {
-          setFacing(previous => movementFacing(next,merchant,previous)); callbacks.merchant(); return false;
+        const merchant=roomMerchantPoint(bounds);
+        const distance=Math.hypot(next.x-merchant.x,next.y-merchant.y);
+        if (distance <= 64 && distance < Math.hypot(from.x-merchant.x,from.y-merchant.y)) {
+          setFacing(previous => movementFacing(next,merchant,previous));
+          walkGoal.current={target:roomMerchantApproach(merchant),destination:"merchant"};
+          playerArrivedAtMerchant(); return false;
         }
       }
     },setWalking);
@@ -226,13 +247,14 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     const keydown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { control.stop(); return; }
       const current=latest.current.view;
-      if (current.pending || !["explore","loot","recovery"].includes(current.phase)) return;
+      if (!canWalk(current)) return;
       const key=roomMovementKey(event.key);
       if (!key && event.key.toLowerCase() !== "e") return;
       event.preventDefault();
       // Repeat never starts a fresh walk after a phase transition or focus loss.
       if (event.repeat) return;
       if (key) {
+        merchantGate.cancel();
         stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null;
         latest.current.actions.interact?.();
         control.press(key);
@@ -249,13 +271,20 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       document.removeEventListener("keyup",keyup);
       document.removeEventListener("focusin",focusChanged);
     };
-  },[]);
+  },[merchantGate,playerArrivedAtMerchant]);
 
-  useEffect(() => { steering.current?.stop(); },[view.phase,view.pending]);
+  useEffect(() => {
+    steering.current?.stop();
+    if (view.pending || view.phase !== "recovery" || !hasMerchant) {
+      merchantGate.cancel();
+      if (walkGoal.current?.destination === "merchant") walkGoal.current=null;
+    }
+  },[view.phase,view.pending,hasMerchant,merchantGate]);
 
   function moveTo(target: Point, destination?: WalkGoal["destination"], interact = true, bounds = camera) {
     const {view: currentView,actions: currentActions}=latest.current;
-    if (currentView.pending || !["explore","loot","recovery"].includes(currentView.phase) || !isRoomPoint(target)) return;
+    if (!canWalk(currentView) || !isRoomPoint(target)) return;
+    merchantGate.cancel();
     steering.current?.stop();
     if (interact) currentActions.interact?.();
     stopWalk.current?.();
@@ -266,22 +295,24 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     setFacing(previous => movementFacing(point.current,next,previous)); setWalking(true);
     stopWalk.current=startRoomWalk(point.current,next,step => {
       const current=latest.current;
-      if (current.view.pending || !["explore","loot","recovery"].includes(current.view.phase)) { stopWalk.current=null; walkGoal.current=null; setWalking(false); return false; }
+      if (!canWalk(current.view)) { stopWalk.current=null; walkGoal.current=null; setWalking(false); return false; }
       point.current=step; setPosition(step);
       if (destination !== "door" && current.view.phase === "loot" && current.view.loot && nearRoomLoot(step,currentLootPoint.current)) {
         stopWalk.current=null; walkGoal.current=null; setWalking(false); current.actions.collect?.(); return false;
       }
     },() => {
-      stopWalk.current = null; walkGoal.current=null; setWalking(false);
+      stopWalk.current = null;
+      if (destination !== "merchant") walkGoal.current=null;
+      setWalking(false);
       const current = latest.current;
       if (current.view.pending) return;
       if (current.view.phase === "explore" && (destination === "enemy" || Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125)) {
         setFacing(previous => movementFacing(next,GUARD,previous)); current.actions.approach();
       }
       else if ((current.view.phase === "recovery" || current.view.phase === "loot") && destination === "door") current.actions.enter(current.view.phase === "loot");
-      else if (current.view.phase === "recovery" && current.actions.merchant
-        && (destination === "merchant" || Math.hypot(next.x-roomMerchantPoint(bounds,current.view.room).x,next.y-roomMerchantPoint(bounds,current.view.room).y) <= 64)) {
-        setFacing(previous => movementFacing(next,roomMerchantPoint(bounds,current.view.room),previous)); current.actions.merchant();
+      else if (current.view.phase === "recovery" && current.actions.merchant && destination === "merchant") {
+        setFacing(previous => movementFacing(next,roomMerchantPoint(bounds),previous));
+        playerArrivedAtMerchant();
       }
     });
   }
@@ -290,7 +321,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     keyboardInteract.current=() => moveTo(cleared ? DOOR : STAGING,cleared ? "door" : "enemy");
     continueWalk.current=(goal,bounds) => {
       const current=latest.current.view;
-      const merchant=roomMerchantPoint(bounds,current.room);
+      const merchant=roomMerchantPoint(bounds);
       const target=goal.destination === "loot" ? roomLootPoint(current.seed ?? 0,current.room,bounds)
         : goal.destination === "merchant" ? roomMerchantApproach(merchant) : goal.target;
       moveTo(target,goal.destination,false,bounds);
@@ -309,7 +340,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     catch { return; }
     if (!isRoomPoint(p)) return;
     svg.current?.focus({preventScroll:true});
-    const target = roomFloorTarget(p,cleared,view.enemy,loot ? lootPoint : undefined,merchantPoint,view.room);
+    if (merchantPoint && event.target instanceof Element && event.target.closest(".dungeon-merchant")) {
+      moveTo(roomMerchantApproach(merchantPoint),"merchant"); return;
+    }
+    // Only the painted merchant/cart targets trade. Empty floor around the
+    // moving or scaled wagon must remain available for free walking.
+    const target = roomFloorTarget(p,cleared,view.enemy,loot ? lootPoint : undefined,undefined,view.room);
     moveTo(target.point,target.destination);
   }
 
@@ -326,18 +362,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       </g></g>}
       {loot && <g transform={`translate(${lootPoint.x} ${lootPoint.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`} className="dungeon-loot" data-room-loot={loot.type} data-loot-position={`${lootPoint.x},${lootPoint.y}`} role="img" aria-label={`Loot on the floor: ${roomLootLabel(loot)}. Walk here to collect.`}>
         <ellipse cx={GUARD.x} cy={GUARD.y+4} rx="48" ry="14" fill="#c59742" opacity=".2" />
-        <image href={LOOT_ART[loot.type]} x={GUARD.x-34} y={GUARD.y-66} width="68" height="68" />
-        {loot.type !== 0 && loot.type !== 2 && loot.gold > 0 && <image href={LOOT_ART[2]} x={GUARD.x+17} y={GUARD.y-20} width="28" height="28" />}
+        {loot.type === 0 || loot.type === 2 ? <GoldLootSprite amount={loot.gold} x={GUARD.x} y={GUARD.y} /> : <image href={LOOT_ART[loot.type]} x={GUARD.x-34} y={GUARD.y-66} width="68" height="68" />}
+        {loot.type !== 0 && loot.type !== 2 && loot.gold > 0 && <GoldLootSprite amount={loot.gold} x={GUARD.x+31} y={GUARD.y+4} scale={.45} />}
         {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
         <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
       </g>}
-      {merchantPoint && <g className="dungeon-merchant" data-merchant-facing={merchantPoint.x < 450 ? "right" : "left"} data-merchant-position={`${merchantPoint.x},${merchantPoint.y}`} role="img" aria-label="Quartermaster Kevin. Walk here to trade." transform={`translate(${merchantPoint.x} ${merchantPoint.y}) scale(${camera.actorScale})`}>
-        <ellipse cx="0" cy="1" rx="42" ry="12" fill="#000" opacity=".55" />
-        <g transform={`scale(${merchantPoint.x < 450 ? -1 : 1} 1)`}>
-          <svg x="-52" y="-150" width="104" height="150" overflow="visible"><MerchantSprite /></svg>
-        </g>
-        <text x="0" y="24" textAnchor="middle">KEVIN</text>
-      </g>}
+      {merchantPoint && <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged} />}
       <g className="dungeon-actor-position" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`} data-avatar-facing={facing}><g transform={`scale(${camera.actorScale})`}>
         <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
         <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
