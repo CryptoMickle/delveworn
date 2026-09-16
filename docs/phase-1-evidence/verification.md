@@ -2,6 +2,20 @@
 
 ## Current correction — intact artwork, free floor movement and Kevin's entrance
 
+### Current review preview
+
+- Source `76bc6fe65a9da12540e9dde4ba3320288e929c77`; deployment
+  `dpl_G9VSiPmeyBd2KYeSA7ex7ZBTRvmP`: **READY**, preview target.
+- <https://delveworn-4qdx3og0u-crypto-mickle.vercel.app/practice>
+- Exported tracked frontend files only. Somnia standard configuration, session
+  keys disabled; no production promotion or Git push.
+- A deployment-specific seven-day share link was created on 2026-09-16 for
+  desktop/phone review. Its access token is delivered privately, not committed.
+- HTTP delivery checks through that link returned **200** for `/practice`,
+  `/play`, `/onchain`, the original Kevin and tier-four orc artwork, and the
+  potion asset. Page titles match the requested modes. This confirms delivery,
+  not browser gameplay, responsive layout or live onchain operation.
+
 ### Behavior
 
 - All 16 monsters retain their original WebP paintings and tier heights. Each
