@@ -2,6 +2,15 @@
 
 ## Current correction — quieter speech, no final monster remark
 
+Source `202287a` is committed locally and available on the local development
+server. The protected Vercel preview remains on the previous version: automatic
+approval review rejected the upload because it did not accept the earlier
+preview request as authorization for this exact code payload and external
+destination. The same deployment command was retried with the prior request and
+tracked-export evidence, then rejected again. No alternative upload route was
+used and no new deployment was created. A fresh explicit approval is needed to
+update Vercel; local changes and checks are complete.
+
 Monster speech now requires a living enemy in active combat. A killing blow
 immediately clears the bubble and its timer; no defeat line remains. Opening
 and combat dialogue stay as direct utterances. The visible nameplate is removed,
