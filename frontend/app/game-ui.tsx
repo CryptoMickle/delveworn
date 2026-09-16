@@ -508,7 +508,7 @@ export function DungeonEntry({
       <div className="practice-entry-hero relative h-[230px] overflow-hidden bg-black sm:h-[300px] lg:h-full lg:min-h-[520px] lg:border-r lg:border-zinc-800">
         <Image
           src="/assets/delveworn-tier2-party-hero.webp"
-          alt="Miss Morgue, Nevin the Unqualified and Brutus assembled in the dungeon"
+          alt="Miss Morgue, Gribnob the Unqualified and Brutus assembled in the dungeon"
           fill
           unoptimized
           sizes="(min-width: 1024px) 700px, 100vw"

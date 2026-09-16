@@ -77,11 +77,17 @@ export function roomLootLabel(loot: RoomLoot): string {
 }
 export function nearRoomLoot(point: Point, lootPoint: Point) { return Math.hypot(point.x-lootPoint.x,point.y-lootPoint.y) <= 32; }
 function inDoorLane(point: Point) { return Math.abs(point.x - DOOR.x) < DOOR_HALF_WIDTH; }
-export function clampRoomPoint(point: Point, cleared: boolean): Point {
-  const door = cleared && inDoorLane(point) && point.y < 190;
+export function clampRoomPoint(point: Point, cleared: boolean, bounds = {minX:170,maxX:733}): Point {
+  // DOMPoint exposes x/y through prototype accessors: spreading it loses the
+  // coordinates. Read them directly and return our own plain movement point.
+  const x=Math.max(170,bounds.minX,Math.min(733,bounds.maxX,point.x));
+  const doorLane=inDoorLane({x,y:point.y});
+  // The whole cleared lane leads to the door. A second y threshold creates
+  // an invisible ledge that small keyboard steps can never cross.
+  const door = cleared && doorLane;
   // Stop in front of the living guard when walking toward the north door.
-  const northEdge = !cleared && inDoorLane(point) ? GUARD.y + 90 : door ? DOOR.y : 194;
-  return { x: Math.max(170, Math.min(733, point.x)), y: Math.max(northEdge, Math.min(505, point.y)) };
+  const northEdge = !cleared && doorLane ? GUARD.y + 90 : door ? DOOR.y : 194;
+  return { x, y: Math.max(northEdge, Math.min(505, point.y)) };
 }
 
 export function roomMerchantPoint(bounds = {minX:170,maxX:733}): Point {
@@ -221,7 +227,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       if (!canWalk(current) || blocked()) return false;
       const bounds=currentCamera.current;
       const from=point.current;
-      const next=clampRoomPoint({...target,x:Math.max(bounds.minX,Math.min(bounds.maxX,target.x))},current.enemyHp === 0);
+      const next=clampRoomPoint(target,current.enemyHp === 0,bounds);
       setFacing(previous => movementFacing(point.current,next,previous));
       point.current=next; setPosition(next);
       if (current.phase === "explore" && Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125) {
@@ -288,7 +294,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     steering.current?.stop();
     if (interact) currentActions.interact?.();
     stopWalk.current?.();
-    const next = clampRoomPoint({...target,x:Math.max(bounds.minX,Math.min(bounds.maxX,target.x))},currentView.enemyHp === 0);
+    const next = clampRoomPoint(target,currentView.enemyHp === 0,bounds);
     // A door gesture means leaving the room, even if its straight path crosses loot.
     if (currentView.enemyHp === 0 && next.y <= 130 && inDoorLane(next)) destination = "door";
     walkGoal.current={target,destination};

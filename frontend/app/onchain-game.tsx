@@ -1121,7 +1121,7 @@ const goblinVariants: MonsterPersona[] = [
   },
 
   {
-    name: "Nevin the Unqualified",
+    name: "Gribnob the Unqualified",
 
     species: "Goblin",
 
@@ -1129,40 +1129,40 @@ const goblinVariants: MonsterPersona[] = [
       "/monsters/goblin-2-kevin-the-unqualified.webp?v=art-20260825-v2",
 
     flavor:
-      "Nobody knows who hired Nevin. Nevin included.",
+      "Nobody knows who hired Gribnob. Gribnob included.",
 
     chance: "35%",
 
     baseGold: 8,
 
     encounters: [
-      "Nevin arrives carrying equipment he clearly does not understand.",
+      "Gribnob arrives carrying equipment he clearly does not understand.",
 
-      "Nevin has received absolutely no training for this.",
+      "Gribnob has received absolutely no training for this.",
 
-      "Someone gave Nevin responsibility. This was a mistake.",
+      "Someone gave Gribnob responsibility. This was a mistake.",
 
-      "Nevin looks prepared. This is misleading.",
+      "Gribnob looks prepared. This is misleading.",
     ],
 
     hitLines: [
-      "Nevin cannot believe that worked.",
+      "Gribnob cannot believe that worked.",
 
       "His annual review is going surprisingly well.",
 
-      "Nevin briefly achieves competence.",
+      "Gribnob briefly achieves competence.",
 
-      "This will absolutely go on Nevin's résumé.",
+      "This will absolutely go on Gribnob's résumé.",
     ],
 
     killLines: [
-      "Nevin has failed probation.",
+      "Gribnob has failed probation.",
 
-      "Nevin's contract has been terminated with immediate effect.",
+      "Gribnob's contract has been terminated with immediate effect.",
 
       "The hiring manager has several questions to answer.",
 
-      "Nevin's onboarding process ends abruptly.",
+      "Gribnob's onboarding process ends abruptly.",
     ],
   },
 

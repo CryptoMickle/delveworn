@@ -80,7 +80,8 @@ export function KeyboardHint() {
 
 /**
  * Opt-in presentation navigation. Mark game actions with data-keyboard-actions;
- * wallet controls, site navigation and native dialogs keep their own behavior.
+ * wallet controls and site navigation keep their own behavior. Open modals own
+ * arrow focus while focused buttons retain their native Enter activation.
  * Activation always follows the existing guarded button callback and audio path.
  */
 export function DesktopNavigation() {
@@ -120,16 +121,27 @@ export function DesktopNavigation() {
       if (event.key !== "Enter" && !shortcut && !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
       const targetElement = event.target instanceof Element ? event.target : null;
       const target = targetElement instanceof HTMLElement ? targetElement : null;
-      if (targetElement?.closest(EDITABLE) || targetElement?.closest(EXCLUDED) || document.querySelector(MODAL)) return;
+      if (targetElement?.closest(EDITABLE) || targetElement?.closest(EXCLUDED)) return;
       if (targetElement && targetElement !== document.body && targetElement !== document.documentElement && !root.contains(targetElement)) return;
       const targetControl = targetElement?.closest<HTMLElement>(CONTROLS) ?? null;
+      const openModal = document.querySelector<HTMLElement>(MODAL);
+      // A wallet or third-party modal outside this game owns every key itself.
+      if (openModal && !root.contains(openModal)) return;
+      const modal = openModal;
+      if (modal) {
+        // Combat shortcuts never pass through a dialog. Native Enter activates
+        // its focused button; arrows below only move focus inside this modal.
+        if (shortcut || event.key === "Enter") return;
+        if (targetElement && targetElement !== document.body && targetElement !== document.documentElement
+          && !modal.contains(targetElement)) return;
+      }
       const scopes = [...root.querySelectorAll<HTMLElement>("[data-keyboard-action-scope]")]
-        .filter(scope => scope.getClientRects().length > 0 && !scope.closest(EXCLUDED)
+        .filter(scope => (!modal || modal.contains(scope)) && scope.getClientRects().length > 0 && !scope.closest(EXCLUDED)
           && window.getComputedStyle(scope).visibility !== "hidden");
       // A real pending-action overlay owns navigation even when the previous
       // battle or result remains mounted underneath it.
       const overlay = scopes.find(scope => scope.dataset.keyboardActionScope === "overlay");
-      const actionScope = overlay ?? scopes[0] ?? root;
+      const actionScope = modal ?? overlay ?? scopes[0] ?? root;
       if (overlay && event.key === "Enter" && targetControl && !overlay.contains(targetControl)) {
         event.preventDefault();
         return;
@@ -140,7 +152,7 @@ export function DesktopNavigation() {
       if (event.key === "Enter" && targetControl
         && (!targetControl.closest("[data-keyboard-actions]") || !actionScope.contains(targetControl))) return;
       const items = [...actionScope.querySelectorAll<HTMLElement>(CONTROLS)]
-        .filter(item => Boolean(item.closest("[data-keyboard-actions]")) && available(item));
+        .filter(item => (Boolean(modal) || Boolean(item.closest("[data-keyboard-actions]"))) && available(item));
       if (!items.length) {
         if (overlay) event.preventDefault();
         return;

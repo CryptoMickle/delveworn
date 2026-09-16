@@ -17,7 +17,9 @@ boss cadence, relic rules and respective randomness authorities.
   to the current interaction: the enemy before combat or the north door after it.
   Arrow keys only move focus among visible action buttons, and **Enter** selects
   the focused button. Combat uses **K** for Attack, **J** for Storm and **M** for
-  Potion; each physical press resolves at most one action.
+  Potion; each physical press resolves at most one action. In Kevin's shop,
+  arrows move between its buttons and Enter activates the selected button;
+  movement and combat shortcuts remain paused while the dialog is open.
 - Click or tap empty floor to walk there, including during combat. Another
   floor click retargets the walk immediately. This changes only presentation:
   it does not spend a turn, heal, dodge an attack or consume randomness.
@@ -48,11 +50,12 @@ boss cadence, relic rules and respective randomness authorities.
   right. They take no pointer input, do not change room size, and sit beneath
   the timed monster artwork. Phones show a compact excerpt; the full log
   remains available. The cosmetic armor ring over the avatar is removed.
-- The tier-two goblin is **Nevin the Unqualified**; **Quartermaster Kevin**
+- The tier-two goblin is **Gribnob the Unqualified**; **Quartermaster Kevin**
   remains the merchant. Every monster uses its original painting, with its
   own traced silhouette; bitmap files and tier heights are unchanged.
-  Larger gold drops use a small pile of the original coin illustration, while
-  the label continues to report the exact reward.
+  Gold has three stack silhouettes using the original Delveworn coin face:
+  1–9 gold is one short stack, 10–24 is two stacks, and 25+ is three stacks.
+  The label continues to report the exact reward.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
   the fourth artwork set continues in deeper tiers. Difficulty continues to
@@ -62,7 +65,8 @@ boss cadence, relic rules and respective randomness authorities.
   He turns inward there. His original wagon, stock and no-refunds sign travel
   with him; the wagon is never mirrored, so the lettering stays readable.
   Reduced-motion settings skip the entrance animation. Walk to him or use
-  **Visit Kevin**. His shop shows the full character and wagon, with current
+  **Visit Kevin**. His shop shows the complete original rectangular painting,
+  including the character, wagon and surroundings, with current
   HP, gold, potion count, weapon and armor above the purchase controls.
 - The original monster illustration opens at fresh combat for two seconds after
   image load/error. Attacks, pending transactions, damage, and even a killing

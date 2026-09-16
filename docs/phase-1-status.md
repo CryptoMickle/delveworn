@@ -24,7 +24,23 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — complete figures, room loot and a moving merchant
+## Current checkpoint — native floor clicks, doorway crossing and shop controls
+
+Two reproduced input defects are corrected in the shared room. Native DOMPoint
+coordinates are read explicitly instead of spread, preserving the y coordinate
+for ordinary floor clicks. The cleared door lane has one continuous north bound,
+so short held-key steps no longer stick at y=194. The same saved run can resume;
+no game-state migration or combat-rule change is needed.
+
+Gold now has three cylindrical stack silhouettes: 1–9, 10–24 and 25+ gold,
+using the original Delveworn coin face. Kevin's shop uses the original complete
+painting. Arrow focus navigation stays inside an open shop dialog; gameplay
+shortcuts remain blocked behind it.
+The tier-two goblin is now **Gribnob the Unqualified**, replacing the rejected
+Nevin name across Practice, onchain presentation, room art and new log entries.
+Original filenames and already saved logs are preserved.
+
+## Previous checkpoint — complete figures, room loot and a moving merchant
 
 All sixteen monster silhouettes are reviewed against the unchanged original
 paintings. Clipping now follows the subjects rather than interior seams;

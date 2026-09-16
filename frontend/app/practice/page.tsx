@@ -91,7 +91,7 @@ const MONSTER_PERSONAS: Record<MonsterType, readonly MonsterPersona[]> = {
   ],
   1: [
     { name: "Gary", species: "Goblin", image: "/monsters/goblin-1-gary.webp?v=art-20260825-v2", flavor: "Gary has no plan, but he is extremely committed to it.", chance: "35%" },
-    { name: "Nevin the Unqualified", species: "Goblin", image: "/monsters/goblin-2-kevin-the-unqualified.webp?v=art-20260825-v2", flavor: "Nobody knows who hired Nevin. Nevin included.", chance: "35%" },
+    { name: "Gribnob the Unqualified", species: "Goblin", image: "/monsters/goblin-2-kevin-the-unqualified.webp?v=art-20260825-v2", flavor: "Nobody knows who hired Gribnob. Gribnob included.", chance: "35%" },
     { name: "Gribble", species: "Goblin", image: "/monsters/goblin-3-gribble.webp?v=art-20260825-v2", flavor: "Gribble has discovered armor. Civilization may never recover.", chance: "35%" },
     { name: "Gary's Supervisor", species: "Goblin", image: "/monsters/goblin-4-garys-supervisor.webp?v=art-20260825-v2", flavor: "You finally found the person responsible for Gary.", chance: "35%" },
   ],

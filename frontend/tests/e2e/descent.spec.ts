@@ -450,7 +450,22 @@ test("empty floor clicks move and retarget freely before and during combat witho
     await expect.poll(async()=>distance(await avatarPoint(page),{x:400,y:470})).toBeLessThan(2);
     await expect(page.locator(".dungeon-avatar")).not.toHaveClass(/is-walking/);
     expect(await saved(page),"floor navigation does not consume HP, turns, rewards or RNG").toEqual(run);
+    if (!combat) await expect(page.getByRole("button",{name:/Approach Grave Belle/})).toBeEnabled();
   }
+});
+
+test("held W crosses the cleared doorway after healing and enters exactly one room",async({page})=>{
+  const recovered=recoveryAtRoom(1);
+  const run=transition(recovered,"potion");
+  await seed(page,run);
+  await expect(page.getByRole("button",{name:/Enter room 2/})).toBeEnabled();
+  await page.keyboard.down("w");
+  try {
+    await expect(page.getByRole("group",{name:/Room 2 floor/})).toBeVisible();
+    await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase","explore");
+    await page.waitForTimeout(250);
+    expect(await saved(page)).toEqual(transition(run,"enter"));
+  } finally { await page.keyboard.up("w"); }
 });
 
 test("Kevin is a reachable room figure in both merchant recoveries and opens the shop only on arrival",async({page,isMobile})=>{

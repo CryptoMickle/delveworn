@@ -1,6 +1,59 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — intact artwork, free floor movement and Kevin's entrance
+## Current correction — door and native pointer regressions, shop controls and coin stacks
+
+### Reproduced failures and fixes
+
+- **Held-key exit:** at normal frame rates the cleared doorway clamped a step
+  from y=194 back to y=194, preventing room entry. The entire cleared door lane
+  now shares its north bound. A mounted scene probe went from zero room entries
+  at y=194 before the fix to exactly one entry afterward. Regression coverage
+  exercises 4/8/16/32/80ms frames from three horizontal doorway positions.
+- **Empty-floor click:** native DOMPoint coordinates are inherited accessors.
+  Spreading the pointer target dropped y, so walking threw `Invalid room
+  position` before its first frame. The shared floor/camera clamp now reads x/y
+  directly. A corrected mounted probe with native-shaped getters reproduced
+  the exception before the fix and passes exploration/combat retargeting after
+  it. The earlier plain-object mock did not represent this browser behavior.
+- Kevin's shop shows the complete original rectangular painting. Internal
+  modals own arrow navigation; Enter retains native button activation. Gameplay
+  shortcuts stay blocked behind the modal, and external wallet modals retain
+  keyboard ownership. The room merchant's entrance and cutout are unchanged.
+- Gold has three cylindrical stack silhouettes: 1–9, 10–24 and 25+ gold. Every
+  stack uses the original Delveworn coin face; labels and rewards are unchanged.
+- The tier-two goblin is **Gribnob the Unqualified** across visible personas,
+  artwork labels and new logs. Original asset filenames and saved logs remain.
+
+### Actual verification
+
+- **170 automated tests passed, 0 failed, 0 skipped.** ESLint: **0 errors,
+  14 existing warnings**. Whitespace checks pass.
+- All three existing frontend build configurations passed locally: RISE
+  compatibility, Somnia session keys and Somnia standard, including TypeScript.
+- Mounted no-DOM probes passed native-coordinate floor clicks, retargeting,
+  dead/pending guards, held doorway crossing, continuous WASD, merchant arrival
+  and cancellation, safe Practice healing/loot bypass, and modal arrow isolation.
+- **212 browser scenarios in 11 files discovered, not executed.** New coverage
+  includes held doorway crossing after healing, the original merchant painting,
+  keyboard shop purchases and blocking underlying gameplay shortcuts.
+- [Three coin stack sizes](gold-stack-review.png) were rendered from the actual
+  SVG component and visually inspected. The exported images preserve alpha.
+  This is a static art review, not a browser screenshot or responsive-layout test.
+- Browser/device QA remains blocked by the previously reported automatic
+  approval-review administration policy. No alternate browser was used.
+
+Changed files: shared `scene.tsx`, `gold-loot-art.tsx`, `shop-vitals.tsx/.css`,
+`desktop-navigation.tsx`; the goblin name in `tier-art.ts`, `game-ui.tsx`,
+`onchain-game.tsx`, Practice `page.tsx`/`log-copy.ts`; movement, scene, gold and
+tier-art tests; `e2e/descent.spec.ts`, `e2e/shop-keyboard.spec.ts`; `ENDLESS_GRID.md`
+and the phase status/evidence records. No contract or original raster changed.
+
+First external check: resume the existing local run, click empty floor while
+Approach is still available, defeat the monster, heal and hold W through the
+door. At Kevin, use arrows and Enter to buy an item. Compare the three gold
+amounts on desktop and phone. **Review preview; not production-approved.**
+
+## Previous correction — intact artwork, free floor movement and Kevin's entrance
 
 ### Current review preview
 

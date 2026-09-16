@@ -45,6 +45,27 @@ test("floor taps find every centered monster and leave ordinary floor walkable",
   }
 });
 
+test("native pointer coordinates survive floor targeting and portrait bounds", () => {
+  // Like DOMPoint, the coordinates are inherited getters, not enumerable fields.
+  class NativePoint {
+    #x:number; #y:number;
+    constructor(x:number,y:number) { this.#x=x; this.#y=y; }
+    get x() { return this.#x; }
+    get y() { return this.#y; }
+  }
+  for (const cleared of [false,true]) {
+    for (const target of [new NativePoint(300,435),new NativePoint(590,270)]) {
+      assert.deepEqual(Object.keys(target),[]);
+      const floor=roomFloorTarget(target,cleared,0);
+      assert.equal(floor.destination,undefined);
+      assert.deepEqual(clampRoomPoint(floor.point,cleared),{x:target.x,y:target.y});
+      assert.deepEqual(clampRoomPoint(floor.point,cleared,{minX:350,maxX:550}),{
+        x:Math.max(350,Math.min(550,target.x)),y:target.y,
+      });
+    }
+  }
+});
+
 test("walking cannot reach the guarded doorway but the cleared exit is reachable", () => {
   for (const x of [400, 450, 500]) {
     const blocked = clampRoomPoint({ x, y: 92 }, false);

@@ -12,6 +12,26 @@ import {
 } from "../app/dungeon/movement";
 import { clampRoomPoint, nearRoomLoot, portraitRoomCamera } from "../app/dungeon/scene";
 
+test("held movement crosses the cleared doorway at normal and high frame rates", () => {
+  for (const frameMs of [4, 8, 16, 32, 80]) for (const x of [400, 450, 500]) {
+    const scheduler=controlledHost();
+    let point:Point={x,y:391}, entries=0;
+    const control=createRoomSteering(() => point, target => {
+      const previous=point;
+      point=clampRoomPoint(target,true);
+      assert.ok(point.y < previous.y, `walking north must advance at ${frameMs}ms, including across the floor boundary`);
+      if (point.y <= 130) { entries++; return false; }
+    },() => {},scheduler.frames);
+    control.press("w");
+    for (let elapsed=0; elapsed<2000 && control.moving; elapsed+=frameMs) {
+      scheduler.advance(frameMs); scheduler.fireFrame();
+    }
+    assert.equal(entries,1, `the exit is reached at ${frameMs}ms from x=${x}`);
+    assert.equal(control.moving,false);
+    assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+  }
+});
+
 function controlledHost(initialTime=0,{rejectFrames=false}={}) {
   let time=initialTime,id=0;
   const frameCallbacks=new Map<number,(time:number)=>void>();
