@@ -24,7 +24,20 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — mobile room readability
+## Current checkpoint — first mobile power-use reductions
+
+Following the iPhone 11 Pro heat report, mobile/touch rooms no longer keep
+avatar/enemy breathing and relic floating running between actions. Walking,
+whole-leg animation and finite combat effects remain. Blur/glow work is reduced,
+unchanged sprites are memoized, and loot placement is reused during walking.
+The boss-score scheduler wakes half as often while preserving its frozen musical
+trace. This reduces known work; actual phone power/temperature is not measured.
+
+See [verification](phase-1-evidence/verification.md) for tests, preview and limits.
+The remaining major graphics candidate is the layered avatar's live alpha
+filter; no original artwork or image quality was altered in this pass.
+
+## Previous checkpoint — mobile room readability
 
 The shared phone presentation now gives more emphasis to the characters:
 the avatar and small enemies are larger, with bounded growth for bosses and

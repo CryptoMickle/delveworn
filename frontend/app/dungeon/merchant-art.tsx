@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { memo, useId } from "react";
 
 const MERCHANT_IMAGE = "/characters/merchant-quartermaster-kevin.webp";
 const MERCHANT_IMAGE_WIDTH = 1672;
@@ -66,7 +66,7 @@ function MerchantCutoutMask({ id, removeSign = false }: { id: string; removeSign
 }
 
 /** Kevin's original full-body painting, isolated so callers may face him inward. */
-export function MerchantSprite({ className }: { className?: string } = {}) {
+export const MerchantSprite = memo(function MerchantSprite({ className }: { className?: string } = {}) {
   const id = useId();
 
   return (
@@ -79,13 +79,13 @@ export function MerchantSprite({ className }: { className?: string } = {}) {
       <MerchantImage clipId={id} />
     </svg>
   );
-}
+});
 
 /**
  * Kevin's original wagon, readable sign and foreground stock. The room may
  * turn the wagon while the shop portrait keeps the original composition.
  */
-export function MerchantStallSprite({ className, turned = false }: { className?: string; turned?: boolean }) {
+export const MerchantStallSprite = memo(function MerchantStallSprite({ className, turned = false }: { className?: string; turned?: boolean }) {
   const stallId = useId();
   const merchantMaskId = useId();
   const signId = useId();
@@ -114,7 +114,7 @@ export function MerchantStallSprite({ className, turned = false }: { className?:
       </> : <MerchantImage clipId={stallId} maskId={merchantMaskId} />}
     </svg>
   );
-}
+});
 
 /** Full shop portrait for panels, assembled from the same two room layers. */
 export function MerchantShopArtwork({ className }: { className?: string } = {}) {

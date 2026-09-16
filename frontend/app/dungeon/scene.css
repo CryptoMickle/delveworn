@@ -84,6 +84,17 @@
     height:max(100dvh,calc(var(--dungeon-hud-track) + max(220px,66.667vw) + var(--dungeon-controls-track)));
   }
 }
+/* Turn-based rooms can rest between actions on phones/tablets. Keep walking
+   legs and short attack/hit/heal effects; remove only perpetual idle motion. */
+@media(max-width:760px), (pointer:coarse) {
+  .dungeon-avatar:not(.is-attacking):not(.takes-hit):not(.is-dead),
+  .dungeon-enemy:not(.is-hit),
+  .dungeon-relic:not(.is-active) { animation:none; }
+  .descent-shell .descent-actions,
+  .descent-shell .descent-mobile-shop::backdrop,
+  .descent-shell .delveworn-battle-dialog::backdrop { backdrop-filter:none; }
+  .descent-shell .dungeon-impact.storm path { filter:none; }
+}
 @media(prefers-reduced-motion:reduce) {
   .dungeon-scene-wrap *, .dungeon-scene-wrap *::before { animation:none !important; transition:none !important; }
   .dungeon-avatar.is-dead { rotate:-72deg; scale:1 .7; opacity:.7; }

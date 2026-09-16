@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
 import { createRoomSteering, isRoomPoint, movementFacing, movementOrientation, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Orientation, type Point } from "./movement";
@@ -55,13 +55,13 @@ export function getEnemyArt(type: MonsterType, room = 1): DungeonEnemyArt {
   return tier <= 4 ? art : { ...art, roomHeight: deepTierRoomHeight(type, art.roomHeight, tier) };
 }
 
-export function EnemySprite({ type, room = 1, className }: { type: MonsterType; room?: number; className?: string }) {
+export const EnemySprite = memo(function EnemySprite({ type, room = 1, className }: { type: MonsterType; room?: number; className?: string }) {
   const id = useId(), art = getEnemyArt(type,room);
   return <svg className={className} viewBox={art.crop} aria-hidden="true">
     <defs><clipPath id={id}>{art.outline.split(/(?=M)/).map((contour,index) => <path key={index} d={contour} />)}</clipPath></defs>
     <image href={art.src} width={art.width} height={art.height} clipPath={`url(#${id})`} />
   </svg>;
-}
+});
 
 
 const ENTRY = { x: 420, y: 496 }, STAGING = { x: 400, y: 391 }, DOOR = { x: 450, y: 92 };
@@ -213,7 +213,9 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const [camera,setCamera] = useState<RoomCamera>({actorScale:1,minX:170,maxX:733});
   const currentCamera = useRef(camera);
   useEffect(() => { currentCamera.current=camera; },[camera]);
-  const lootPoint = roomFloorLootPoint(view.seed ?? 0,view.room,camera,Boolean(actions.merchant));
+  const merchantAvailable=Boolean(actions.merchant);
+  const lootPoint = useMemo(() => roomFloorLootPoint(view.seed ?? 0,view.room,camera,merchantAvailable),
+    [view.seed,view.room,camera,merchantAvailable]);
   const currentLootPoint = useRef(lootPoint);
   useEffect(() => { currentLootPoint.current=lootPoint; },[lootPoint]);
   const relic = getRelicDefinition(view.relic);

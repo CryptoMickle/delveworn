@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { memo, useId } from "react";
 
 export type AvatarOrientation = "north" | "south";
 
@@ -99,7 +99,7 @@ function RiggedLeg({ source, filterId, clipId, name, rig, primary }: {
 }
 
 /** The approved raster remains untouched; walking uses articulated clipped copies. */
-export function AvatarSprite({ walking = false, orientation = "north" }: AvatarSpriteProps = {}) {
+export const AvatarSprite = memo(function AvatarSprite({ walking = false, orientation = "north" }: AvatarSpriteProps = {}) {
   const prefix = useId();
   const filterId = `${prefix}-avatar-alpha`;
   const bodyMaskId = `${prefix}-avatar-body`;
@@ -142,4 +142,4 @@ export function AvatarSprite({ walking = false, orientation = "north" }: AvatarS
           <g data-avatar-part="joint-cover"><AvatarImage source={source} filterId={filterId} clipId={coverClipId} /></g>
         </g>}
   </svg>;
-}
+});

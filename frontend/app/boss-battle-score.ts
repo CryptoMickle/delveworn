@@ -14,8 +14,10 @@ export const BOSS_SCORE_GAIN = 0.34;
 const BEAT_SECONDS = 60 / BOSS_SCORE_METADATA.tempo;
 const STEP_SECONDS = BEAT_SECONDS / BOSS_SCORE_METADATA.stepsPerBeat;
 const STEPS_PER_BAR = BOSS_SCORE_METADATA.beatsPerBar * BOSS_SCORE_METADATA.stepsPerBeat;
-const LOOKAHEAD_SECONDS = 0.12;
-const SCHEDULER_MILLISECONDS = 25;
+// Web Audio owns note timing. A wider queue lets the JavaScript scheduler wake
+// half as often without changing the score's timestamps or tempo.
+const LOOKAHEAD_SECONDS = 0.18;
+const SCHEDULER_MILLISECONDS = 50;
 const STOP_FADE_SECONDS = 0.035;
 const SOURCE_STOP_SECONDS = 0.04;
 

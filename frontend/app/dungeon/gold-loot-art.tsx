@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { memo, useId } from "react";
 
 const GOLD_COIN_IMAGE = "/assets/delveworn-gold-coin.webp";
 const COIN_THICKNESS = 5.2;
@@ -151,7 +151,7 @@ function StackBands({
  * The stack silhouette communicates reward tier; the room label gives the
  * exact amount.
  */
-export function GoldLootSprite({
+export const GoldLootSprite = memo(function GoldLootSprite({
   amount,
   x = 0,
   y = 0,
@@ -214,4 +214,4 @@ export function GoldLootSprite({
       ))}
     </g>
   );
-}
+});

@@ -157,20 +157,21 @@ function scoreTrace(context: FakeContext) {
 test("boss music matches the frozen Market Dungeon 16-bar note, tempo and synthesis trace", () => {
   const context = new FakeContext(); context.sampleRate = 48_000;
   const output = context.createGain(); output.gain.value = 0.72; output.connect(context.destination);
-  const timers = new Map<number, () => void>(); let nextTimer = 0;
+  const timers = new Map<number, () => void>(); let nextTimer = 0, schedulerCallbacks = 0;
   const score = new BossBattleScore(context as unknown as AudioContext, output as unknown as AudioNode, {
     setTimer: (callback, milliseconds) => {
-      assert.equal(milliseconds, 25);
-      const id = ++nextTimer; timers.set(id, () => { timers.delete(id); callback(); }); return id;
+      assert.equal(milliseconds, 50);
+      const id = ++nextTimer; timers.set(id, () => { timers.delete(id); schedulerCallbacks++; callback(); }); return id;
     },
     clearTimer: timer => { timers.delete(timer as number); },
   });
   score.start();
   // Cover every note of the 45.714-second phrase without scheduling its repeat.
-  for (let milliseconds = 25; milliseconds <= 45_500; milliseconds += 25) {
+  for (let milliseconds = 50; milliseconds <= 45_500; milliseconds += 50) {
     context.currentTime = milliseconds / 1000;
     [...timers.values()].forEach(callback => callback());
   }
+  assert.equal(schedulerCallbacks, 910, "50 ms polling halves the previous 1,820 callbacks over 45.5 seconds");
   const trace = scoreTrace(context);
   assert.equal(trace.length, 392, "all 16 bars, including the four drum fills, are present");
   assert.deepEqual(trace.slice(0, 8).map(source => source.kind), ["oscillator", "oscillator", "oscillator", "oscillator", "oscillator", "oscillator", "oscillator", "buffer"]);
@@ -272,7 +273,7 @@ test("a delayed scheduler skips missed beats instead of playing a burst of old m
   tick();
   const added = context.sources.slice(count);
   assert.ok(added.length > 0 && added.length <= 8, "only the current lookahead window is scheduled");
-  assert.ok(added.every(source => source.starts[0] >= context.currentTime && source.starts[0] < context.currentTime + 0.12));
+  assert.ok(added.every(source => source.starts[0] >= context.currentTime && source.starts[0] < context.currentTime + 0.18));
   assert.equal(timers.size, 1);
   controller.destroy();
 });

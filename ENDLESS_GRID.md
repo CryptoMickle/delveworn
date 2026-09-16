@@ -157,6 +157,31 @@ boss cadence, relic rules and respective randomness authorities.
   The expanded artwork also shows the same Field Notes card (role, name and
   existing description) as the room, together with the monster's current HP.
 
+## Mobile power use
+
+Phone-width and touch-primary devices suppress perpetual avatar/enemy breathing
+and relic floating while idle. Walking legs and finite combat/heal feedback stay
+animated; mobile backdrop blur and the Storm glow filter are omitted. The
+artwork is unchanged. Static sprite components are memoized so position updates
+do not rebuild their identical SVG trees, and cosmetic loot sampling is reused
+until its seed, room, camera or merchant availability changes.
+
+Boss music queues ahead every 50ms instead of 25ms. WebAudio note timestamps,
+tempo and the full score remain unchanged. This halves that scheduler's
+JavaScript callbacks; it is not a claim of halved total power use. Movement
+continues at the existing animation cadence and stops at rest. Audio pauses on
+blur/background; no new polling or graphics dependency is added.
+
+These are code-level reductions, not measured iPhone temperature results. The
+remaining large rendering candidate is the avatar's runtime SVG alpha filter,
+used by its layered leg rig. A later asset-build step could bake identical
+transparent sprites at display-appropriate sizes while preserving the artwork.
+Before further quality changes, compare idle, walking and boss combat on the
+same phone, brightness and charging state, and profile with Safari Web Inspector
+when approved browser access is available. WebKit's
+[power-use guidance](https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/)
+recommends minimizing continuous painting and idle timer work.
+
 ## Reused components and authority
 
 `app/dungeon/scene.tsx` owns floor navigation, sprites and proximity interactions.

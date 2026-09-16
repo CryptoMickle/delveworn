@@ -1,6 +1,46 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — mobile room, character and overlay readability
+## Current correction — reduce mobile idle and repeated rendering work
+
+### Changes and scope
+
+The user reported heat on iPhone 11 Pro. Code audit found perpetual SVG/CSS
+idle animations and a 25ms boss-score scheduler, plus repeated sprite-tree and
+cosmetic loot calculations during walking. There is no endless idle movement
+loop: player movement stops on arrival/release, and Kevin stops when parked.
+
+For phone-width or touch-primary devices, perpetual breathing/floating stops
+while idle. Walking legs and finite attacks/hits/healing stay animated. Mobile
+backdrop blur and Storm glow are disabled. React memo boundaries preserve the
+unchanged avatar, monster, Kevin, wagon and coin-stack trees across position
+updates. Loot placement is memoized on its real inputs. Neither movement timing
+nor gameplay authority changes. Original image files are untouched.
+
+Boss-score scheduling is 50ms with 180ms lookahead. WebAudio still owns note
+timing. The full 16-bar synthesis test retains its exact hash and 392 sources;
+its 45.5-second fake-clock run has 910 callbacks instead of 1,820. Existing
+mute, interruption, background, stale-callback and destruction tests still pass.
+
+### Verification
+
+All **190 tests pass**, with zero failures or skips. Full ESLint reports zero
+errors and 14 existing warnings. The Somnia-standard production build with
+session keys disabled passes, including TypeScript. Ten sprite variants retain
+byte-identical server-rendered SVG markup with memoization. Mounted no-DOM
+loot/merchant and room-11 Enter probes also pass. No browser was launched.
+
+### Limits and next measurement
+
+This is a reduction in known code/rendering work, **not measured temperature,
+frame-time or total energy savings**. Browser execution remains blocked by the
+mandatory policy check. No physical phone benchmark was performed. The avatar's
+runtime SVG alpha filter remains; pre-rendered transparent sprites are the next
+candidate if the first reduction is insufficient. Compare old/new protected
+previews separately after the phone cools, using the same brightness/network/
+charging conditions: idle room, free walking/combat, then a boss fight. Safari
+Web Inspector profiling remains pending authorized browser access.
+
+## Previous correction — mobile room, character and overlay readability
 
 ### Protected preview — READY
 
