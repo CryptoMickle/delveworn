@@ -24,7 +24,20 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — expanded monster dialogue and top-right speech
+## Current checkpoint — two lines per fight and mirrored shop portrait
+
+Each fight now allows at most one personal opening and one reaction. Further
+combat actions cannot start a third line, reset its timer or consume unseen
+catalogue entries. The next room gets a fresh allowance; the 264-line rotation
+and top-right parchment presentation remain. Kevin's original shop portrait is
+mirrored horizontally through scoped CSS in the shared shop component.
+
+All **196 tests** and the Somnia-standard production build pass. ESLint has zero
+errors and 14 existing warnings. The mounted Strict Mode probe confirms the
+cap before and after expiry, and a fresh greeting next room. Protected preview
+publication is pending; see [verification](phase-1-evidence/verification.md).
+
+## Previous checkpoint — expanded monster dialogue and top-right speech
 
 The shared room now has **264 unique spoken lines**, including four personal
 openings for each of the sixteen monsters. Zombie, goblin, orc and boss reactions

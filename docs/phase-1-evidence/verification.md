@@ -1,6 +1,30 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — varied spoken humour and a top-right bubble
+## Current correction — calmer two-line fights and mirrored Kevin portrait
+
+- One opening and one reaction are available per fight. Once either slot is
+  used, later events in that slot remain silent. A killed enemy still has no
+  closing line. The room-key remount resets the allowance for the next fight
+  in First Descent, Practice and onchain; expiry and rerenders do not reset it.
+- Suppressed events do not consume catalogue lines. The 264-line selection,
+  no-repeat decks and top-right parchment styling are preserved.
+- The complete original Kevin portrait is mirrored horizontally in the shared
+  shop panel with a scoped CSS transform. Room sprites/choreography, shop
+  labels, inventory and purchase controls are unchanged.
+
+All **196 tests pass** with no failures or skips. The added regression exercises
+all later reaction types, verifies no third utterance or hidden deck consumption,
+then a fresh allowance next fight and death cleanup. Mounted React Strict Mode
+checks also confirm no third line before/after expiry, stable timers, next-room
+rotation and cleanup. Full lint: zero errors, 14 existing warnings. Somnia-
+standard production build with session keys disabled passes, including
+TypeScript; the changed shop stylesheet parses successfully.
+
+Protected preview publication is pending under the existing approval/project/
+protection. No production promotion, Git push or contract transaction. Browser
+execution is still policy-blocked; no browser/device verification is claimed.
+
+## Previous correction — varied spoken humour and a top-right bubble
 
 ### Changes
 

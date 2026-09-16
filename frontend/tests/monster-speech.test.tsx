@@ -104,6 +104,39 @@ test("SSR and unused initial sessions never consume browser dialogue history", (
   assert.deepEqual(rotation.pick(context),untouched.pick(context));
 });
 
+test("each fight has at most one opening and one reaction without spending suppressed deck lines", () => {
+  const rotation=createMonsterSpeechRotation(), untouched=createMonsterSpeechRotation();
+  const session=createMonsterSpeechSession(rotation);
+  let updates=0;
+  session.subscribe(() => updates++);
+  session.observe(context);
+  untouched.pick(context);
+  const hit={...context,cue:"attack",cueId:5,roomTurns:1,hp:30,damage:7} as const;
+  session.observe(hit);
+  untouched.pick(hit);
+  const reaction=session.getSnapshot();
+  for (const [index,stage] of (["hit","storm","miss","critical","potion","revive","wounded"] as SpeechStage[]).entries()) {
+    const action={...forStage(stage,0),name:context.name,cueId:6+index,roomTurns:2+index};
+    session.observe(action);
+    session.observe({...action,cue:null});
+    assert.strictEqual(session.getSnapshot(),reaction,"later turns cannot replace the second line");
+  }
+  assert.equal(updates,2);
+  // A later fight can speak again, and unused reactions are still available.
+  const nextFight=createMonsterSpeechSession(rotation);
+  const nextOpening={...context,room:13,cueId:20};
+  nextFight.observe(nextOpening);
+  assert.equal(nextFight.getSnapshot()?.line,untouched.pick(nextOpening)?.line);
+  const nextHit={...hit,room:13,cueId:21};
+  nextFight.observe(nextHit);
+  assert.equal(nextFight.getSnapshot()?.line,untouched.pick(nextHit)?.line);
+  for(const stage of ["storm","miss","critical","potion","revive","wounded"] as SpeechStage[]) {
+    assert.deepEqual(rotation.pick(forStage(stage,0)),untouched.pick(forStage(stage,0)));
+  }
+  session.observe({...hit,phase:"loot",hp:0});
+  assert.equal(session.getSnapshot(),null,"the cap never prevents death cleanup");
+});
+
 test("killing blows and postcombat stay silent", () => {
   const defeatedPhases = ["combat", "loot", "recovery", "reward", "won", "lost"] as const;
   const killingCues = ["attack", "storm", "critical"] as const;

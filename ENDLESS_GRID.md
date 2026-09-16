@@ -97,6 +97,9 @@ boss cadence, relic rules and respective randomness authorities.
   across rooms/new runs during the same page visit, with no adjacent repeat
   at a deck boundary. Bounded in-memory history resets on a full reload and
   uses no storage, tracking or gameplay RNG.
+  Each fight is limited to one opening and one reaction to the first surviving
+  combat action. Later actions remain silent and do not spend unseen deck lines.
+  A new keyed room receives a fresh allowance; expiry never replenishes it.
   Speech is selected after a committed combat event. Repeated renders and
   clearing a short combat-animation cue cannot draw another line or restart
   the 4.2-second lifetime. Initial server rendering stays silent rather than
@@ -152,7 +155,7 @@ boss cadence, relic rules and respective randomness authorities.
   the wagon each use their own floor position for this ordering. Damage and
   healing feedback remain visible above the actors.
   Reduced-motion settings skip the entrance animation. Walk to him or use
-  **Visit Kevin**. His shop shows the complete original rectangular painting,
+  **Visit Kevin**. His shop shows the complete original rectangular painting, mirrored horizontally,
   including the character, wagon and surroundings, with current
   HP, gold, potion count, weapon and armor above the purchase controls.
 - The original monster illustration opens at fresh combat for two seconds after

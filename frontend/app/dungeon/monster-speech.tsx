@@ -77,11 +77,13 @@ export function createMonsterSpeechRotation() {
   };
 }
 
-/** Observe committed events once. Transient effects/HP refreshes cannot draw
- * a new line or reset its lifetime. The store has no background work or timer. */
+/** One opening and one reaction per fight. The room owns this session;
+ * transient effects/HP refreshes cannot replenish its two dialogue slots.
+ * The store has no background work or timer. */
 export function createMonsterSpeechSession(rotation=createMonsterSpeechRotation()) {
   let snapshot: SpeechSnapshot | null=null;
   let lastEvent: string | null=null;
+  const spoken=new Set<"opening" | "reaction">();
   const listeners=new Set<() => void>();
   return {
     getSnapshot: () => snapshot,
@@ -92,11 +94,16 @@ export function createMonsterSpeechSession(rotation=createMonsterSpeechRotation(
         if (snapshot) { snapshot=null; listeners.forEach(listener => listener()); }
         return;
       }
-      if (!speechPool(context)) return;
+      const pool=speechPool(context);
+      if (!pool) return;
+      const slot=pool.stage === "opening" ? "opening" : "reaction";
+      // Suppressed events must not consume unseen lines from the shared deck.
+      if (spoken.has(slot)) return;
       const id=speechEvent(context);
       if (id === lastEvent) return;
       lastEvent=id;
       const next=rotation.pick(context);
+      if (next) spoken.add(slot);
       snapshot=next ? {...next,id} : null;
       listeners.forEach(listener => listener());
     },
