@@ -11,6 +11,7 @@ import { DungeonScene, getEnemyArt, type RoomActions, type RoomView } from "./sc
 import { ShopKeeper, ShopVitals } from "./shop-vitals";
 import { InventoryPotions, type SafePotionAction } from "./inventory-potions";
 import { RoomParchments } from "./room-parchments";
+import { useRoomSidebar } from "./use-room-sidebar";
 import "../descent/game.css";
 import "../descent/combat-panel.css";
 import "../descent/monster-reveal.css";
@@ -47,13 +48,15 @@ export type EndlessRoomProps = {
 export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescription, maxHp, gold, potions, roomTurns,
   incoming, combatActions, combatPotions, healAction, safePotion, shop, relics, reward, notices, menu, feedback, log, sound }: EndlessRoomProps) {
   const [panel, setPanel] = useState<{ room: number; kind: "menu" | "shop" | "relics" | "log" | "status" } | null>(null);
+  const sidebarControls = useRoomSidebar();
   const dialog = useRef<HTMLDialogElement>(null), rewardDialog = useRef<HTMLDialogElement>(null);
   const art = getEnemyArt(view.enemy, view.room);
   const combat = view.phase === "combat", recovery = view.phase === "recovery";
   const safeHealing = view.enemyHp === 0 && (view.phase === "loot" || recovery);
+  const merchantAvailable = safeHealing && Boolean(shop);
   const recoveryPotion = safeHealing && safePotion ? <div className="recovery-heal dungeon-recovery-controls"><InventoryPotions potions={potions} {...safePotion}
     disabledReason={view.pending ? "Finish the current action first." : safePotion.disabledReason ?? (view.hp >= maxHp ? "HP is already full." : null)} /></div> : null;
-  const activePanel = panel?.room === view.room && (panel.kind !== "shop" || recovery) ? panel.kind : null;
+  const activePanel = panel?.room === view.room && (panel.kind !== "shop" || merchantAvailable) ? panel.kind : null;
   const open = (kind: NonNullable<typeof panel>["kind"]) => setPanel({ room: view.room, kind });
   const relicButton = recovery && relics
     ? <button type="button" className="dungeon-relic-menu" onClick={() => open("relics")} aria-label="Open relic collection">◆ Relics</button>
@@ -70,6 +73,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
   const report = feedback ?? { title, detail };
   const tier = Math.ceil(view.room / 10), inTier = (view.room - 1) % 10 + 1;
   const health = <div className="descent-meter" role="progressbar" aria-label="Your health" aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={view.hp}><span style={{ width: `${Math.max(0, Math.min(100, view.hp / maxHp * 100))}%` }} /></div>;
+  const combatDock = combat && <div className="descent-actions descent-practice-controls" data-keyboard-action-scope aria-busy={view.pending}>{health}{combatActions}</div>;
   const soundButton = <button className="descent-mobile-sound" onClick={sound.toggleSound} disabled={!sound.available} aria-label={soundLabel} aria-pressed={sound.enabled}>{sound.enabled ? "♫" : "♪"}<span>{sound.paused && sound.enabled ? "Resume" : sound.enabled ? "On" : "Off"}</span></button>;
 
   useEffect(() => {
@@ -106,16 +110,18 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
     <div className="descent-room-heading"><div><p className="descent-kicker">{mode === "practice" ? "PRACTICE" : "ONCHAIN"} · TIER {tier}</p><h1>Room {view.room} · {view.enemyName}</h1></div><span>Next boss: room {tier * 10}</span></div>
     <div className="descent-layout"><div className="descent-world">
       <DungeonScene key={`${view.seed ?? 0}:${view.room}`} view={view}
-        actions={{ ...actions, merchant: recovery && shop ? () => open("shop") : undefined }} topOverlay={top} footer={footer}
-        roomNotes={<RoomParchments monster={view.enemyHp > 0 ? {name:view.enemyName,role:art.role,description:monsterDescription} : undefined} entries={log} fallback={report.detail} />}
+        actions={{ ...actions, merchant: merchantAvailable ? () => open("shop") : undefined }} topOverlay={top} footer={footer}
+        roomNotes={<RoomParchments monster={view.enemyHp > 0 ? {name:view.enemyName,role:art.role,description:monsterDescription} : undefined}
+          speech={{name:view.enemyName,monsterType:view.enemy,room:view.room,phase:view.phase,cue:view.cue,cueId:view.cueId,roomTurns,hp:view.enemyHp,maxHp:enemyMaxHp,damage:view.damage}} />}
         presentationOverlay={view.phase !== "explore" ? <MonsterReveal enemy={view.enemy} room={view.room} name={view.enemyName} role={art.role} hp={view.enemyHp} maxHp={enemyMaxHp} phase={view.phase} roomTurns={roomTurns} cueId={view.cueId} pending={view.pending} /> : undefined}>
-        {combat && <div className="descent-actions descent-practice-controls" data-keyboard-action-scope aria-busy={view.pending}>{health}{combatActions}</div>}
+        {!sidebarControls && combatDock}
       </DungeonScene>
       {renderReport()}
     </div><aside className="descent-sidebar">
       <section className="descent-enemy-card"><Image src={art.src} alt={view.enemyName} width={art.width} height={art.height} unoptimized className="descent-portrait" /><div><DescentEnemyStatus name={view.enemyName} hp={view.enemyHp} maxHp={enemyMaxHp} incoming={incoming} isBoss={view.enemy === 3} /><p className="descent-subtle">{detail}</p></div></section>
+      {sidebarControls && combatDock}
       {notices && <section className="descent-notice">{notices}</section>}
-      {recovery && shop && <section className="descent-merchant"><h2>Kevin is here.</h2><p>Walk over to his side of the room to trade.</p></section>}
+      {merchantAvailable && <section className="descent-merchant"><h2>Kevin is here.</h2><p>Walk over to his side of the room to trade.</p></section>}
       {recoveryPotion}
       {!recovery && relics && <button className="endless-room-relic-button" onClick={() => open("relics")}>View relic collection</button>}
     </aside></div>

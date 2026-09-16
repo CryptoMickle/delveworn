@@ -34,6 +34,15 @@ const MERCHANT_LEFT_SUPPLIES_OUTLINE =
 const MERCHANT_RIGHT_SUPPLIES_OUTLINE =
   "M1431 789 Q1446 755 1475 749 L1505 731 L1540 747 L1563 724 L1597 731 L1618 770 L1625 878 Q1608 912 1564 916 L1471 904 Q1435 887 1427 846Z";
 
+// The painted sign needs to remain legible when the room wagon turns. The
+// wagon is mirrored, then this original sign board is moved onto its new side
+// without mirroring the lettering.
+const MERCHANT_SIGN_OUTLINE =
+  "M963 469 L1143 481 L1125 706 L938 681Z";
+const MERCHANT_STALL_MIRROR_SUM = 785 + 1640;
+const MERCHANT_SIGN_CENTER_X = (938 + 1143) / 2;
+const MERCHANT_SIGN_TURN_X = MERCHANT_STALL_MIRROR_SUM - 2 * MERCHANT_SIGN_CENTER_X;
+
 function MerchantImage({ clipId, maskId }: { clipId: string; maskId?: string }) {
   return (
     <image
@@ -46,11 +55,12 @@ function MerchantImage({ clipId, maskId }: { clipId: string; maskId?: string }) 
   );
 }
 
-function MerchantCutoutMask({ id }: { id: string }) {
+function MerchantCutoutMask({ id, removeSign = false }: { id: string; removeSign?: boolean }) {
   return (
     <mask id={id} maskUnits="userSpaceOnUse" x={0} y={0} width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT}>
       <rect width={MERCHANT_IMAGE_WIDTH} height={MERCHANT_IMAGE_HEIGHT} fill="white" />
       <path d={MERCHANT_OUTLINE} fill="black" />
+      {removeSign && <path d={MERCHANT_SIGN_OUTLINE} fill="black" />}
     </mask>
   );
 }
@@ -72,12 +82,13 @@ export function MerchantSprite({ className }: { className?: string } = {}) {
 }
 
 /**
- * Kevin's original wagon, readable sign and foreground stock. Keep this layer
- * unmirrored; only MerchantSprite should turn when Kevin changes room sides.
+ * Kevin's original wagon, readable sign and foreground stock. The room may
+ * turn the wagon while the shop portrait keeps the original composition.
  */
-export function MerchantStallSprite({ className }: { className?: string } = {}) {
+export function MerchantStallSprite({ className, turned = false }: { className?: string; turned?: boolean }) {
   const stallId = useId();
   const merchantMaskId = useId();
+  const signId = useId();
 
   return (
     <svg className={className} viewBox="785 8 855 925" aria-hidden="true">
@@ -88,9 +99,19 @@ export function MerchantStallSprite({ className }: { className?: string } = {}) 
           <path d={MERCHANT_LEFT_SUPPLIES_OUTLINE} />
           <path d={MERCHANT_RIGHT_SUPPLIES_OUTLINE} />
         </clipPath>
-        <MerchantCutoutMask id={merchantMaskId} />
+        <clipPath id={signId}>
+          <path d={MERCHANT_SIGN_OUTLINE} />
+        </clipPath>
+        <MerchantCutoutMask id={merchantMaskId} removeSign={turned} />
       </defs>
-      <MerchantImage clipId={stallId} maskId={merchantMaskId} />
+      {turned ? <>
+        <g transform={`translate(${MERCHANT_STALL_MIRROR_SUM} 0) scale(-1 1)`}>
+          <MerchantImage clipId={stallId} maskId={merchantMaskId} />
+        </g>
+        <g transform={`translate(${MERCHANT_SIGN_TURN_X} 0)`}>
+          <MerchantImage clipId={signId} />
+        </g>
+      </> : <MerchantImage clipId={stallId} maskId={merchantMaskId} />}
     </svg>
   );
 }

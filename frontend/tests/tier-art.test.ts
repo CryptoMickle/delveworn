@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import sharp from "sharp";
 import { HIGHER_TIER_ART, type DungeonEnemyArt } from "../app/dungeon/tier-art";
+import { getEnemyArt } from "../app/dungeon/scene";
 import type { MonsterType } from "../app/practice/engine";
 
 const expected = {
@@ -27,13 +28,6 @@ const expected = {
   ],
 } as const satisfies Record<MonsterType, readonly (readonly [string, string, string])[]>;
 
-const expectedRoomHeights = {
-  0: [128, 136, 144],
-  1: [116, 124, 132],
-  2: [156, 166, 176],
-  3: [194, 210, 222],
-} as const satisfies Record<MonsterType, readonly number[]>;
-
 function cropNumbers(art: DungeonEnemyArt) {
   const values = art.crop.split(" ").map(Number);
   assert.equal(values.length, 4, `${art.name} needs a four-number crop`);
@@ -53,7 +47,6 @@ test("higher dungeon tiers use the established Practice personas in tier order",
   for (const type of [0, 1, 2, 3] as const) {
     assert.equal(HIGHER_TIER_ART[type].length, 3, `monster ${type} needs tiers 2, 3, and 4`);
     assert.deepEqual(HIGHER_TIER_ART[type].map(({ name, role, src }) => [name, role, src]), expected[type]);
-    assert.deepEqual(HIGHER_TIER_ART[type].map(({ roomHeight }) => roomHeight), expectedRoomHeights[type]);
   }
   assert.ok(HIGHER_TIER_ART[3].every(art => art.roomHeight <= 225), "boss art must still fit the room floor");
 });
@@ -86,5 +79,36 @@ test("manual crops and outlines stay inside each source without falling back to 
       // height alone is not evidence of retaining a rectangular background.
       assert.ok(Math.max(...xs) - Math.min(...xs) < art.width || Math.max(...ys) - Math.min(...ys) < art.height, `${art.name} must not retain the full painted background`);
     }
+  }
+});
+
+// These are perceived progression guarantees, independent of individual art sizes.
+test("every ten-room tier increases monster size without outgrowing the doorway", () => {
+  for (const type of [0, 1, 2, 3] as const) {
+    let previous = 0;
+    for (let tier = 1; tier <= 100; tier++) {
+      const first = getEnemyArt(type, (tier - 1) * 10 + 1);
+      const last = getEnemyArt(type, tier * 10);
+      assert.ok(first.roomHeight > previous, `monster ${type} must grow at tier ${tier}`);
+      assert.ok(first.roomHeight <= 225, `monster ${type} must fit below the room top`);
+      assert.equal(last.roomHeight, first.roomHeight, "size stays stable during a tier");
+      assert.equal(last.src, first.src, "art stays stable during a tier");
+      if (tier > 4) assert.equal(first.src, getEnemyArt(type, 31).src, "deep tiers reuse original tier-four art");
+      previous = first.roomHeight;
+    }
+  }
+});
+
+test("zombie growth is clearly visible and tier one stays smaller than the player", () => {
+  const heights = [1, 11, 21, 31].map(room => getEnemyArt(0, room).roomHeight);
+  assert.ok(heights[0] <= 120);
+  for (let tier = 1; tier < heights.length; tier++) {
+    assert.ok(heights[tier] - heights[tier - 1] >= 20, "early zombie tiers need a visible step up");
+  }
+  assert.ok(heights[3] / heights[0] >= 1.5, "tier-four zombie must be substantially larger");
+  for (const room of [1, 11, 21, 31, 101]) {
+    assert.ok(getEnemyArt(1, room).roomHeight < getEnemyArt(0, room).roomHeight);
+    assert.ok(getEnemyArt(0, room).roomHeight < getEnemyArt(2, room).roomHeight);
+    assert.ok(getEnemyArt(2, room).roomHeight < getEnemyArt(3, room).roomHeight);
   }
 });

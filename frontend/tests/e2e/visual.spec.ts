@@ -89,6 +89,7 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
       monster: bounds(".dungeon-enemy"),
       monsterName: bounds(".descent-mobile-room, .descent-enemy-card"),
       enemyHp: bounds('.descent-enemy-card [role="progressbar"]'),
+      combatPanel: bounds(".descent-practice-controls"),
       dock: bounds(".practice-action-dock"),
       storm: bounds(".practice-storm-action"),
       attack: bounds(".practice-attack-action"),
@@ -140,6 +141,7 @@ test("capture six representative local experience states", async ({ page }, test
   await restoreFixture(page, { log: ["Grave Belle has noticed your excellent collection of brains."] });
   const combat = await capture(page, testInfo, "combat");
   measurements.combat = combat;
+  await expect(page.getByLabel("Combat actions")).toHaveCount(1);
   await expectRoomLayout(page, combat);
   expect(combat.monster!.height).toBeGreaterThan(0);
   expect(combat.storm!.x).toBeLessThan(combat.attack!.x);
@@ -149,6 +151,10 @@ test("capture six representative local experience states", async ({ page }, test
   if (testInfo.project.name !== "desktop-chromium") {
     expect(combat.monsterName!.bottom).toBeLessThanOrEqual(combat.dock!.y);
     expect(combat.dock!.bottom).toBeLessThanOrEqual(combat.viewport.height + 1);
+  } else {
+    expect(Math.abs(combat.combatPanel!.x - combat.monsterName!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(combat.combatPanel!.width - combat.monsterName!.width)).toBeLessThanOrEqual(1);
+    expect(combat.combatPanel!.y).toBeGreaterThanOrEqual(combat.monsterName!.bottom);
   }
 
   await restoreFixture(

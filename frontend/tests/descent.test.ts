@@ -134,6 +134,58 @@ test("safe potions preserve pending loot and its collect-or-leave balance withou
   assert.ok(isDescent(entered));
 });
 
+test("Kevin trades against held inventory while floor loot remains pending", () => {
+  const started = createDescent(99, "loot-shop");
+  const pendingLoot = { gold: 9, potions: 1, weapon: 0, armor: 0 } as const;
+  const loot = {
+    ...started,
+    revision: 8,
+    game: {
+      ...started.game,
+      roomsCleared: 5,
+      monsterType: 1 as const,
+      monsterHp: 0,
+      hp: 50,
+      gold: 40,
+      potions: 2,
+      lastLootType: 1 as const,
+      lastLootAmount: 1,
+    },
+    pendingLoot,
+  };
+  assert.equal(phase(loot), "loot");
+  assert.ok(isDescent(loot));
+
+  const shopped = transition(loot, "supply-bandage");
+  assert.equal(phase(shopped), "loot");
+  assert.equal(shopped.game.hp, 75);
+  assert.equal(shopped.game.gold, 20, "the purchase uses only gold already held");
+  assert.equal(shopped.game.potions, 2, "pending potions remain on the floor");
+  assert.strictEqual(shopped.pendingLoot, pendingLoot, "shopping does not collect or replace floor loot");
+  assert.equal(shopped.revision, loot.revision + 1);
+  assert.equal(shopped.rngState,loot.rngState,"shopping does not draw combat randomness");
+  assert.equal(shopped.turns,loot.turns,"shopping does not spend a combat turn");
+  assert.equal(shopped.roomTurns,loot.roomTurns,"shopping does not spend a room turn");
+  assert.ok(isDescent(shopped),"the purchase remains a valid save while loot waits");
+
+  const poor={...loot,game:{...loot.game,gold:15}};
+  assert.strictEqual(transition(poor,"supply-bandage"),poor,"pending floor gold cannot finance a purchase");
+  const combat={...loot,pendingLoot:null,engaged:true,game:{...loot.game,monsterHp:10}};
+  assert.equal(phase(combat),"combat");
+  assert.strictEqual(transition(combat,"supply-bandage"),combat,"Kevin remains unavailable during combat");
+
+  const collected = transition(shopped, "collect");
+  assert.equal(collected.game.gold, 29);
+  assert.equal(collected.game.potions, 3);
+  assert.equal(collected.pendingLoot, null);
+
+  const bypassed = transition(shopped, "enter");
+  assert.equal(phase(bypassed), "explore");
+  assert.equal(bypassed.game.gold, 20, "the doorway still forfeits pending gold");
+  assert.equal(bypassed.game.potions, 2, "the doorway still forfeits pending items");
+  assert.equal(bypassed.pendingLoot, null);
+});
+
 test("safe potion guards reject stale, full-health, empty-stock and unsafe-phase actions", () => {
   const combat = transition(createDescent(99, "potion-guards"), "engage");
   const killed = transition({ ...combat, game: { ...combat.game, hp: 50, monsterHp: 1, potions: 1 } }, "attack");

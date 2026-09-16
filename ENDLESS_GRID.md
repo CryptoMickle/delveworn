@@ -20,13 +20,21 @@ boss cadence, relic rules and respective randomness authorities.
   Potion; each physical press resolves at most one action. In Kevin's shop,
   arrows move between its buttons and Enter activates the selected button;
   movement and combat shortcuts remain paused while the dialog is open.
+- On desktop, compact combat controls sit in the right sidebar directly below
+  the monster card: Storm left, Attack right, Potion beneath. Player/enemy HP,
+  damage ranges, potion stock and encounter limits stay in the panel. Phones
+  keep the controls inside the room. Only one live action panel is mounted;
+  changing the viewport neither duplicates actions nor advances the game.
 - Click or tap empty floor to walk there, including during combat. Another
   floor click retargets the walk immediately. This changes only presentation:
   it does not spend a turn, heal, dodge an attack or consume randomness.
 - The avatar faces left/right on even subpixel steps and uses the matching
   rear/front view when moving north/south. The same hooded character is retained.
-  The legs alternate during movement and return to the original standing pose
-  on arrival, release or pause. Reduced-motion settings keep the legs still.
+  The exposed leg swings from the hip, including thigh, knee and boot; the
+  cape-side visible lower leg takes a smaller opposite step. The painted upper
+  body and cape stay steady. The
+  original standing pose returns on arrival, release or pause. Reduced-motion
+  settings keep the legs still.
 - Opening a menu/dialog cancels the current walk, including click-to-walk.
   Closing it does not restart the cancelled trip.
 - After victory, tap the loot in the grid for automatic pickup on arrival, or
@@ -48,30 +56,44 @@ boss cadence, relic rules and respective randomness authorities.
   and pending actions disable healing;
   floor loot and room turns are preserved. **Relics** has its own header button
   during recovery, and **Enter room** uses the original orange action style.
-  **Menu** also retains recovery healing. Combat controls keep their positions.
+  **Menu** also retains recovery healing.
 - There is no sustained exploration drone. Short action/character/outcome
   effects and the boss score retain their existing sound controls.
-- Monster notes appear on parchment at the top right of the room; recent
-  existing dungeon-log remarks appear on a second parchment at the bottom
-  right. They take no pointer input, do not change room size, and sit beneath
-  the timed monster artwork. Phones show a compact excerpt; the full log
-  remains available. The cosmetic armor ring over the avatar is removed.
+- Monster notes remain on parchment at the top right of the room. The old
+  bottom-right "Dungeon remarks" parchment is removed. Short speech bubbles
+  next to the enemy contain direct spoken lines from that monster or boss,
+  selected from its persona and the confirmed combat outcome. A line disappears
+  after 4.2 seconds; ordinary rerenders and loot pickup do not restart its timer.
+  Speech uses no randomness and does not alter the saved combat log. Neither
+  notes nor speech take pointer input or change room size. The full log remains
+  available. The cosmetic armor ring over the avatar is removed.
   The notes use IM Fell English, served with the app through the existing font
   pipeline, with book-serif fallbacks and slightly larger mobile text.
 - The tier-two goblin is **Gribnob the Unqualified**; **Quartermaster Kevin**
   remains the merchant. Every monster uses its original painting, with its
-  own traced silhouette; bitmap files and tier heights are unchanged.
+  own traced silhouette; bitmap files are unchanged.
   Gold has three stack silhouettes using the original Delveworn coin face:
   1–9 gold is one short stack, 10–24 is two stacks, and 25+ is three stacks.
   The label continues to report the exact reward.
 - Practice and onchain continue through rooms 11, 21, 31, 41 and beyond. The
   original four sets of monster artwork follow the ten-room tier cadence;
-  the fourth artwork set continues in deeper tiers. Difficulty continues to
-  follow the existing engine/contract; art selection creates no room cap.
-- Kevin enters through the north door at existing supply/camp stops and walks
-  to one fixed upper-left position, adjusted to the visible mobile floor.
-  He turns inward there. His original wagon, stock and no-refunds sign travel
-  with him; the wagon is never mirrored, so the lettering stays readable.
+  the fourth artwork set continues in deeper tiers. All monsters grow with each
+  tier. Zombies have a clear 120 → 144 → 168 → 190 room-unit progression over
+  tiers 1–4. Later tiers grow gradually toward species-specific limits, keeping
+  every monster below the doorway's 225-unit height limit. Tier-one actors stay
+  small. Difficulty follows the existing engine/contract; visual size changes
+  do not change stats, hit targets, randomness or the room cap.
+- Kevin enters through the north door immediately after victory at existing
+  supply/camp stops, while loot is still on the floor, and walks to one fixed
+  upper-left position adjusted to the visible mobile floor. You may trade before
+  collecting loot; purchases spend only gold already held. Shopping leaves the
+  floor reward intact, and door arrival can still leave it behind. Picking up
+  loot neither restarts Kevin's walk nor remounts him.
+  He stands on the right/inward side of his turned wagon. The original wagon,
+  stock and no-refunds sign travel with him; the sign's lettering stays readable.
+  Characters are drawn in floor-depth order: walking behind Kevin or his wagon
+  places the avatar behind them, including during Kevin's entrance. Damage and
+  healing feedback remain visible above the actors.
   Reduced-motion settings skip the entrance animation. Walk to him or use
   **Visit Kevin**. His shop shows the complete original rectangular painting,
   including the character, wagon and surroundings, with current

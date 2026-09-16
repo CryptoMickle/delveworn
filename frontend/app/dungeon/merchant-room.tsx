@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { MERCHANT_ROOM_ART_LAYOUT, MerchantSprite, MerchantStallSprite } from "./merchant-art";
 import { isRoomPoint, movementFacing, startRoomWalk, type Facing, type Point } from "./movement";
 
-const MERCHANT_ENTRY = { x: 450, y: 92 } as const;
+export const MERCHANT_ENTRY = { x: 450, y: 92 } as const;
 
 type RoomMerchantProps = {
   destination: Point;
   actorScale: number;
   onArrivalChange?: (arrived: boolean) => void;
+  onPositionChange?: (position: Point) => void;
 };
 
 /** Coordinates two independent walks and consumes each trade intent once. */
@@ -36,7 +37,7 @@ export function createMerchantArrivalGate() {
 }
 
 /** Kevin and his wagon enter together, then he turns inward at the shop spot. */
-export function RoomMerchant({ destination, actorScale, onArrivalChange }: RoomMerchantProps) {
+export function RoomMerchant({ destination, actorScale, onArrivalChange, onPositionChange }: RoomMerchantProps) {
   const destinationX = destination.x;
   const destinationY = destination.y;
   const [position, setPosition] = useState<Point>(MERCHANT_ENTRY);
@@ -53,6 +54,7 @@ export function RoomMerchant({ destination, actorScale, onArrivalChange }: RoomM
     if (!isRoomPoint(target)) return;
 
     const from = currentPosition.current;
+    onPositionChange?.(from);
     const reducedMotion = typeof window.matchMedia === "function"
       && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -61,6 +63,7 @@ export function RoomMerchant({ destination, actorScale, onArrivalChange }: RoomM
       queueMicrotask(() => {
         if (!active) return;
         currentPosition.current = target;
+        onPositionChange?.(target);
         setPosition(target);
         setFacing("right");
         setArrived(true);
@@ -79,6 +82,7 @@ export function RoomMerchant({ destination, actorScale, onArrivalChange }: RoomM
         setArrived(false);
       }
       currentPosition.current = next;
+      onPositionChange?.(next);
       setPosition(next);
     }, () => {
       if (!active) return;
@@ -95,11 +99,12 @@ export function RoomMerchant({ destination, actorScale, onArrivalChange }: RoomM
       onArrivalChange?.(false);
       if (stopWalk.current === stop) stopWalk.current = null;
     };
-  }, [destinationX, destinationY, onArrivalChange]);
+  }, [destinationX, destinationY, onArrivalChange, onPositionChange]);
 
   return (
     <g
       className="dungeon-merchant"
+      data-room-depth-actor="merchant"
       data-merchant-facing={facing}
       data-merchant-destination={`${destinationX},${destinationY}`}
       data-merchant-position={`${position.x},${position.y}`}
@@ -110,13 +115,13 @@ export function RoomMerchant({ destination, actorScale, onArrivalChange }: RoomM
     >
       <ellipse cx="0" cy="1" rx="42" ry="12" fill="#000" opacity=".55" />
       <svg
-        x={MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.left}
+        x={MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right}
         y={MERCHANT_ROOM_ART_LAYOUT.stall.y}
         width={MERCHANT_ROOM_ART_LAYOUT.stall.width}
         height={MERCHANT_ROOM_ART_LAYOUT.stall.height}
         overflow="visible"
       >
-        <MerchantStallSprite />
+        <MerchantStallSprite turned />
       </svg>
       <g transform={`scale(${facing === "right" ? -1 : 1} 1)`}>
         <svg

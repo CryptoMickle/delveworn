@@ -1,3 +1,5 @@
+@import "./monster-speech.css";
+
 .dungeon-scene-notes { position:absolute; inset:0 0 auto; aspect-ratio:3/2; z-index:1; pointer-events:none; }
 .room-parchments {
   --parchment-book-font:var(--font-parchment,Palatino),"Palatino Linotype","Book Antiqua",Georgia,serif;
@@ -18,20 +20,15 @@
 }
 .room-parchment::before { content:""; position:absolute; inset:5px; border:1px solid #98703a50; pointer-events:none; }
 .room-parchment-monster { top:12px; transform:rotate(1deg); }
-.room-parchment-humor { bottom:12px; transform:rotate(-1deg); }
 .room-parchment .room-parchment-label { margin:0 0 6px; color:#785631; font:700 10px/1.2 var(--parchment-book-font); font-variant-caps:small-caps; letter-spacing:.08em; }
 .descent-shell .room-parchment h2 { margin:0 0 7px; color:#352316; font:400 clamp(15px,1.7vw,20px)/1.12 var(--parchment-book-font); letter-spacing:.015em; }
 .room-parchment .room-parchment-copy { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; margin:0; }
-.room-parchment-humor .room-parchment-copy + .room-parchment-copy { margin-top:7px; padding-top:7px; border-top:1px solid #9b753d55; }
-.room-parchment-humor .room-parchment-copy { -webkit-line-clamp:2; font-style:italic; }
 .descent-monster-reveal.is-collapsed { justify-content:flex-start; }
 @media(max-width:760px) {
   .has-room-hud > .dungeon-scene-notes { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); aspect-ratio:auto; }
   .room-parchment { right:7px; width:34%; min-width:110px; max-height:35%; padding:9px 10px; font-size:10.5px; line-height:1.34; }
   .room-parchment-monster { top:7px; }
-  .room-parchment-humor { bottom:7px; }
   .room-parchment .room-parchment-label { margin-bottom:4px; font-size:8px; letter-spacing:.055em; }
   .descent-shell .room-parchment h2 { margin-bottom:4px; font-size:12px; }
   .room-parchment .room-parchment-copy { -webkit-line-clamp:3; }
-  .room-parchment-humor .room-parchment-copy + .room-parchment-copy { display:none; }
 }

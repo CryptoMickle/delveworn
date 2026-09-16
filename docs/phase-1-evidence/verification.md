@@ -1,8 +1,78 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — room controls, walking avatar and parchment typography
+## Current correction — compact combat, room depth, tier growth and monster dialogue
 
-### Current protected review preview
+### Implemented behavior
+
+- Desktop combat controls sit directly below the enemy card: compact Storm left,
+  Attack right and Potion underneath, retaining HP, damage and inventory data.
+  Phones retain their in-room controls. Only one action panel is mounted;
+  viewport changes preserve the scene and cannot dispatch a combat action.
+- Kevin stands inward/right of the turned wagon, whose original sign remains
+  readable. The entire pair fits the visible mobile floor. He enters immediately
+  on victory at eligible supply/camp stops, before loot pickup. Trading spends
+  held gold only; pending floor loot survives purchases and closing the shop,
+  and may still be left through the door. Pickup does not restart his entrance.
+- Enemy, loot, merchant and player are drawn in floor-foot-Y order. Kevin reports
+  his moving position, so crossings during his entrance use actual depth. Stable
+  React keys keep his entrance and arrival gate intact when ordering changes.
+  Damage and healing feedback remain above actors.
+- All monster types grow on each ten-room tier. Zombie room heights for tiers
+  1–4 are 120, 144, 168 and 190; tier one remains small. Deeper runs reuse the
+  fourth original art set and grow gradually within species-specific limits,
+  all below 225 room units. Combat stats and randomness are unchanged.
+- The bottom-right Dungeon remarks parchment is removed. The monster/boss
+  speaks short, attributed lines in a speech bubble, selected from its persona
+  and confirmed combat outcome. Lines last 4.2 seconds; pending rerenders and
+  loot collection do not restart the timer. The top monster field notes and
+  full dungeon log remain. The bubble takes no pointer input.
+- The exposed avatar leg has a full hip/thigh swing; the cape-side visible
+  lower leg takes a smaller opposite step. Both contain actual painted image
+  sections. The hidden upper thigh cannot be articulated from the original
+  raster without inventing covered anatomy, so the cape stays intact and still.
+  Idle and reduced-motion poses remain still. Both views and stride extremes
+  were inspected as static SVG illustrations at source and room scale; the
+  temporary renderer approximates alpha filtering, not browser compositing.
+
+### Verification evidence
+
+- [Monster size progression](monster-growth-review.png) compares all sixteen
+  original cutouts at the actual room scale. This static SVG/art review verifies
+  the relative sizes and silhouettes; it is not a browser screenshot.
+- **178 automated tests passed, zero failed/skipped.** ESLint reports zero
+  errors and the same 14 existing warnings. Whitespace checks pass.
+- The three existing frontend build configurations all passed locally, including
+  TypeScript: RISE compatibility, Somnia session keys and Somnia standard.
+  This is local CI-equivalent validation; no Git push or remote CI run occurred.
+- Mounted no-DOM probes pass desktop/mobile control placement with one action
+  set, preserved scene identity and no action on resize; live merchant depth,
+  stable identity, early shop visit, held-gold purchases and intact pending loot;
+  stable speech lifetime through rerenders and pickup; both real painted leg
+  layers, facing and movement cleanup. Floor clicks, continuous WASD, door
+  crossing, keyboard/modal navigation, safe potions and loot bypass also pass.
+- **220 browser scenarios in 11 files discovered, not executed.** Existing
+  responsive-control and merchant-layout expectations were updated. Browser/
+  device QA remains blocked by the previously reported automatic approval-review
+  administration policy. No alternate browser or access-protection bypass was
+  used. Actual animation smoothness and responsive layout need device review.
+
+Changed source: `descent/game.tsx`, `model.ts`, `combat-panel.css`; shared
+`dungeon/endless-room.tsx`, `use-room-sidebar.ts`, `scene.tsx`, `tier-art.ts`,
+`avatar-art.tsx/.css`, `merchant-art.tsx`, `merchant-room.tsx`,
+`room-parchments.tsx/.css`, `monster-speech.tsx/.css`; `practice/page.tsx`.
+Regression coverage: `descent.test.ts`, `dungeon-scene.test.ts`,
+`room-depth.test.ts`, `tier-art.test.ts`, `monster-speech.test.tsx`, and existing
+`e2e/descent.spec.ts`/`visual.spec.ts`. Documentation: `ENDLESS_GRID.md`, the
+phase status/evidence records, and the static monster-growth review above.
+
+Status: **review preview; not production-approved**. First external test should
+play Practice to room 5 on iPhone and desktop, trade before pickup, walk behind
+Kevin, then leave loot through the door. Continue into tier 2 to compare monster
+size and confirm speech, controls and walking at normal play speed.
+
+## Previous correction — room controls, walking avatar and parchment typography
+
+### Previous protected review preview
 
 - Source `1b43ad09b3c3f4400c2cf4ca2859f44adf47277a`; deployment
   `dpl_5BPmzPxTEy4G8bTSQBJtjXcTbKY5`: **READY**, preview target.

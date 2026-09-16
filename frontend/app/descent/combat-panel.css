@@ -200,6 +200,45 @@
   color: #a7f3d0;
 }
 
+/* The same controls sit below the monster portrait when the sidebar is visible. */
+@media (min-width: 761px) {
+  .descent-sidebar > .descent-practice-controls {
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid #89673e;
+    border-radius: 9px;
+    background: #151018;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .descent-sidebar .practice-combat-vitals { gap: 6px; font-size: 10px; }
+  .descent-sidebar .practice-combat-vitals strong { font-size: 13px; }
+  .descent-sidebar .delveworn-combat-exchange { min-height: 24px; font-size: 10px; }
+  .descent-sidebar .delveworn-combat-exchange b { margin-left: 3px; font-size: 12px; }
+
+  .descent-sidebar .practice-combat-actions button {
+    min-height: 72px;
+    padding: 7px 5px;
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+  }
+  .descent-sidebar .practice-combat-actions button > p:first-child { font-size: 13px; }
+  .descent-sidebar .practice-combat-actions button > p:nth-child(2) { margin-top: 3px; font-size: 11px; }
+  .descent-sidebar .practice-combat-actions button kbd { margin-left: 2px; padding: 0 3px; font-size: 9px; }
+  .descent-sidebar .practice-action-description { margin-top: 3px; font-size: 10px; line-height: 1.25; }
+  .descent-sidebar .practice-action-relic { margin-top: 4px; padding: 3px; font-size: 9px; line-height: 1.25; }
+
+  .descent-sidebar .practice-combat-actions .practice-potion-action { min-height: 52px; padding: 6px 7px; }
+  .descent-sidebar .practice-potion-action > div { grid-template-columns: auto minmax(0,1fr); column-gap: 8px; }
+  .descent-sidebar .practice-potion-action > div > p:first-child { font-size: 12px; }
+  .descent-sidebar .practice-potion-action .practice-potion-description,
+  .descent-sidebar .practice-potion-action > div > div { font-size: 10px; line-height: 1.3; }
+  .descent-sidebar .descent-practice-busy-enemy { top: 17px; right: 12px; font-size: 10px; }
+  .descent-sidebar .descent-practice-busy-enemy strong { font-size: 13px; }
+  .descent-sidebar .descent-practice-busy-enemy em { display: none; }
+}
+
 @media (max-width: 760px) {
   .descent-practice-controls {
     height: 242px;

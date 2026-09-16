@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { getRelicDefinition } from "../relics";
 import type { LootType, MonsterType } from "../practice/engine";
 import { createRoomSteering, isRoomPoint, movementFacing, movementOrientation, roomLootPoint, roomMovementKey, startRoomWalk, type Facing, type Orientation, type Point } from "./movement";
-import { HIGHER_TIER_ART, type DungeonEnemyArt } from "./tier-art";
+import { HIGHER_TIER_ART, deepTierRoomHeight, type DungeonEnemyArt } from "./tier-art";
 import { MERCHANT_ROOM_ART_LAYOUT } from "./merchant-art";
-import { createMerchantArrivalGate, RoomMerchant } from "./merchant-room";
+import { createMerchantArrivalGate, MERCHANT_ENTRY, RoomMerchant } from "./merchant-room";
 import { GoldLootSprite } from "./gold-loot-art";
 import { AvatarSprite } from "./avatar-art";
 export { AvatarSprite } from "./avatar-art";
@@ -29,6 +29,14 @@ function canWalk(view: RoomView) {
 }
 type WalkGoal = { target: Point; destination?: "enemy" | "door" | "merchant" | "loot" };
 export type RoomActions = { approach: () => void; enter: (leaveLoot?: boolean) => void; collect?: () => void; skipLoot?: () => void; merchant?: () => void; interact?: () => void };
+export type RoomDepthActor<T = ReactNode> = { id: string; footY: number; content: T };
+
+/** SVG paints smaller foot coordinates first so actors farther north stay behind. */
+export function orderRoomDepthActors<T>(actors: readonly RoomDepthActor<T>[]): RoomDepthActor<T>[] {
+  return actors.map((actor,index) => ({actor,index}))
+    .sort((a,b) => a.actor.footY-b.actor.footY || a.index-b.index)
+    .map(({actor}) => actor);
+}
 export const ENEMY_ART = [
   { name: "Grave Belle", role: "Zombie", src: "/monsters/zombie-1-grave-belle.webp", width: 1672, height: 941, roomHeight: 120,
     crop: "580 35 465 760", outline: "M744 61 C759 36 782 45 799 47 L820 49 839 58 852 70 879 82 871 82 861 78 868 96 883 106 897 103 888 113 877 116 898 124 916 143 922 166 914 158 911 148 913 172 925 168 918 177 906 171 895 151 884 144 894 161 900 180 894 198 886 187 875 198 860 192 852 200 867 211 888 205 904 208 914 220 922 239 927 258 935 273 944 284 937 286 941 301 946 306 951 328 960 345 965 365 976 368 976 390 981 411 985 440 995 457 1009 468 1025 475 1033 479 1037 493 1036 509 1034 519 1027 525 1027 507 1021 491 1010 488 1015 500 1017 513 1012 527 1013 534 1006 538 1003 533 1004 520 1000 508 987 497 976 490 969 496 969 505 974 514 971 524 965 522 959 511 956 500 958 487 959 476 953 462 953 444 949 419 942 409 938 389 930 379 927 357 915 330 905 316 897 297 890 285 894 312 890 335 887 347 893 362 899 366 905 383 910 393 919 405 920 419 931 440 934 458 940 473 938 493 942 521 951 543 948 559 943 547 936 542 938 568 930 558 926 547 919 548 919 530 907 554 905 582 921 591 936 609 949 630 951 644 963 656 966 672 978 687 989 695 999 688 1006 697 1007 712 1001 730 1000 749 1005 761 1004 774 997 781 980 784 947 783 933 781 929 773 934 761 947 750 956 733 958 717 949 704 948 693 934 680 920 665 909 659 895 640 878 627 860 613 851 599 847 582 846 557 847 533 837 552 829 544 821 566 816 561 811 590 806 581 811 558 806 540 799 544 791 540 781 554 770 577 752 598 731 615 712 632 700 651 686 681 673 696 665 721 657 741 652 752 658 767 658 781 649 786 627 787 608 784 592 780 589 772 595 755 602 740 611 723 615 702 621 687 627 658 637 628 644 610 651 589 661 574 674 572 688 558 698 538 709 514 711 503 721 484 727 466 715 469 729 452 743 435 757 418 771 409 777 391 782 377 792 358 789 347 782 336 778 326 765 315 758 304 748 315 738 330 729 341 721 353 712 360 703 365 695 374 684 380 673 379 669 386 674 397 686 411 686 421 692 433 695 443 688 447 683 440 681 430 674 424 667 426 656 446 650 455 650 464 657 467 653 472 646 469 646 477 650 479 650 486 641 481 635 474 629 471 626 460 619 457 616 449 620 437 627 427 631 409 636 395 639 377 649 368 650 352 664 332 683 327 699 314 713 302 713 294 722 284 721 276 735 268 740 249 749 232 761 223 777 217 760 211 743 214 731 225 720 241 716 238 722 232 717 222 708 219 705 231 700 226 700 214 693 201 687 214 689 222 682 219 681 207 687 191 694 176 682 189 680 197 675 182 678 162 691 140 687 136 675 133 669 126 681 130 690 121 695 99 711 84 728 68 Z" },
@@ -41,8 +49,9 @@ export const ENEMY_ART = [
 ] as const;
 
 export function getEnemyArt(type: MonsterType, room = 1): DungeonEnemyArt {
-  const tier = Math.max(0, Math.min(3, Math.floor((room - 1) / 10)));
-  return tier === 0 ? ENEMY_ART[type] : HIGHER_TIER_ART[type][tier - 1];
+  const tier = Math.max(1, Math.floor((room - 1) / 10) + 1);
+  const art = tier === 1 ? ENEMY_ART[type] : HIGHER_TIER_ART[type][Math.min(4, tier) - 2];
+  return tier <= 4 ? art : { ...art, roomHeight: deepTierRoomHeight(type, art.roomHeight, tier) };
 }
 
 export function EnemySprite({ type, room = 1, className }: { type: MonsterType; room?: number; className?: string }) {
@@ -82,27 +91,34 @@ export function clampRoomPoint(point: Point, cleared: boolean, bounds = {minX:17
   return { x, y: Math.max(northEdge, Math.min(505, point.y)) };
 }
 
-export function roomMerchantPoint(bounds = {minX:170,maxX:733}): Point {
-  return {x:bounds.minX,y:270};
+type RoomMerchantBounds = {actorScale?: number; minX: number; maxX: number};
+
+export function roomMerchantPoint(bounds: RoomMerchantBounds = {actorScale:1,minX:170,maxX:733}): Point {
+  const scale=bounds.actorScale ?? 1;
+  // The final inward-facing composition puts the wagon to Kevin's left.
+  // Anchor Kevin far enough inside the camera to keep the whole pair visible.
+  const stallLeft=-MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right;
+  const personRight=MERCHANT_ROOM_ART_LAYOUT.person.x+MERCHANT_ROOM_ART_LAYOUT.person.width;
+  return {x:Math.min(bounds.maxX-personRight*scale,bounds.minX+stallLeft*scale),y:270};
 }
 
-export function roomMerchantApproach(merchant: Point): Point {
-  return {x:merchant.x+(merchant.x < 450 ? 48 : -48),y:merchant.y+36};
+export function roomMerchantApproach(merchant: Point, bounds: RoomMerchantBounds = {minX:170,maxX:733}): Point {
+  return {x:Math.max(bounds.minX,Math.min(bounds.maxX,merchant.x+48)),y:merchant.y+36};
 }
 
-export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType, lootPoint?: Point, merchantPoint?: Point, room = 1): { point: Point; destination?: "enemy" | "door" | "loot" | "merchant" } {
+export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType, lootPoint?: Point, merchantPoint?: Point, room = 1, merchantBounds?: RoomMerchantBounds): { point: Point; destination?: "enemy" | "door" | "loot" | "merchant" } {
   const door = inDoorLane(point) && point.y <= 130;
   const guard = Math.abs(point.x - GUARD.x) < 90 && point.y >= GUARD.y - getEnemyArt(enemy,room).roomHeight - 15 && point.y <= GUARD.y + 25;
   if (!cleared && (door || guard)) return { point: STAGING, destination: "enemy" };
   const lootImage = lootPoint && Math.abs(point.x-lootPoint.x) <= 45 && point.y >= lootPoint.y-80 && point.y <= lootPoint.y+25;
-  const merchantSide = merchantPoint && merchantPoint.x < 450 ? "left" : "right";
   const stall = MERCHANT_ROOM_ART_LAYOUT.stall;
-  const merchantLeft = Math.min(-52,stall.xByOuterSide[merchantSide]);
-  const merchantRight = Math.max(52,stall.xByOuterSide[merchantSide]+stall.width);
-  const merchantHit = merchantPoint && point.x >= merchantPoint.x+merchantLeft && point.x <= merchantPoint.x+merchantRight && point.y >= merchantPoint.y+stall.y && point.y <= merchantPoint.y+22;
+  const merchantScale=merchantBounds?.actorScale ?? 1;
+  const merchantLeft=Math.min(MERCHANT_ROOM_ART_LAYOUT.person.x,stall.xByOuterSide.right);
+  const merchantRight=Math.max(MERCHANT_ROOM_ART_LAYOUT.person.x+MERCHANT_ROOM_ART_LAYOUT.person.width,stall.xByOuterSide.right+stall.width);
+  const merchantHit = merchantPoint && point.x >= merchantPoint.x+merchantLeft*merchantScale && point.x <= merchantPoint.x+merchantRight*merchantScale && point.y >= merchantPoint.y+stall.y*merchantScale && point.y <= merchantPoint.y+24*merchantScale;
   if (cleared && door) return { point: DOOR, destination: "door" };
   if (cleared && lootPoint && (lootImage || nearRoomLoot(point,lootPoint))) return { point: lootPoint, destination: "loot" };
-  if (cleared && !lootPoint && merchantHit) return {point:roomMerchantApproach(merchantPoint),destination:"merchant"};
+  if (cleared && merchantHit) return {point:roomMerchantApproach(merchantPoint,merchantBounds),destination:"merchant"};
   return { point };
 }
 
@@ -136,9 +152,13 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
   const latest = useRef({ view, actions });
   const [merchantGate]=useState(createMerchantArrivalGate);
+  const [merchantPosition,setMerchantPosition]=useState<Point>(MERCHANT_ENTRY);
+  const merchantPositionChanged=useCallback((next: Point) => {
+    setMerchantPosition(previous => previous.x === next.x && previous.y === next.y ? previous : {x:next.x,y:next.y});
+  },[]);
   const openMerchant=useCallback(() => {
     const current=latest.current;
-    if (current.view.pending || current.view.phase !== "recovery" || !current.actions.merchant) {
+    if (current.view.pending || !["loot","recovery"].includes(current.view.phase) || !current.actions.merchant) {
       merchantGate.cancel(); return false;
     }
     walkGoal.current=null;
@@ -162,7 +182,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const relicClip = useId();
   const loot = view.phase === "loot" ? view.loot : undefined;
   const hasRoomHud=Boolean(topOverlay);
-  const hasMerchant=view.phase === "recovery" && Boolean(actions.merchant);
+  const hasMerchant=(view.phase === "loot" || view.phase === "recovery") && Boolean(actions.merchant);
   const merchantPoint=hasMerchant ? roomMerchantPoint(camera) : undefined;
   // Reuse the engine's ten-room tier cadence; tier-four art continues in deep runs.
   const art = getEnemyArt(view.enemy,view.room), spriteHeight = art.roomHeight;
@@ -236,13 +256,13 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       if (current.phase === "loot" && current.loot && nearRoomLoot(next,currentLootPoint.current)) {
         callbacks.collect?.(); return false;
       }
-      if (current.phase === "recovery" && callbacks.merchant) {
+      if ((current.phase === "loot" || current.phase === "recovery") && callbacks.merchant) {
         const merchant=roomMerchantPoint(bounds);
         const distance=Math.hypot(next.x-merchant.x,next.y-merchant.y);
         if (distance <= 64 && distance < Math.hypot(from.x-merchant.x,from.y-merchant.y)) {
           setFacing(previous => movementFacing(next,merchant,previous));
           setOrientation(previous => movementOrientation(next,merchant,previous));
-          walkGoal.current={target:roomMerchantApproach(merchant),destination:"merchant"};
+          walkGoal.current={target:roomMerchantApproach(merchant,bounds),destination:"merchant"};
           playerArrivedAtMerchant(); return false;
         }
       }
@@ -287,7 +307,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
 
   useEffect(() => {
     steering.current?.stop();
-    if (view.pending || view.phase !== "recovery" || !hasMerchant) {
+    if (view.pending || (view.phase !== "loot" && view.phase !== "recovery") || !hasMerchant) {
       merchantGate.cancel();
       if (walkGoal.current?.destination === "merchant") walkGoal.current=null;
     }
@@ -327,7 +347,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
         setOrientation(previous => movementOrientation(next,GUARD,previous)); current.actions.approach();
       }
       else if ((current.view.phase === "recovery" || current.view.phase === "loot") && destination === "door") current.actions.enter(current.view.phase === "loot");
-      else if (current.view.phase === "recovery" && current.actions.merchant && destination === "merchant") {
+      else if ((current.view.phase === "loot" || current.view.phase === "recovery") && current.actions.merchant && destination === "merchant") {
         setFacing(previous => movementFacing(next,roomMerchantPoint(bounds),previous));
         setOrientation(previous => movementOrientation(next,roomMerchantPoint(bounds),previous));
         playerArrivedAtMerchant();
@@ -341,7 +361,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       const current=latest.current.view;
       const merchant=roomMerchantPoint(bounds);
       const target=goal.destination === "loot" ? roomLootPoint(current.seed ?? 0,current.room,bounds)
-        : goal.destination === "merchant" ? roomMerchantApproach(merchant) : goal.target;
+        : goal.destination === "merchant" ? roomMerchantApproach(merchant,bounds) : goal.target;
       moveTo(target,goal.destination,false,bounds);
     };
   });
@@ -359,13 +379,46 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     if (!isRoomPoint(p)) return;
     svg.current?.focus({preventScroll:true});
     if (merchantPoint && event.target instanceof Element && event.target.closest(".dungeon-merchant")) {
-      moveTo(roomMerchantApproach(merchantPoint),"merchant"); return;
+      moveTo(roomMerchantApproach(merchantPoint,camera),"merchant"); return;
     }
     // Only the painted merchant/cart targets trade. Empty floor around the
     // moving or scaled wagon must remain available for free walking.
-    const target = roomFloorTarget(p,cleared,view.enemy,loot ? lootPoint : undefined,undefined,view.room);
+    const target = roomFloorTarget(p,cleared,view.enemy,loot ? lootPoint : undefined,undefined,view.room,camera);
     moveTo(target.point,target.destination);
   }
+
+  const enemyActor=!cleared ? <g data-room-depth-actor="enemy" transform={`translate(${GUARD.x} ${GUARD.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
+    <ellipse cx={GUARD.x} cy={GUARD.y-3} rx={spriteWidth*.4} ry={spriteHeight*.07} fill="#000" opacity=".62" />
+    <svg x={GUARD.x-spriteWidth/2} y={GUARD.y-spriteHeight} width={spriteWidth} height={spriteHeight} overflow="visible"><EnemySprite type={view.enemy} room={view.room} /></svg>
+  </g></g> : null;
+  const lootActor=loot ? <g data-room-depth-actor="loot" transform={`translate(${lootPoint.x} ${lootPoint.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`} className="dungeon-loot" data-room-loot={loot.type} data-loot-position={`${lootPoint.x},${lootPoint.y}`} role="img" aria-label={`Loot on the floor: ${roomLootLabel(loot)}. Walk here to collect.`}>
+    <ellipse cx={GUARD.x} cy={GUARD.y+4} rx="48" ry="14" fill="#c59742" opacity=".2" />
+    {loot.type === 0 || loot.type === 2 ? <GoldLootSprite amount={loot.gold} x={GUARD.x} y={GUARD.y} /> : <image href={LOOT_ART[loot.type]} x={GUARD.x-34} y={GUARD.y-66} width="68" height="68" />}
+    {loot.type !== 0 && loot.type !== 2 && loot.gold > 0 && <GoldLootSprite amount={loot.gold} x={GUARD.x+31} y={GUARD.y+4} scale={.45} />}
+    {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
+    <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
+  </g> : null;
+  const merchantActor=merchantPoint ? <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged} onPositionChange={merchantPositionChanged} /> : null;
+  const avatarActor=<g className="dungeon-actor-position" data-room-depth-actor="avatar" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`} data-avatar-facing={facing}><g transform={`scale(${camera.actorScale})`}>
+    <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
+    <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
+    <g key={view.cue ? `avatar-${view.cueId}` : "avatar-idle"} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
+      <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite walking={walking && !view.pending} orientation={orientation} /></svg>
+      {view.weapon > 0 && <path d="M34 -57 L66 -92" stroke="#f9dea3" strokeWidth="2" opacity=".8" />}
+    </g>
+    </g>
+    {view.relic > 0 && <g className={`dungeon-relic ${view.cue ? "is-active" : ""}`} data-avatar-relic={view.relic}>
+      <defs><clipPath id={relicClip}><circle cx="-45" cy="-100" r="17" /></clipPath></defs>
+      <circle cx="-45" cy="-100" r="23" fill={view.relic === 6 ? "#c99cff" : "#eac17b"} opacity=".2" />
+      <image href={relic.imageSrc ?? undefined} x="-63" y="-118" width="36" height="36" clipPath={`url(#${relicClip})`} />
+    </g>}
+  </g></g>;
+  const depthActors=orderRoomDepthActors([
+    ...(enemyActor ? [{id:"enemy",footY:GUARD.y,content:enemyActor}] : []),
+    ...(lootActor ? [{id:"loot",footY:lootPoint.y,content:lootActor}] : []),
+    ...(merchantActor ? [{id:"merchant",footY:merchantPosition.y,content:merchantActor}] : []),
+    {id:"avatar",footY:position.y,content:avatarActor},
+  ]);
 
   return <div className={`dungeon-scene-wrap ${view.phase} ${view.enemy === 3 ? "boss-room" : ""} ${children ? "has-overlay" : ""} ${topOverlay ? "has-room-hud" : ""}`} data-room-scene data-room={view.room}>
     {topOverlay && <div className="dungeon-scene-top-overlay">{topOverlay}</div>}
@@ -374,31 +427,8 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       <image href="/dungeon/stone-room.webp" width="900" height="600" />
       <ellipse className="dungeon-room-tint" cx="450" cy="320" rx="340" ry="225" />
       {cleared && <g className="dungeon-door-open"><path d="M407 10 Q450 -10 493 10 L493 77 407 77Z" fill="#030205" /><path d="M420 76 L480 76 523 230 377 230Z" fill="#eac170" opacity=".12" /><text x="450" y="115" textAnchor="middle">{view.phase === "won" ? "VICTORY" : "NEXT ROOM ↑"}</text></g>}
-      {!cleared && <g transform={`translate(${GUARD.x} ${GUARD.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
-        <ellipse cx={GUARD.x} cy={GUARD.y-3} rx={spriteWidth*.4} ry={spriteHeight*.07} fill="#000" opacity=".62" />
-        <svg x={GUARD.x-spriteWidth/2} y={GUARD.y-spriteHeight} width={spriteWidth} height={spriteHeight} overflow="visible"><EnemySprite type={view.enemy} room={view.room} /></svg>
-      </g></g>}
-      {loot && <g transform={`translate(${lootPoint.x} ${lootPoint.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`} className="dungeon-loot" data-room-loot={loot.type} data-loot-position={`${lootPoint.x},${lootPoint.y}`} role="img" aria-label={`Loot on the floor: ${roomLootLabel(loot)}. Walk here to collect.`}>
-        <ellipse cx={GUARD.x} cy={GUARD.y+4} rx="48" ry="14" fill="#c59742" opacity=".2" />
-        {loot.type === 0 || loot.type === 2 ? <GoldLootSprite amount={loot.gold} x={GUARD.x} y={GUARD.y} /> : <image href={LOOT_ART[loot.type]} x={GUARD.x-34} y={GUARD.y-66} width="68" height="68" />}
-        {loot.type !== 0 && loot.type !== 2 && loot.gold > 0 && <GoldLootSprite amount={loot.gold} x={GUARD.x+31} y={GUARD.y+4} scale={.45} />}
-        {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
-        <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
-      </g>}
-      {merchantPoint && <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged} />}
-      <g className="dungeon-actor-position" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`} data-avatar-facing={facing}><g transform={`scale(${camera.actorScale})`}>
-        <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
-        <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
-        <g key={view.cue ? `avatar-${view.cueId}` : "avatar-idle"} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
-          <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite walking={walking && !view.pending} orientation={orientation} /></svg>
-          {view.weapon > 0 && <path d="M34 -57 L66 -92" stroke="#f9dea3" strokeWidth="2" opacity=".8" />}
-        </g>
-        </g>
-        {view.relic > 0 && <g className={`dungeon-relic ${view.cue ? "is-active" : ""}`} data-avatar-relic={view.relic}>
-          <defs><clipPath id={relicClip}><circle cx="-45" cy="-100" r="17" /></clipPath></defs>
-          <circle cx="-45" cy="-100" r="23" fill={view.relic === 6 ? "#c99cff" : "#eac17b"} opacity=".2" />
-          <image href={relic.imageSrc ?? undefined} x="-63" y="-118" width="36" height="36" clipPath={`url(#${relicClip})`} />
-        </g>}
+      {depthActors.map(actor => <Fragment key={actor.id}>{actor.content}</Fragment>)}
+      <g style={{transform:`translate(${position.x}px,${position.y}px)`}} data-room-actor-effects="avatar"><g transform={`scale(${camera.actorScale})`}>
         {(view.cue === "potion" || view.cue === "revive") && <g key={`heal-${view.cueId}`} className="dungeon-heal"><ellipse cx="0" cy="-3" rx="53" ry="21" /><text x="0" y="-164" textAnchor="middle">{view.cue === "revive" ? "REVIVED" : "+ HEAL"}</text></g>}
         {view.cue && view.incoming > 0 && <text key={`reply-${view.cueId}`} x="-36" y="-150" className="dungeon-damage incoming">−{view.incoming}</text>}
       </g></g>
@@ -414,8 +444,8 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     {children && <div className="dungeon-scene-overlay">{children}</div>}
     <div className="dungeon-floor-controls" data-keyboard-actions>
       {view.phase === "explore" && <button data-keyboard-default="true" onClick={() => moveTo(STAGING,"enemy")} disabled={view.pending}>Approach {view.enemyName} <span>↗</span></button>}
-      {view.phase === "recovery" && <><button className="dungeon-enter-room" data-keyboard-default="true" onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
-      {view.phase === "combat" && !children && <span>Your turn · Choose an action below</span>}
+      {view.phase === "recovery" && <><button className="dungeon-enter-room" data-keyboard-default="true" onClick={() => moveTo(DOOR,"door")} disabled={view.pending}>Enter room {view.room+1} <span>↑</span></button>{merchantPoint && <button onClick={() => moveTo(roomMerchantApproach(merchantPoint,camera),"merchant")} disabled={view.pending}>Visit Kevin</button>}</>}
+      {view.phase === "combat" && !children && <span>Your turn · J Storm · K Attack · M Potion</span>}
       {view.phase === "lost" && <span>The dungeon keeps its appointment.</span>}
     </div>
     {!children && <p className="dungeon-controls-help">Hold WASD to walk · E to interact · Arrows + Enter for buttons</p>}

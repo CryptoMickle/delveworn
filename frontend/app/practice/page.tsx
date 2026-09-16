@@ -794,7 +794,7 @@ export default function PracticePage() {
         combatPotions={{ used: game.combatPotionsUsed, limit: combatPotionLimit }}
         healAction={phase === "loot" || phase === "recovery" ? recoveryHealAction : undefined}
         safePotion={safePotion}
-        shop={merchantVisit && recoveryActive ? recoveryShop : undefined}
+        shop={merchantVisit ? recoveryShop : undefined}
         relics={recoveryActive ? relicPanels : undefined}
         reward={reward}
         notices={storageNotice || restartRequested ? notices : undefined}

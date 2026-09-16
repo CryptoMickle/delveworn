@@ -24,7 +24,30 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — native floor clicks, doorway crossing and shop controls
+## Current checkpoint — compact combat and a more coherent room
+
+Desktop Storm/Attack/Potion controls are compact and sit under the monster card;
+mobile keeps one in-room action panel. The original HP/status information stays
+available. Kevin stands on the inward side of his turned wagon, with readable
+signage, and enters eligible rooms as soon as the enemy is defeated. Trading
+before pickup spends held gold and preserves floor loot. Floor-depth ordering
+puts the player behind Kevin/wagon when walking behind them, without restarting
+Kevin's entrance during crossings or pickup.
+
+Every ten-room tier now increases monster size, with clearly separated zombie
+sizes and bounded growth in deep runs. Original monster paintings are retained.
+The bottom-right narrator parchment is replaced by short speech bubbles in the
+monster's own voice, while its top-right field notes remain. The walking rig
+uses an exposed hip/thigh swing and a smaller opposite step in the leg partially
+hidden by the preserved cape. Both visible legs move; the idle pose stays still.
+
+All 178 automated tests and the three local frontend build configurations pass;
+ESLint has zero errors and 14 existing warnings. The 220 browser scenarios were
+discovered only. See [current verification](phase-1-evidence/verification.md) for
+exact evidence, preview and remaining browser/device limitations. This remains a review build
+until actual desktop and phone playthroughs pass.
+
+## Previous checkpoint — native floor clicks, doorway crossing and shop controls
 
 Two reproduced input defects are corrected in the shared room. Native DOMPoint
 coordinates are read explicitly instead of spread, preserving the y coordinate

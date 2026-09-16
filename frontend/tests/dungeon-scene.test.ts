@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { clampRoomPoint, DungeonScene, ENEMY_ART, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
 import { createMerchantArrivalGate } from "../app/dungeon/merchant-room";
+import { MERCHANT_ROOM_ART_LAYOUT } from "../app/dungeon/merchant-art";
 import { roomLootPoint } from "../app/dungeon/movement";
 
 test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
@@ -89,23 +90,28 @@ test("a cleared door tap bypasses visible loot while the loot graphic remains co
   assert.deepEqual(roomFloorTarget({ x: 300, y: 435 }, true, 0, droppedItem), { point: { x: 300, y: 435 } });
 });
 
-test("Kevin taps approach the figure in recovery while loot rooms do not invent a merchant target", () => {
+test("Kevin taps approach the painted shop before or after floor loot pickup", () => {
   const cameras=[{actorScale:1,minX:170,maxX:733},...[
     [320,440],[320,650],[375,650],[430,800],
   ].map(([width,height])=>portraitRoomCamera(width,height))];
   for(const bounds of cameras) {
     for(const room of [5,9]) {
-      const merchant=roomMerchantPoint(bounds), approach=roomMerchantApproach(merchant);
-      assert.deepEqual(merchant,{x:bounds.minX,y:270},"Kevin has one upper-left position in every room");
-      assert.deepEqual(approach,{x:merchant.x+48,y:merchant.y+36},"the avatar approaches from inside the room");
+      const merchant=roomMerchantPoint(bounds), approach=roomMerchantApproach(merchant,bounds);
+      const scale=bounds.actorScale ?? 1;
+      assert.deepEqual(merchant,{x:Math.min(bounds.maxX-52*scale,bounds.minX+210*scale),y:270},"Kevin stands on the inward side of the upper-left wagon");
+      assert.ok(merchant.x+MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right*scale >= bounds.minX-.001,"the turned wagon stays inside the left camera bound");
+      assert.ok(merchant.x+(MERCHANT_ROOM_ART_LAYOUT.person.x+MERCHANT_ROOM_ART_LAYOUT.person.width)*scale <= bounds.maxX+.001,"Kevin stays inside the right camera bound");
+      assert.deepEqual(approach,{x:Math.min(bounds.maxX,merchant.x+48),y:merchant.y+36},"the avatar approaches from the inward side");
       assert.ok(approach.x >= bounds.minX && approach.x <= bounds.maxX,"the approach remains inside the mobile camera");
       assert.ok(Math.hypot(approach.x-merchant.x,approach.y-merchant.y) <= 64,"the shop opens from beside Kevin");
       const figureCenter={x:merchant.x,y:merchant.y-75};
-      assert.deepEqual(roomFloorTarget(figureCenter,true,0,undefined,merchant),{point:approach,destination:"merchant"});
+      assert.deepEqual(roomFloorTarget(figureCenter,true,0,undefined,merchant,room,bounds),{point:approach,destination:"merchant"});
+      const wagonCenter={x:merchant.x-115*scale,y:merchant.y-88*scale};
+      assert.deepEqual(roomFloorTarget(wagonCenter,true,0,undefined,merchant,room,bounds),{point:approach,destination:"merchant"},"the turned wagon remains a shop target");
 
       const loot={x:room === 5 ? bounds.maxX : bounds.minX,y:400};
-      assert.deepEqual(roomFloorTarget(figureCenter,true,0,loot,merchant),{point:figureCenter},"loot phase has no merchant interaction and must not redirect an unrelated tap");
-      assert.deepEqual(roomFloorTarget({x:450,y:435},true,0,undefined,merchant),{point:{x:450,y:435}},"ordinary floor remains walkable");
+      assert.deepEqual(roomFloorTarget(figureCenter,true,0,loot,merchant,room,bounds),{point:approach,destination:"merchant"},"the painted figure remains visitable while loot waits");
+      assert.deepEqual(roomFloorTarget({x:450,y:435},true,0,undefined,merchant,room,bounds),{point:{x:450,y:435}},"ordinary floor remains walkable");
     }
   }
 });
@@ -131,7 +137,7 @@ test("Kevin's shop waits for both walks, cancels stale intent and opens once", (
   assert.equal(opens,2);
 });
 
-test("the original Kevin figure follows the confirmed merchant callback between rooms", () => {
+test("the original Kevin figure enters eligible rooms as soon as loot drops", () => {
   const base:RoomView={room:5,enemy:0,enemyName:"Grave Belle",enemyHp:0,hp:85,
     relic:0,weapon:0,armor:0,phase:"recovery",pending:false,cue:null,cueId:0,damage:0,incoming:0};
   const render=(overrides:Partial<RoomView>={})=>renderToStaticMarkup(createElement(DungeonScene,{
@@ -140,14 +146,14 @@ test("the original Kevin figure follows the confirmed merchant callback between 
   for(const room of [5,9]) {
     const markup=render({room});
     assert.match(markup,/data-merchant-position="450,92"/,"Kevin starts at the north doorway");
-    assert.match(markup,/data-merchant-destination="170,270"/,"both stops use the upper-left position");
+    assert.match(markup,/data-merchant-destination="380,270"/,"both stops put Kevin inward of the upper-left wagon");
     assert.match(markup,/data-merchant-arrived="false"/,"entry has not teleported to the final spot");
     assert.match(markup,/role="img" aria-label="Quartermaster Kevin\. Walk here to trade\."/);
     assert.match(markup,/\/characters\/merchant-quartermaster-kevin\.webp/);
   }
   for(const room of [15,19,20,25,29,40,49]) assert.match(render({room}),/data-merchant-position/);
   assert.doesNotMatch(render({room:5,phase:"combat"}),/data-merchant-position/);
-  assert.doesNotMatch(render({room:5,phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}),/data-merchant-position/);
+  assert.match(render({room:5,phase:"loot",loot:{type:2,amount:16,gold:21,relicId:0}}),/data-merchant-position="450,92"/);
 });
 
 test("floor reward labels distinguish actual loot and boss pickup from an equipped relic", () => {

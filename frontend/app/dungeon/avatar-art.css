@@ -1,15 +1,34 @@
 .dungeon-avatar-art { overflow:visible; }
 .dungeon-avatar-art .dungeon-avatar-leg { transform-box:view-box; will-change:transform; }
-.dungeon-avatar-art.is-walking .dungeon-avatar-leg-back { animation:dungeon-avatar-step-back .52s ease-in-out infinite; }
-.dungeon-avatar-art.is-walking .dungeon-avatar-leg-front { animation:dungeon-avatar-step-front .52s ease-in-out infinite; }
+
+.dungeon-avatar-art.is-walking .dungeon-avatar-leg-back {
+  animation:dungeon-avatar-step-back .56s cubic-bezier(.45,.05,.55,.95) infinite;
+}
+.dungeon-avatar-art.is-walking .dungeon-avatar-leg-front {
+  animation:dungeon-avatar-step-front .56s cubic-bezier(.45,.05,.55,.95) infinite;
+}
+.dungeon-avatar-art.is-walking .dungeon-avatar-leg-secondary.dungeon-avatar-leg-back {
+  animation-name:dungeon-avatar-step-back-small;
+}
+.dungeon-avatar-art.is-walking .dungeon-avatar-leg-secondary.dungeon-avatar-leg-front {
+  animation-name:dungeon-avatar-step-front-small;
+}
 
 @keyframes dungeon-avatar-step-back {
-  0%,100% { transform:rotate(-10deg) translate(-12px,6px); }
-  50% { transform:rotate(12deg) translate(16px,-4px); }
+  0%,100% { transform:rotate(-9deg) translate(-6px,3px); }
+  50% { transform:rotate(9deg) translate(7px,-2px); }
 }
 @keyframes dungeon-avatar-step-front {
-  0%,100% { transform:rotate(12deg) translate(16px,-4px); }
-  50% { transform:rotate(-10deg) translate(-12px,6px); }
+  0%,100% { transform:rotate(9deg) translate(7px,-2px); }
+  50% { transform:rotate(-9deg) translate(-6px,3px); }
+}
+@keyframes dungeon-avatar-step-back-small {
+  0%,100% { transform:rotate(-4deg) translate(-2px,1px); }
+  50% { transform:rotate(4deg) translate(2px,-1px); }
+}
+@keyframes dungeon-avatar-step-front-small {
+  0%,100% { transform:rotate(4deg) translate(2px,-1px); }
+  50% { transform:rotate(-4deg) translate(-2px,1px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

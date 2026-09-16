@@ -163,7 +163,7 @@ export function transition(run: Descent, action: DescentAction, expectedRevision
     if (current !== "reward") return run;
     game = claimRelic(before, action === "claim-equip");
   } else {
-    if (current !== "recovery" || !["supply-bandage", "supply-potion", "camp-rest", "camp-potion", "camp-weapon", "camp-armor"].includes(action)) return run;
+    if ((current !== "loot" && current !== "recovery") || !["supply-bandage", "supply-potion", "camp-rest", "camp-potion", "camp-weapon", "camp-armor"].includes(action)) return run;
     game = buy(before, action);
     if (game.gold === before.gold) return run;
   }

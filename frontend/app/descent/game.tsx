@@ -15,6 +15,7 @@ import { ROOMS, createDescent, enemyIntent, phase, roomNumber, transition, type 
 import { DESCENT_SAVE_KEY, loadDescent, saveDescent } from "./storage";
 import { exclusiveSave } from "./save-lock";
 import { DescentCombatPanel, DescentEnemyStatus } from "./combat-panel";
+import { useRoomSidebar } from "../dungeon/use-room-sidebar";
 import { MonsterReveal } from "./monster-reveal";
 import { ShopKeeper, ShopVitals } from "../dungeon/shop-vitals";
 import { InventoryPotions } from "../dungeon/inventory-potions";
@@ -36,6 +37,7 @@ function lootSummary(loot: PendingLoot) {
   return [loot.gold ? `${loot.gold} gold` : "",loot.potions ? `${loot.potions} potion` : "",loot.weapon ? "weapon +1" : "",loot.armor ? "armor +1" : ""].filter(Boolean).join(" · ");
 }
 export default function DescentGame() {
+  const sidebarControls = useRoomSidebar();
   const [run,setRun] = useState<Descent | null>(null);
   const current = useRef<Descent | null>(null);
   const [loaded,setLoaded] = useState(false);
@@ -169,7 +171,7 @@ export default function DescentGame() {
   const rewardRelic=p === "reward" && g.relicOfferId > 0 ? getRelicDefinition(g.relicOfferId) : null;
   const reply=incomingRange(g);
   const combat=p === "combat", recovery=p === "recovery", terminal=p === "won" || p === "lost";
-  const hasMerchant=recovery && (room === 5 || room === 9);
+  const hasMerchant=(p === "loot" || recovery) && (room === 5 || room === 9);
   const potionDisabled=busy || (!combat && !recovery) || g.potions === 0 || g.hp >= g.maxHp || (combat && g.combatPotionsUsed >= (g.monsterType === 3 ? 3 : 2));
   const safePotionPhase=p === "loot" || recovery;
   const safePotionDisabledReason=busy ? "Another action is in progress."
@@ -240,9 +242,10 @@ export default function DescentGame() {
       <DungeonScene key={`${run.runId}:${room}`} view={{room,seed:run.seed,enemy:g.monsterType,enemyName:art.name,enemyHp:g.monsterHp,hp:g.hp,relic:g.equippedRelic,weapon:g.weaponLevel,armor:g.armorLevel,phase:p!,loot:sceneLoot,pending:busy,cue,cueId:run.revision,damage:g.lastPlayerDamage,incoming:g.lastMonsterDamage}}
         actions={{approach:() => void act("engage"),enter:() => void act("enter"),collect:() => void act("collect"),skipLoot:() => void act("skip-loot"),interact:() => audio.playAction("click"),merchant:hasMerchant ? () => { if (window.matchMedia("(max-width: 760px)").matches) setShopOpen(true); else { merchantArea.current?.scrollIntoView({behavior:"auto",block:"nearest"}); merchantArea.current?.focus({preventScroll:true}); } } : undefined}}
         topOverlay={mobileTopOverlay} footer={mobileFooter}
-        roomNotes={<RoomParchments monster={g.monsterHp > 0 ? {name:art.name,role:art.role,description:getMonsterLogPersona(g.monsterType,room).encounters[0]} : undefined} entries={g.log} fallback={roomInfo.note} />}
+        roomNotes={<RoomParchments monster={g.monsterHp > 0 ? {name:art.name,role:art.role,description:getMonsterLogPersona(g.monsterType,room).encounters[0]} : undefined}
+          speech={{name:art.name,monsterType:g.monsterType,room,phase:p!,cue,cueId:run.revision,roomTurns:run.roomTurns,hp:g.monsterHp,maxHp:g.monsterMaxHp,damage:g.lastPlayerDamage}} />}
         presentationOverlay={p !== "explore" ? <MonsterReveal enemy={g.monsterType} name={art.name} role={art.role} hp={g.monsterHp} maxHp={g.monsterMaxHp} phase={p!} roomTurns={run.roomTurns} cueId={run.revision} pending={busy} /> : undefined}>
-        {combatDock}
+        {!sidebarControls && combatDock}
       </DungeonScene>
 
       {renderReport()}
@@ -251,6 +254,7 @@ export default function DescentGame() {
         <div><p className="descent-kicker">{art.role}</p><h2>{art.name} <span>{g.monsterHp} / {g.monsterMaxHp}</span></h2><Meter label="Enemy health" value={g.monsterHp} max={g.monsterMaxHp} enemy />
           {g.monsterHp > 0 ? <div className="descent-intent"><strong>{intent.name} · {range(reply)} damage</strong><p>{intent.hint}</p><small>Only if the enemy survives your action.</small></div> : p === "loot" ? <div className="descent-intent"><strong>Loot dropped</strong><p>Walk to the drop to add it to your inventory.</p><small>Tap the loot to pick it up, or tap the door to leave it behind.</small></div> : <div className="descent-intent"><strong>Room secured</strong><p>{practiceLoot(g)}</p><small>{room === 9 ? "Camp arrival restored up to 15 HP." : "Heal safely, then enter the next room."}</small></div>}
         </div></section>}
+      {sidebarControls && combatDock}
       {relic && relic.imageSrc && <section className="descent-relic-card" aria-label="Equipped relic"><Image src={relic.imageSrc} alt="" width={86} height={86} /><div><p className="descent-kicker">{relic.rarity} · EQUIPPED</p><h2>{relic.name}</h2><p>{relic.effect}</p><p className="descent-relic-cost">{relic.tradeoff}</p></div><details><summary>How this relic changes your turn</summary><p>{combatRelicSummary(g,false)} on Attack.</p><p>{combatRelicSummary(g,true) ?? "Normal damage"} on Storm. Shown damage ranges include the relic.</p></details></section>}
       {safePotionControl && <div className="recovery-heal dungeon-recovery-controls">{safePotionControl}</div>}
       {renderMerchant()}

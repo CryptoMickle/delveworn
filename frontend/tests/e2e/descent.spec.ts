@@ -501,8 +501,9 @@ test("walking turns north and south, alternates legs and respects reduced motion
   await page.keyboard.down("w");
   try {
     await expect(art).toHaveAttribute("data-avatar-orientation","north");
-    const leg=art.locator('[data-avatar-part="front-leg"]');
-    expect(await leg.evaluate(element=>getComputedStyle(element).animationName)).toBe("none");
+    for (const part of ["front-leg","back-leg"]) {
+      expect(await art.locator(`[data-avatar-part="${part}"]`).evaluate(element=>getComputedStyle(element).animationName)).toBe("none");
+    }
   } finally { await page.keyboard.up("w"); }
   expect(await saved(page)).toEqual(run);
 });
@@ -539,7 +540,13 @@ test("Kevin is a reachable room figure in both merchant recoveries and opens the
     const merchant=roomPoint(await kevin.getAttribute("data-merchant-position"));
     const merchantFacing="right", avatarFacing="left";
     await expect(kevin).toHaveAttribute("data-merchant-facing",merchantFacing);
-    expect(merchant.x < 450 && merchant.y < 300,"Kevin parks at the upper-left side in both rooms").toBe(true);
+    expect(merchant.y,"Kevin parks near the north side in both rooms").toBeLessThan(300);
+    const [wagonBox,figureBox]=await Promise.all([
+      kevin.locator(":scope > svg").boundingBox(),
+      kevin.locator(":scope > g > svg").boundingBox(),
+    ]);
+    expect(wagonBox!.x+wagonBox!.width/2,"the wagon is on Kevin's outer-left side")
+      .toBeLessThan(figureBox!.x+figureBox!.width/2);
     const [floorBox,kevinBox]=await Promise.all([floor.boundingBox(),kevin.boundingBox()]);
     expect(kevinBox!.x).toBeGreaterThanOrEqual(floorBox!.x-1);
     expect(kevinBox!.x+kevinBox!.width).toBeLessThanOrEqual(floorBox!.x+floorBox!.width+1);
@@ -733,7 +740,7 @@ test("free movement, retargeting, approach and loot still finish without animati
   expect(await saved(page)).toEqual(entered);
 });
 
-test("responsive room keeps compact combat controls inside the scene",async({page,isMobile},testInfo)=>{
+test("responsive room keeps compact combat controls in their active presentation",async({page,isMobile},testInfo)=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   await seed(page,transition(createDescent(42,"layout"),"engage"));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1)).toBe(true);
@@ -760,6 +767,7 @@ test("responsive room keeps compact combat controls inside the scene",async({pag
     await page.getByText("Menu",{exact:true}).click();
   }
   const actions=page.getByRole("group",{name:"Combat actions"});
+  await expect(actions).toHaveCount(1);
   await actions.scrollIntoViewIfNeeded();
   await expect(actions).toBeInViewport();
   await expect(actions.getByRole("progressbar",{name:"Player health"})).toBeVisible();
@@ -785,9 +793,23 @@ test("responsive room keeps compact combat controls inside the scene",async({pag
   } else {
     expect(potionBox.y).toBeGreaterThanOrEqual(stormBox.y+stormBox.height);
   }
-  const dock=await actions.evaluate(element=>{const rect=element.getBoundingClientRect(),room=element.closest("[data-room-scene]")!.getBoundingClientRect();return {height:rect.height,top:rect.top,bottom:rect.bottom,roomTop:room.top,roomBottom:room.bottom,inside:Boolean(element.closest(".dungeon-scene-overlay"))};});
-  expect(dock.inside).toBe(true);
-  if (isMobile) { expect(dock.top).toBeGreaterThanOrEqual(dock.roomTop); expect(dock.bottom).toBeLessThanOrEqual(dock.roomBottom+1); }
+  const dock=await actions.evaluate(element=>{
+    const rect=element.getBoundingClientRect();
+    const room=element.closest("[data-room-scene]")?.getBoundingClientRect();
+    const enemy=element.closest(".descent-sidebar")?.querySelector(".descent-enemy-card")?.getBoundingClientRect();
+    return {left:rect.left,width:rect.width,top:rect.top,bottom:rect.bottom,roomTop:room?.top,roomBottom:room?.bottom,
+      enemyLeft:enemy?.left,enemyWidth:enemy?.width,enemyBottom:enemy?.bottom,inside:Boolean(element.closest(".dungeon-scene-overlay"))};
+  });
+  if (isMobile) {
+    expect(dock.inside).toBe(true);
+    expect(dock.top).toBeGreaterThanOrEqual(dock.roomTop!);
+    expect(dock.bottom).toBeLessThanOrEqual(dock.roomBottom!+1);
+  } else {
+    expect(dock.inside).toBe(false);
+    expect(Math.abs(dock.left-dock.enemyLeft!)).toBeLessThanOrEqual(1);
+    expect(Math.abs(dock.width-dock.enemyWidth!)).toBeLessThanOrEqual(1);
+    expect(dock.top).toBeGreaterThanOrEqual(dock.enemyBottom!);
+  }
   for (const button of await actions.getByRole("button").all()) {
     await button.scrollIntoViewIfNeeded(); const b=await button.boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44); expect(b!.width).toBeGreaterThanOrEqual(44);
