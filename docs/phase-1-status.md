@@ -41,8 +41,9 @@ killing blows remain silent. Original artwork and combat rules are unchanged.
 All **195 tests** and the Somnia-standard production build pass. ESLint has zero
 errors and 14 pre-existing warnings. A mounted React Strict Mode probe verifies
 rotation, cue cleanup, expiry, attribution and death cleanup without a browser.
-Protected preview publication is pending; see
-[verification](phase-1-evidence/verification.md). Actual Safari/phone layout
+Source `afe43a3b5ca0d53c8b0a92307ebcb73d73fc5bc8` is **READY** on the protected
+[Practice preview](https://delveworn-qrb5s3a0e-crypto-mickle.vercel.app/practice).
+See [verification](phase-1-evidence/verification.md). Actual Safari/phone layout
 review remains pending because browser execution is policy-blocked.
 
 ## Previous checkpoint — first mobile power-use reductions

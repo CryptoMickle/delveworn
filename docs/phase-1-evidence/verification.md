@@ -40,8 +40,11 @@ footprint at 320px and 375px phone widths. This is not a browser screenshot test
 
 ### Preview and limits
 
-Protected preview publication is pending. Existing project/protection/approval
-and Somnia-standard settings are retained. No production promotion, Git push,
+Source `afe43a3b5ca0d53c8b0a92307ebcb73d73fc5bc8`, deployment
+`dpl_21DUt6VnHN2gCSzCAC2TKJQJXAsf`, is **READY**, verified through Vercel's API.
+[Practice preview](https://delveworn-qrb5s3a0e-crypto-mickle.vercel.app/practice).
+Existing project/protection/approval and Somnia-standard settings are retained,
+with session keys disabled. No production promotion, Git push,
 protection bypass or contract transaction. Browser execution remains blocked by
 the earlier mandatory policy check; actual Safari layout and reading comfort
 need phone review. Test several rooms and repeated monster encounters to judge
