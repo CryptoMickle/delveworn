@@ -62,9 +62,12 @@ boss cadence, relic rules and respective randomness authorities.
 - Monster notes remain on parchment at the top right of the room. The old
   bottom-right "Dungeon remarks" parchment is removed. Short speech bubbles
   next to the enemy contain direct spoken lines from that monster or boss,
-  selected from its persona and the confirmed combat outcome. A line disappears
-  after 4.2 seconds; ordinary rerenders and loot pickup do not restart its timer.
-  Speech uses no randomness and does not alter the saved combat log. Neither
+  selected from its persona and confirmed combat outcome while it is alive.
+  The compact dark-plum bubble has warm book-serif text and no visible nameplate;
+  its accessible label still identifies the speaker. A line disappears after
+  4.2 seconds; ordinary rerenders do not restart its timer. Defeating the enemy
+  immediately removes the bubble, with no final/death remark. Speech uses no
+  randomness and does not alter the saved combat log. Neither
   notes nor speech take pointer input or change room size. The full log remains
   available. The cosmetic armor ring over the avatar is removed.
   The notes use IM Fell English, served with the app through the existing font

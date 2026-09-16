@@ -17,29 +17,29 @@ export type MonsterSpeechContext = {
   damage: number;
 };
 
-type SpeechStage = "opening" | "hit" | "storm" | "miss" | "critical" | "potion" | "revive" | "wounded" | "defeat";
+type SpeechStage = "opening" | "hit" | "storm" | "miss" | "critical" | "potion" | "revive" | "wounded";
 type Speech = { line: string; stage: SpeechStage };
 
-const PERSONA: Readonly<Record<string, { opening: string; defeat: string }>> = {
-  "grave belle": { opening: "Do come closer. I dressed for dinner.", defeat: "Rude. I was still decomposing." },
-  "miss morgue": { opening: "Compliments first. Brains second.", defeat: "Keep the compliment, then." },
-  "velvet rot": { opening: "You look better in candlelight. Barely.", defeat: "Well. This date is dead." },
-  "lady decomposition": { opening: "Try not to wrinkle my floor.", defeat: "Beauty remains undefeated." },
-  "gary": { opening: "I have a plan! Probably!", defeat: "Tell them the plan was excellent." },
-  "gribnob the unqualified": { opening: "I learned this job this morning.", defeat: "I knew training was important." },
-  "gribble": { opening: "I have armor now. Fear progress!", defeat: "Please return my equipment." },
-  "gary's supervisor": { opening: "I approved Gary, and I approve this fight.", defeat: "Delete my performance review." },
-  "thud": { opening: "I am Thud. That is also the plan.", defeat: "Plan needs... second word." },
-  "brutus": { opening: "I hit harder. Strategy complete.", defeat: "Maybe... hit slightly smarter." },
-  "gronk": { opening: "I tried diplomacy once. Boring.", defeat: "Reopen... negotiations." },
-  "meatwall": { opening: "I am load-bearing. You are not.", defeat: "Building permit... revoked." },
-  "dungeon lord": { opening: "Your appointment is regrettably confirmed.", defeat: "This meeting is adjourned." },
-  "senior dungeon lord": { opening: "I scheduled your defeat for now.", defeat: "Escalate this to someone alive." },
-  "executive overlord": { opening: "Your survival lacks executive approval.", defeat: "My succession plan was theoretical." },
-  "chairman below": { opening: "The board voted to crush you.", defeat: "The motion... fails." },
+const OPENING_LINES: Readonly<Record<string, string>> = {
+  "grave belle": "Do come closer. I dressed for dinner.",
+  "miss morgue": "Compliments first. Brains second.",
+  "velvet rot": "You look better in candlelight. Barely.",
+  "lady decomposition": "Try not to wrinkle my floor.",
+  "gary": "I have a plan! Probably!",
+  "gribnob the unqualified": "I learned this job this morning.",
+  "gribble": "I have armor now. Fear progress!",
+  "gary's supervisor": "I approved Gary, and I approve this fight.",
+  "thud": "I am Thud. That is also the plan.",
+  "brutus": "I hit harder. Strategy complete.",
+  "gronk": "I tried diplomacy once. Boring.",
+  "meatwall": "I am load-bearing. You are not.",
+  "dungeon lord": "Your appointment is regrettably confirmed.",
+  "senior dungeon lord": "I scheduled your defeat for now.",
+  "executive overlord": "Your survival lacks executive approval.",
+  "chairman below": "The board voted to crush you.",
 };
 
-const REACTIONS: ReadonlyArray<Readonly<Record<Exclude<SpeechStage, "opening" | "defeat">, readonly [string, string]>>> = [
+const REACTIONS: ReadonlyArray<Readonly<Record<Exclude<SpeechStage, "opening">, readonly [string, string]>>> = [
   {
     hit: ["You'll need a sharper opinion.", "I have lost worse pieces."],
     storm: ["Static? My hair was already dead.", "Lightning only adds atmosphere."],
@@ -88,14 +88,12 @@ function pick(lines: readonly [string, string], context: MonsterSpeechContext) {
 
 /** Presentation-only copy selected from confirmed combat state; no random draw. */
 export function monsterSpeech(context: MonsterSpeechContext): Speech | null {
-  const persona = PERSONA[personaKey(context.name)] ?? {
-    opening: context.monsterType === 3 ? "I have reviewed your file." : "Come closer. I insist.",
-    defeat: context.monsterType === 3 ? "Consider this meeting concluded." : "I object to this outcome.",
-  };
-  const killingBlow = context.hp <= 0 && (context.cue === "attack" || context.cue === "storm" || context.cue === "critical");
-  if (killingBlow) return { line: persona.defeat, stage: "defeat" };
   if (context.phase !== "combat" || context.hp <= 0) return null;
-  if (!context.cue) return { line: persona.opening, stage: "opening" };
+  if (!context.cue) return {
+    line: OPENING_LINES[personaKey(context.name)]
+      ?? (context.monsterType === 3 ? "I have reviewed your file." : "Come closer. I insist."),
+    stage: "opening",
+  };
   const reactions = REACTIONS[context.monsterType];
   if (context.cue === "potion") return { line: pick(reactions.potion, context), stage: "potion" };
   if (context.cue === "revive") return { line: pick(reactions.revive, context), stage: "revive" };
@@ -114,7 +112,6 @@ function TimedMonsterSpeech({ name, speech }: { name: string; speech: Speech }) 
   }, []);
   if (!visible) return null;
   return <blockquote className="monster-speech" data-speech-stage={speech.stage} aria-label={`${name} says`}>
-    <cite>{name}</cite>
     <p>“{speech.line}”</p>
   </blockquote>;
 }
@@ -122,9 +119,6 @@ function TimedMonsterSpeech({ name, speech }: { name: string; speech: Speech }) 
 export function MonsterSpeech(context: MonsterSpeechContext) {
   const speech = monsterSpeech(context);
   if (!speech) return null;
-  // Loot collection can change phase/revision while the killing line is still
-  // visible. Keep that final utterance on its original timer.
-  const identity = speech.stage === "defeat" ? `${context.room}:${context.name}:defeat`
-    : `${context.room}:${context.name}:${context.phase}:${context.cueId}:${speech.stage}:${speech.line}`;
+  const identity = `${context.room}:${context.name}:${context.cueId}:${speech.stage}:${speech.line}`;
   return <TimedMonsterSpeech key={identity} name={context.name} speech={speech} />;
 }

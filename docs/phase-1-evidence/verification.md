@@ -1,8 +1,24 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — compact combat, room depth, tier growth and monster dialogue
+## Current correction — quieter speech, no final monster remark
 
-### Current protected preview
+Monster speech now requires a living enemy in active combat. A killing blow
+immediately clears the bubble and its timer; no defeat line remains. Opening
+and combat dialogue stay as direct utterances. The visible nameplate is removed,
+while the screen-reader label retains the speaker. Dark plum, a muted brass
+outline, warm book-serif text and a smaller tail replace the bright panel.
+Entry uses a subtle fade with no bounce or zoom; mobile width remains bounded.
+
+All 178 automated tests pass. The focused 3-test suite and mounted no-DOM
+lifetime/kill-cleanup probe pass. Scoped ESLint, whitespace checks and the
+Somnia-standard production build (including TypeScript) pass. Other build
+configurations were not repeated for this presentation-only change.
+Browser visual review remains blocked by the earlier automatic approval policy;
+no alternative browser was used. This remains a review version.
+
+## Previous correction — compact combat, room depth, tier growth and monster dialogue
+
+### Previous protected preview
 
 - Source `c404944d12c989161199d8e7ffcf3330610e329e`; deployment
   `dpl_Cdh1zmFmrpjLjmTTjukNujPB7dnU`: **READY**, preview target.

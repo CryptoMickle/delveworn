@@ -19,15 +19,19 @@ test("monster speech is deterministic, direct persona dialogue selected from com
   assert.equal(MONSTER_SPEECH_LIFETIME_MS, 4200);
 });
 
-test("a confirmed killing blow gets the monster's own last line instead of dungeon narration", () => {
-  const defeated = { ...context, phase: "loot", cue: "critical", cueId: 5, roomTurns: 3, hp: 0, damage: 37 } as const;
-  assert.deepEqual(monsterSpeech(defeated), { line: "Keep the compliment, then.", stage: "defeat" });
-  const markup = renderToStaticMarkup(<MonsterSpeech {...defeated} />);
-  assert.match(markup, /aria-label="Miss Morgue says"/);
-  assert.match(markup, /data-speech-stage="defeat"/);
-  assert.match(markup, /<cite>Miss Morgue<\/cite>/);
-  assert.match(markup, /“Keep the compliment, then\.”/);
-  assert.doesNotMatch(markup, /Dungeon remarks|damage|HP|gold|potion/i);
+test("living speech keeps its accessible speaker while killing blows and postcombat stay silent", () => {
+  const livingMarkup = renderToStaticMarkup(<MonsterSpeech {...context} />);
+  assert.match(livingMarkup, /aria-label="Miss Morgue says"/);
+
+  const defeatedPhases = ["combat", "loot", "recovery", "reward", "won", "lost"] as const;
+  const killingCues = ["attack", "storm", "critical"] as const;
+  for (const phase of defeatedPhases) {
+    for (const cue of killingCues) {
+      const defeated = { ...context, phase, cue, cueId: 5, roomTurns: 3, hp: 0, damage: 37 } as const;
+      assert.equal(monsterSpeech(defeated), null, `${cue} killing blow must stay silent in ${phase}`);
+      assert.equal(renderToStaticMarkup(<MonsterSpeech {...defeated} />), "");
+    }
+  }
 });
 
 test("the shared room overlay keeps monster field notes and replaces dungeon remarks", () => {
