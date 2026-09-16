@@ -33,9 +33,27 @@
 @media(max-width:760px) {
   .room-parchments,.descent-monster-reveal { --parchment-copy-size:10.5px; --parchment-copy-leading:1.34; }
   .has-room-hud > .dungeon-scene-notes { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); aspect-ratio:auto; }
+  .room-parchment-monster { display:none; }
   .room-parchment { right:7px; width:34%; min-width:110px; max-height:35%; padding:9px 10px; }
   .room-parchment-monster { top:7px; }
   .room-parchment .room-parchment-label { margin-bottom:4px; font-size:8px; letter-spacing:.055em; }
   .descent-shell .room-parchment h2 { margin-bottom:4px; font-size:12px; }
   .room-parchment .room-parchment-copy { -webkit-line-clamp:3; }
+  .monster-speech {
+    top:auto;
+    bottom:8px;
+    right:8px;
+    left:auto;
+    width:auto;
+    max-width:min(160px,44%);
+    padding:6px 9px;
+    transform:none;
+  }
+  .monster-speech p {
+    display:-webkit-box;
+    overflow:hidden;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:3;
+  }
+  .monster-speech::after { top:-4px; right:auto; bottom:auto; left:18px; transform:rotate(-135deg); }
 }

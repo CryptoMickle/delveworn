@@ -68,8 +68,11 @@ export function MonsterReveal({ enemy, room = 1, name, role, description, hp, ma
   if (!active && !visible) return null;
 
   if (!visible) return <div className="descent-monster-reveal is-collapsed">
-    <button className="descent-monster-reveal-trigger" type="button" onClick={() => dispatch({ type: "view" })} aria-label={`View ${name} monster close-up, ${hp} of ${maxHp} health`}>
+    <button className="descent-monster-reveal-trigger" type="button" title="View monster and field notes" onClick={() => dispatch({ type: "view" })} aria-label={`View ${name} monster close-up, ${hp} of ${maxHp} health`}>
       <span className="descent-monster-reveal-thumb"><Image src={art.src} alt="" fill sizes="48px" unoptimized /></span>
+      <span className="descent-monster-reveal-mobile-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false"><path d="M4.5 5.5h15v13h-15zM7 15l3.2-3.4 2.4 2.5 1.8-1.8 2.6 2.7M16.5 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" /></svg>
+      </span>
       <span><strong>View monster</strong><small>{name} · {hp} / {maxHp} HP</small></span>
     </button>
   </div>;

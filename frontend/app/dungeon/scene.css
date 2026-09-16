@@ -53,8 +53,8 @@
   .dungeon-floor-controls { bottom:27px; }
   .dungeon-controls-help { font-size:9px; bottom:6px; }
   .dungeon-scene-wrap.has-room-hud {
-    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 164px);
-    --dungeon-controls-track:calc(302px + env(safe-area-inset-bottom));
+    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 141px);
+    --dungeon-controls-track:calc(200px + env(safe-area-inset-bottom));
     display:grid;
     grid-template-rows:var(--dungeon-hud-track) minmax(0,1fr) var(--dungeon-controls-track);
     border:0;
@@ -62,6 +62,9 @@
     background-image:var(--dungeon-room-background),url('/dungeon/stone-room.webp');
     background-position:center;
     background-size:cover;
+  }
+  .dungeon-scene-wrap.has-room-hud:has(.descent-mobile-notice) {
+    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 195px);
   }
   .has-room-hud > .dungeon-scene-presentation { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); height:auto; aspect-ratio:auto; }
   .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; min-height:0; z-index:5; }
@@ -74,11 +77,12 @@
   .has-room-hud .dungeon-floor-controls button { flex:1; min-height:48px; }
   .has-room-hud .dungeon-controls-help { display:none; }
 }
-@media(max-width:760px) and (max-height:700px) {
-  .dungeon-scene-wrap.has-room-hud { --dungeon-controls-track:calc(246px + env(safe-area-inset-bottom)); }
-}
-@media(max-width:760px) and (max-height:620px) {
-  .dungeon-scene-wrap.has-room-hud { --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 161px); }
+/* When browser chrome or landscape leaves too little height, let the page
+   scroll. A full room aspect ratio keeps both boss heads and exits in view. */
+@media(max-width:760px) {
+  .descent-shell[data-descent-phase] .descent-world .dungeon-scene-wrap.has-room-hud {
+    height:max(100dvh,calc(var(--dungeon-hud-track) + max(220px,66.667vw) + var(--dungeon-controls-track)));
+  }
 }
 @media(prefers-reduced-motion:reduce) {
   .dungeon-scene-wrap *, .dungeon-scene-wrap *::before { animation:none !important; transition:none !important; }

@@ -92,14 +92,14 @@ export function clampRoomPoint(point: Point, cleared: boolean, bounds = {minX:17
   return { x, y: Math.max(northEdge, Math.min(505, point.y)) };
 }
 
-type RoomMerchantBounds = {actorScale?: number; minX: number; maxX: number};
+type RoomMerchantBounds = {actorScale?: number; characterScale?: number; visibleLeft?: number; minX: number; maxX: number};
+type RoomCamera = RoomMerchantBounds & {actorScale:number};
 
 export function roomMerchantPoint(bounds: RoomMerchantBounds = {actorScale:1,minX:170,maxX:733}): Point {
   const scale=bounds.actorScale ?? 1;
-  // The portrait walk margin is 88 actor pixels plus a 12px screen gutter.
-  // Recover its visible edge so the final wagon can sit at the wall without
-  // being cropped; the uncropped desktop room uses its painted 50px margin.
-  const visibleLeft=bounds.minX <= 170 ? 0 : bounds.minX-(88+12/.65)*scale;
+  // Keep the parked wagon against the visible wall independently of the larger
+  // character walk margin. The fallback supports older unmeasured bounds.
+  const visibleLeft=bounds.visibleLeft ?? (bounds.minX <= 170 ? 0 : bounds.minX-(88+12/.65)*scale);
   const wagonLeft=visibleLeft+50*scale;
   const stallLeft=-MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right;
   const personRight=MERCHANT_ROOM_ART_LAYOUT.person.x+MERCHANT_ROOM_ART_LAYOUT.person.width;
@@ -138,7 +138,10 @@ export function roomFloorLootPoint(seed: number, room: number,
 
 export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType, lootPoint?: Point, merchantPoint?: Point, room = 1, merchantBounds?: RoomMerchantBounds): { point: Point; destination?: "enemy" | "door" | "loot" | "merchant" } {
   const door = inDoorLane(point) && point.y <= 130;
-  const guard = Math.abs(point.x - GUARD.x) < 90 && point.y >= GUARD.y - getEnemyArt(enemy,room).roomHeight - 15 && point.y <= GUARD.y + 25;
+  const art=getEnemyArt(enemy,room), enemyScale=roomEnemyScale(art.roomHeight,merchantBounds);
+  const [, , cropWidth,cropHeight]=art.crop.split(" ").map(Number);
+  const guard = Math.abs(point.x - GUARD.x) < Math.max(90,art.roomHeight*cropWidth/cropHeight*enemyScale/2)
+    && point.y >= GUARD.y - art.roomHeight*enemyScale - 15 && point.y <= GUARD.y + 25;
   if (!cleared && (door || guard)) return { point: STAGING, destination: "enemy" };
   const lootImage = lootPoint && Math.abs(point.x-lootPoint.x) <= 45 && point.y >= lootPoint.y-80 && point.y <= lootPoint.y+25;
   const stall = MERCHANT_ROOM_ART_LAYOUT.stall;
@@ -152,17 +155,27 @@ export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterTy
   return { point };
 }
 
-/** The portrait camera may crop the room, but never enlarge tier-one actors. */
+/** Enlarge smaller mobile monsters without clipping large bosses at the north
+ * wall. This curve stays increasing, so every artwork tier still grows. */
+export function roomEnemyScale(height: number, bounds?: RoomMerchantBounds) {
+  const base=bounds?.actorScale ?? 1, character=bounds?.characterScale ?? base;
+  return base+Math.max(0,character-base)*Math.max(0,225-height)/115;
+}
+
+/** Characters are legible on phones; merchant, wagon and loot keep their scale. */
 export function portraitRoomCamera(width: number, height: number) {
   const scale = Math.max(Math.max(1,width)/900,Math.max(1,height)/600);
   const actorScale = Math.min(1,.65/scale);
+  // Leave the combat anchor (x400) fully visible even in a very tall crop.
+  const combatFit=(width/2-12-50*scale)/(88*scale);
+  const characterScale=Math.max(.05,Math.min(1.35,.80/scale,combatFit));
   const left = (900-width/scale)/2;
-  const margin=88*actorScale+12/scale;
-  return { actorScale, minX:Math.max(170,left+margin), maxX:Math.min(733,900-left-margin) };
+  const margin=88*characterScale+12/scale;
+  return { actorScale, characterScale, visibleLeft:left, minX:Math.max(170,left+margin), maxX:Math.min(733,900-left-margin) };
 }
 
 /** Ignore hidden/transient layout samples instead of displacing the player. */
-export function measuredRoomCamera(width: number, height: number, portrait: boolean) {
+export function measuredRoomCamera(width: number, height: number, portrait: boolean): RoomCamera | null {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
   const next=portrait ? portraitRoomCamera(width,height) : {actorScale:1,minX:170,maxX:733};
   return next.minX <= next.maxX ? next : null;
@@ -179,7 +192,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const keyboardInteract = useRef<(() => void) | null>(null);
   const walkGoal = useRef<WalkGoal | null>(null);
   const movementBlocked = useRef<(target?: EventTarget | null) => boolean>(() => false);
-  const continueWalk = useRef<((goal: WalkGoal, bounds: ReturnType<typeof portraitRoomCamera>) => void) | null>(null);
+  const continueWalk = useRef<((goal: WalkGoal, bounds: RoomCamera) => void) | null>(null);
   const latest = useRef({ view, actions });
   const [merchantGate]=useState(createMerchantArrivalGate);
   const openMerchant=useCallback(() => {
@@ -197,7 +210,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   },[merchantGate,openMerchant]);
   useEffect(() => { latest.current = { view, actions }; }, [view, actions]);
   const svg = useRef<SVGSVGElement>(null), pointer = useRef<Point | null>(null);
-  const [camera,setCamera] = useState({actorScale:1,minX:170,maxX:733});
+  const [camera,setCamera] = useState<RoomCamera>({actorScale:1,minX:170,maxX:733});
   const currentCamera = useRef(camera);
   useEffect(() => { currentCamera.current=camera; },[camera]);
   const lootPoint = roomFloorLootPoint(view.seed ?? 0,view.room,camera,Boolean(actions.merchant));
@@ -213,9 +226,12 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const roomTheme=getRoomTheme(view.enemy,view.room);
   // Reuse the engine's ten-room tier cadence; tier-four art continues in deep runs.
   const art = getEnemyArt(view.enemy,view.room), spriteHeight = art.roomHeight;
+  const characterScale=camera.characterScale ?? camera.actorScale;
+  const enemyScale=roomEnemyScale(spriteHeight,camera);
   const [, , cropWidth, cropHeight] = art.crop.split(" ").map(Number);
   const spriteWidth = spriteHeight * cropWidth / cropHeight;
-  const impact = { x: GUARD.x, y: GUARD.y - spriteHeight * camera.actorScale * .55 };
+  const impact = { x: GUARD.x, y: GUARD.y - spriteHeight * enemyScale * .55 };
+  const damageLabelY=Math.max(camera.characterScale === undefined ? -Infinity : 42,GUARD.y-spriteHeight*enemyScale-12);
 
   useEffect(() => {
     const element=svg.current;
@@ -226,10 +242,10 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       const rect=element.getBoundingClientRect();
       const next=measuredRoomCamera(rect.width,rect.height,portrait.matches);
       if (!next) return;
-      const changed = previousCamera && (previousCamera.actorScale !== next.actorScale || previousCamera.minX !== next.minX || previousCamera.maxX !== next.maxX);
+      const changed = previousCamera && (previousCamera.actorScale !== next.actorScale || previousCamera.characterScale !== next.characterScale || previousCamera.minX !== next.minX || previousCamera.maxX !== next.maxX);
       previousCamera=next;
       currentCamera.current=next;
-      setCamera(previous => previous.actorScale === next.actorScale && previous.minX === next.minX && previous.maxX === next.maxX ? previous : next);
+      setCamera(previous => previous.actorScale === next.actorScale && previous.characterScale === next.characterScale && previous.minX === next.minX && previous.maxX === next.maxX ? previous : next);
       const x=Math.max(next.minX,Math.min(next.maxX,point.current.x));
       if (changed || x !== point.current.x) {
         const goal=walkGoal.current;
@@ -417,7 +433,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     moveTo(target.point,target.destination);
   }
 
-  const enemyActor=!cleared ? <g data-room-depth-actor="enemy" transform={`translate(${GUARD.x} ${GUARD.y}) scale(${camera.actorScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
+  const enemyActor=!cleared ? <g data-room-depth-actor="enemy" transform={`translate(${GUARD.x} ${GUARD.y}) scale(${enemyScale}) translate(${-GUARD.x} ${-GUARD.y})`}><g className={`dungeon-enemy ${view.cue && view.cue !== "potion" ? "is-hit" : ""}`} style={{transformOrigin:`${GUARD.x}px ${GUARD.y}px`}} key={`enemy-${view.cueId}`}>
     <ellipse cx={GUARD.x} cy={GUARD.y-3} rx={spriteWidth*.4} ry={spriteHeight*.07} fill="#000" opacity=".62" />
     <svg x={GUARD.x-spriteWidth/2} y={GUARD.y-spriteHeight} width={spriteWidth} height={spriteHeight} overflow="visible"><EnemySprite type={view.enemy} room={view.room} /></svg>
   </g></g> : null;
@@ -428,7 +444,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     {loot.relicId > 0 && <image href="/dungeon/loot/pouch.webp" x={GUARD.x+28} y={GUARD.y-45} width="46" height="46" />}
     <text x={GUARD.x} y={GUARD.y-84} textAnchor="middle">{roomLootLabel(loot)}</text>
   </g> : null;
-  const avatarActor=<g className="dungeon-actor-position" data-room-depth-actor="avatar" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`} data-avatar-facing={facing}><g transform={`scale(${camera.actorScale})`}>
+  const avatarActor=<g className="dungeon-actor-position" data-room-depth-actor="avatar" style={{transform:`translate(${position.x}px,${position.y}px)`}} data-avatar-position={`${position.x},${position.y}`} data-avatar-facing={facing}><g transform={`scale(${characterScale})`}>
     <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
     <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
     <g key={view.cue ? `avatar-${view.cueId}` : "avatar-idle"} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
@@ -462,13 +478,13 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       <RoomMerchant destination={merchantPoint} actorScale={camera.actorScale} onArrivalChange={merchantArrivalChanged}>
         {renderDepthActors}
       </RoomMerchant>
-      <g style={{transform:`translate(${position.x}px,${position.y}px)`}} data-room-actor-effects="avatar"><g transform={`scale(${camera.actorScale})`}>
+      <g style={{transform:`translate(${position.x}px,${position.y}px)`}} data-room-actor-effects="avatar"><g transform={`scale(${characterScale})`}>
         {(view.cue === "potion" || view.cue === "revive") && <g key={`heal-${view.cueId}`} className="dungeon-heal"><ellipse cx="0" cy="-3" rx="53" ry="21" /><text x="0" y="-164" textAnchor="middle">{view.cue === "revive" ? "REVIVED" : "+ HEAL"}</text></g>}
         {view.cue && view.incoming > 0 && <text key={`reply-${view.cueId}`} x="-36" y="-150" className="dungeon-damage incoming">−{view.incoming}</text>}
       </g></g>
       {(view.cue === "storm" || view.cue === "critical" || view.cue === "attack") && <g key={`fx-${view.cueId}`} className={`dungeon-impact ${view.cue}`}>
         {view.cue === "storm" ? <path d={`M${position.x-45} ${position.y-100} L${impact.x-58} ${impact.y+55} ${impact.x-66} ${impact.y+38} ${impact.x-19} ${impact.y+22} ${impact.x-31} ${impact.y+8} ${impact.x} ${impact.y}`} fill="none" stroke="#dbb3ff" strokeWidth="5" /> : <path d={`M${impact.x-32} ${impact.y+32} Q${impact.x+8} ${impact.y+8} ${impact.x+37} ${impact.y-34}`} stroke="#ffe5ac" strokeWidth="6" fill="none" />}
-        <text x={GUARD.x} y={GUARD.y-spriteHeight*camera.actorScale-12} textAnchor="middle" className="dungeon-damage">{view.cue === "critical" ? "CRIT " : ""}{view.damage}</text>
+        <text x={GUARD.x} y={damageLabelY} textAnchor="middle" className="dungeon-damage">{view.cue === "critical" ? "CRIT " : ""}{view.damage}</text>
       </g>}
     </svg>
     {roomNotes && <div className="dungeon-scene-notes">{roomNotes}</div>}

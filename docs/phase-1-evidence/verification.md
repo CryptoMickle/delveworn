@@ -1,6 +1,51 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — rooms derived from the original monster paintings
+## Current correction — mobile room, character and overlay readability
+
+### Changes
+
+- Mobile HUD occupies 141px plus its top safe inset; the report/action area is
+  200px plus bottom safe inset. The 48px report retains a full 44px Log target.
+  The 152px combat panel keeps Storm/Potion/Attack in that order, with 112px
+  buttons. HP, damage ranges, potion stock/usage and enemy retaliation stay
+  visible; full action descriptions remain accessible. Duplicate room and
+  exchange displays are removed from the mobile controls only.
+- Characters use a separate mobile scale from Kevin, wagon and loot. Small
+  enemies and the avatar grow by roughly 20–35% at common floor sizes. Larger
+  monsters receive less enlargement so boss heads fit and later tiers still
+  grow. The reachable horizontal bounds include the full avatar plus a screen
+  gutter; enemy tap bounds and damage labels follow the enlarged art. Kevin's
+  wall position derives from the visible camera edge rather than that gutter.
+- Mobile Field Notes are available through a 44px picture button. The expanded
+  painting uses contain sizing, with its notes underneath in a scrollable area.
+  The existing two-second automatic reveal and manual view behavior remain.
+  Small, temporary speech sits at the lower-right edge. Neither persistent
+  notes nor a wide monster-name button covers the central fighting area.
+- The floor keeps the same height across explore/combat/loot/recovery. If safe
+  areas, browser chrome or landscape leave too little height, the page scrolls
+  instead of compressing the floor below a complete room aspect ratio. First
+  Descent save notices reserve their own 54px above the floor.
+
+### Verification
+
+All **190 automated tests pass**, with zero failures or skips. Camera checks
+cover enlarged actor gutters, clear boss heads, tier growth, matching enemy
+targets and reachable doors. The merchant/loot matrix covers 13 camera shapes,
+six supply rooms and 256 seeds; updated deterministic fixtures reflect the new
+walk gutter. Mounted no-DOM probes pass for automatic loot pickup, trading with
+pending loot preserved, and one Enter activation walking through to room 11.
+
+Full ESLint: zero errors, 14 existing warnings. The Somnia-standard production
+build with session keys disabled passes, including TypeScript. All six changed
+stylesheets parse successfully. Static before/after art sheets at 375×305 and 320×223 show
+larger small enemies/avatar and intact boss, door and stair silhouettes. These
+are React/SVG/Sharp exports, **not browser screenshots**.
+
+Actual Safari/touch/responsive layout remains unverified because browser
+execution is still blocked by the earlier mandatory policy check. This is a
+preview revision for phone review, not a production-readiness claim.
+
+## Previous correction — rooms derived from the original monster paintings
 
 ### Protected preview — READY
 

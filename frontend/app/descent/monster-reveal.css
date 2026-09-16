@@ -139,6 +139,10 @@
   object-fit: cover;
 }
 
+.descent-monster-reveal-mobile-icon {
+  display: none;
+}
+
 .descent-monster-reveal-trigger strong,
 .descent-monster-reveal-trigger small {
   display: block;
@@ -165,18 +169,45 @@
 
 @media (max-width: 760px) {
   .descent-monster-reveal-card {
+    display: grid;
+    grid-template-rows: minmax(0, 62%) minmax(0, 38%);
     border: 0;
   }
 
+  .descent-monster-reveal-art {
+    position: relative;
+    inset: auto;
+    grid-row: 1;
+    min-height: 0;
+  }
+
   .descent-monster-reveal-art img {
-    object-position: center 24%;
+    object-fit: contain;
+    object-position: center;
   }
 
   .room-parchment.descent-monster-reveal-notes {
-    left: 9px;
-    bottom: 9px;
-    width: min(225px, 56%);
-    max-height: calc(100% - 18px);
+    position: relative;
+    inset: auto;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    max-height: none;
+    overflow: auto;
+    pointer-events: auto;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    padding: 10px 13px 12px;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    transform: none;
+  }
+
+  .room-parchment.descent-monster-reveal-notes .room-parchment-copy {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
   }
 
   .descent-monster-reveal-close {
@@ -185,7 +216,42 @@
   }
 
   .descent-monster-reveal.is-collapsed {
-    padding: 8px;
+    padding: 7px;
+  }
+
+  .descent-monster-reveal-trigger {
+    width: 44px;
+    height: 44px;
+    max-width: none;
+    min-height: 44px;
+    justify-content: center;
+    padding: 7px;
+    border-radius: 999px;
+  }
+
+  .descent-monster-reveal-thumb,
+  .descent-monster-reveal-trigger strong,
+  .descent-monster-reveal-trigger small {
+    display: none;
+  }
+
+  .descent-monster-reveal-mobile-icon {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    margin-right: 0;
+    place-items: center;
+    color: #efc7f7;
+  }
+
+  .descent-monster-reveal-mobile-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
   }
 }
 

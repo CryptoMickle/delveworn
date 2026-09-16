@@ -97,13 +97,15 @@ test("known collisions are displaced and the deterministic narrow-floor fallback
   assert.equal(overlaps(wholeDrop(roomFloorLootPoint(5, 5, portrait, true), portrait.actorScale), paintedShop(portrait)), false);
 
   const fallback = roomFloorLootPoint(24454, 5, portrait, true);
-  assert.deepEqual(fallback, { x: 562, y: 495 });
+  // Enlarged characters need a wider edge gutter; the deterministic fallback
+  // follows the reachable right bound rather than the old smaller-sprite edge.
+  assert.deepEqual(fallback, { x: 544, y: 495 });
   assert.deepEqual(clampRoomPoint(fallback, true, portrait), fallback);
   assert.equal(overlaps(wholeDrop(fallback, portrait.actorScale), paintedShop(portrait)), false);
 
   const laneCamera = portraitRoomCamera(375, 650), laneMerchant = roomMerchantPoint(laneCamera);
   const laneLoot = roomFloorLootPoint(20967, 5, laneCamera, true);
-  assert.deepEqual(laneLoot, { x: 537, y: 451 });
+  assert.deepEqual(laneLoot, { x: 526, y: 451 });
   assert.ok(laneLoot.y > laneMerchant.y + Math.max(96, 124 * laneCamera.actorScale + 24));
   assert.ok(distanceToSegment(laneMerchant, { x: 400, y: 391 }, laneLoot) > 96,
     "the direct walk reaches loot without crossing Kevin's trade radius");

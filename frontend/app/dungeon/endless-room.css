@@ -16,6 +16,7 @@
 @media(max-width:760px) {
   .endless-room .endless-room-menu-button { min-height:44px; padding:6px; }
   .endless-room .endless-room-relic-button { min-height:32px; padding:4px 8px; border-radius:0; font-size:11px; }
+  .endless-room .descent-practice-controls > .descent-meter { height:5px; margin-bottom:1px; }
   .endless-room-dialog { width:calc(100vw - 16px); max-height:calc(100dvh - 24px - env(safe-area-inset-bottom)); padding:14px; }
   .endless-room-reward { width:calc(100vw - 16px); max-height:calc(100dvh - 24px - env(safe-area-inset-bottom)); padding:8px; }
   .endless-room-reward .boss-relic-reward { padding:12px; }

@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MONSTER_REVEAL_DURATION_MS, MonsterReveal, isMonsterRevealVisible, monsterRevealReducer, scheduleMonsterRevealDismiss, shouldAutoRevealMonster, shouldScheduleMonsterRevealDismiss, type MonsterRevealProps } from "../app/descent/monster-reveal";
-import { MonsterFieldNotes } from "../app/dungeon/room-parchments";
+import { MonsterFieldNotes, RoomParchments } from "../app/dungeon/room-parchments";
 
 const base: MonsterRevealProps = {
   enemy: 0,
@@ -43,6 +43,19 @@ test("expanded artwork and the floor parchment share the same field-note title a
   }
 });
 
+test("floor notes and expanded artwork expose separate responsive surfaces", () => {
+  const monster={name:base.name,role:base.role,description:base.description};
+  const floor=renderToStaticMarkup(createElement(RoomParchments,{
+    monster,
+    speech:{name:base.name,monsterType:0,room:1,phase:"loot",cue:null,cueId:0,roomTurns:0,hp:0,maxHp:30,damage:0},
+  }));
+  const artwork=renderToStaticMarkup(createElement(MonsterReveal,base));
+  assert.match(floor,/room-parchment-monster/);
+  assert.match(artwork,/descent-monster-reveal-notes/);
+  assert.doesNotMatch(artwork,/room-parchment-monster/);
+  assert.match(artwork,/She wants brains, compliments, and preferably both\./);
+});
+
 test("reloads after a combat action stay collapsed but keep an optional health-linked view", () => {
   assert.equal(shouldAutoRevealMonster("combat", 1, 24), false);
   const markup = renderToStaticMarkup(createElement(MonsterReveal, { ...base, hp: 24, roomTurns: 1, cueId: 3 }));
@@ -50,6 +63,7 @@ test("reloads after a combat action stay collapsed but keep an optional health-l
   assert.match(markup, /View monster/);
   assert.match(markup, /Grave Belle · 24 \/ 30 HP/);
   assert.match(markup, /aria-label="View Grave Belle monster close-up, 24 of 30 health"/);
+  assert.match(markup, /descent-monster-reveal-mobile-icon/);
 });
 
 test("combat actions and even a killing hit do not shorten the timed illustration", () => {

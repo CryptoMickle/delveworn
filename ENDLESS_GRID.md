@@ -32,6 +32,15 @@ boss cadence, relic rules and respective randomness authorities.
   damage ranges, potion stock and encounter limits stay in the panel. Phones
   keep the controls inside the room. Only one live action panel is mounted;
   changing the viewport neither duplicates actions nor advances the game.
+- On phones, compact controls keep **Storm left, Potion middle, Attack right**.
+  HP, damage ranges, potion count/usage and retaliation stay visible. The top
+  status bar retains health, potions, gold and Gear; the room remains in the
+  heading. The report and log retain action outcomes. Small monsters and the
+  avatar are enlarged relative to the floor; large bosses keep enough headroom,
+  and every tier still grows. Kevin, his wagon and loot retain their scale.
+  Floor geometry stays stable through combat, loot and recovery. Short or wide
+  phone viewports scroll when the full room and controls cannot fit, instead of
+  cutting off the doorway, boss or buttons. Tap an empty floor area to walk.
 - Click or tap empty floor to walk there, including during combat. Another
   floor click retargets the walk immediately. This changes only presentation:
   it does not spend a turn, heal, dodge an attack or consume randomness.
@@ -70,13 +79,19 @@ boss cadence, relic rules and respective randomness authorities.
   **Menu** also retains recovery healing.
 - There is no sustained exploration drone. Short action/character/outcome
   effects and the boss score retain their existing sound controls.
-- Monster notes remain on parchment at the top right of the room. The old
+- On desktop, monster notes remain on parchment at the top right of the room.
+  On phones, the small picture button opens the original monster painting and
+  Field Notes; the persistent floor note is hidden. The full painting is fitted
+  above scrollable notes, keeping the text off the artwork. The old
   bottom-right "Dungeon remarks" parchment is removed. Short speech bubbles
   next to the enemy contain direct spoken lines from that monster or boss,
   selected from its persona and confirmed combat outcome while it is alive.
   The compact speech bubble shares Field Notes' parchment background, dark ink,
   book-serif font and body-text sizing (12px desktop, 10.5px mobile), using the
   same appearance variables. It has no text shadow or visible nameplate;
+  on mobile, it sits along the lower-right edge with at most three visible lines,
+  leaving the centered monster and doorway clear. Its full line remains in the
+  accessible text;
   its accessible label still identifies the speaker. A line disappears after
   4.2 seconds; ordinary rerenders do not restart its timer. Defeating the enemy
   immediately removes the bubble, with no final/death remark. Speech uses no
@@ -112,7 +127,8 @@ boss cadence, relic rules and respective randomness authorities.
   tiers 1–4. Later tiers grow gradually toward species-specific limits, keeping
   every monster below the doorway's 225-unit height limit. Tier-one actors stay
   small. Difficulty follows the existing engine/contract; visual size changes
-  do not change stats, hit targets, randomness or the room cap.
+  do not change stats, randomness or the room cap. Mobile floor-tap targets
+  follow the enlarged artwork, and movement bounds retain a visible edge gutter.
 - Kevin enters through the north door immediately after victory at existing
   supply/camp stops, while loot is still on the floor, and walks to one fixed
   upper-left position adjusted to the visible mobile floor. You may trade before
@@ -199,6 +215,11 @@ by its mandatory admin-policy check; Node/component tests and static art exports
 are not substitutes for mobile browser verification.
 
 First test on the phone:
+
+Check that the whole figure and doorway are visible, the picture button opens
+readable Field Notes, and Storm/Potion/Attack remain reachable with Safari's
+address bar expanded and collapsed. On especially short screens, scrolling is
+intentional so that neither artwork nor controls have to be clipped.
 
 1. Start `/practice`, tap empty floor to walk and retarget, approach, attack
    during the artwork display, then tap empty floor again during combat.

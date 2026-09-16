@@ -2,25 +2,52 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { clampRoomPoint, DungeonScene, ENEMY_ART, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
+import { clampRoomPoint, DungeonScene, getEnemyArt, measuredRoomCamera, nearRoomLoot, portraitRoomCamera, roomEnemyScale, roomFloorTarget, roomLootLabel, roomMerchantApproach, roomMerchantPoint, type RoomView } from "../app/dungeon/scene";
 import { createMerchantArrivalGate } from "../app/dungeon/merchant-room";
 import { MERCHANT_ROOM_ART_LAYOUT } from "../app/dungeon/merchant-art";
 import { roomLootPoint } from "../app/dungeon/movement";
 
-test("portrait camera keeps tier-one actors modest and walking inside the visible room", () => {
-  for (const width of [320,375,390,430]) for (const height of [220,390,500,650,800]) {
+test("portrait camera enlarges characters while keeping walking, loot and the door reachable", () => {
+  for (const width of [320,375,390,430]) for (const height of [223,305,390,500,650,800]) {
     const camera=portraitRoomCamera(width,height), scale=Math.max(width/900,height/600);
     const left=(900-width/scale)/2;
     assert.ok(camera.minX <= 400 && camera.maxX >= 450, "combat, loot and door stay reachable");
-    for (const art of ENEMY_ART) assert.ok(art.roomHeight*camera.actorScale*scale <= art.roomHeight*.65+.001, "a taller room must not enlarge monsters");
+    assert.ok(camera.actorScale*scale <= .65+.001,"merchant and loot keep their existing screen-size cap");
+    assert.ok(camera.characterScale*scale <= .80+.001,"characters keep a bounded screen size");
     for (const x of [camera.minX,camera.maxX]) {
-      const center=(x-left)*scale, halfWidth=88*camera.actorScale*scale;
+      const center=(x-left)*scale, halfWidth=88*camera.characterScale*scale;
       assert.ok(center-halfWidth >= 11.99 && center+halfWidth <= width-11.99, "walking keeps the full avatar on screen");
     }
     const loot=roomLootPoint(42,1,camera);
     const target=roomFloorTarget(loot,true,0,loot);
     assert.ok(target.point.x >= camera.minX && target.point.x <= camera.maxX);
     assert.ok(nearRoomLoot(target.point,loot), "resizing never prevents floor pickup");
+  }
+});
+
+test("mobile figures are more legible without clipping bosses or flattening tier growth", () => {
+  for (const [width,height] of [[320,223],[375,305],[375,390],[390,440],[430,500]]) {
+    const camera=portraitRoomCamera(width,height), scale=Math.max(width/900,height/600);
+    assert.ok(camera.characterScale >= camera.actorScale*1.2,"the avatar grows at least twenty percent on common phone floors");
+    for (const enemy of [0,1,2,3] as const) {
+      let previous=0;
+      for (const room of [1,11,21,31,41,91]) {
+        const art=getEnemyArt(enemy,room), size=art.roomHeight*roomEnemyScale(art.roomHeight,camera);
+        assert.ok(size>previous,`${art.name} keeps growing at tier boundaries`);
+        assert.ok(size <= 225,"every monster head fits below the north wall at y236");
+        const top=(236-size)*scale+(height-600*scale)/2;
+        assert.ok(top>=0,"the painted boss fits in the phone crop");
+        const head={x:450,y:236-size+10};
+        assert.equal(roomFloorTarget(head,false,enemy,undefined,undefined,room,camera).destination,"enemy","tapping the enlarged head still approaches the monster");
+        previous=size;
+      }
+    }
+    const zombie=getEnemyArt(0,1);
+    assert.ok(roomEnemyScale(zombie.roomHeight,camera) >= camera.actorScale*1.2,"tier-one zombies remain small but readable");
+  }
+  for(const enemy of [0,1,2,3] as const) {
+    const art=getEnemyArt(enemy,31);
+    assert.equal(roomEnemyScale(art.roomHeight),1,"desktop artwork keeps its original scale");
   }
 });
 
@@ -98,7 +125,7 @@ test("Kevin taps approach the painted shop before or after floor loot pickup", (
     for(const room of [5,9]) {
       const merchant=roomMerchantPoint(bounds), approach=roomMerchantApproach(merchant,bounds);
       const scale=bounds.actorScale ?? 1;
-      const visibleLeft=bounds.minX <= 170 ? 0 : bounds.minX-(88+12/.65)*scale;
+      const visibleLeft="visibleLeft" in bounds ? bounds.visibleLeft : 0;
       const wagonLeft=visibleLeft+50*scale;
       assert.deepEqual(merchant,{x:Math.min(bounds.maxX-52*scale,wagonLeft+210*scale),y:270},"Kevin stands immediately inward of the wall-parked wagon");
       assert.ok(Math.abs(merchant.x+MERCHANT_ROOM_ART_LAYOUT.stall.xByOuterSide.right*scale-wagonLeft)<.001,"the turned wagon finishes at the visible left wall margin");

@@ -24,7 +24,22 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — original-art environments for all sixteen monsters
+## Current checkpoint — mobile room readability
+
+The shared phone presentation now gives more emphasis to the characters:
+the avatar and small enemies are larger, with bounded growth for bosses and
+preserved tier progression. Compact HUD/report/actions retain player/enemy HP,
+gear, damage ranges, potion count and retaliation. Storm stays left, Potion
+middle and Attack right. Floor geometry remains stable across room phases;
+very short/wide viewports scroll instead of clipping the room or controls.
+
+Persistent mobile Field Notes are replaced by a 44px picture control. Expanded
+art fits the complete original painting above scrollable notes. Speech stays
+along the lower-right edge rather than over the monster or north doorway.
+Desktop presentation and combat rules are preserved. See current validation
+and the protected preview in [verification](phase-1-evidence/verification.md).
+
+## Previous checkpoint — original-art environments for all sixteen monsters
 
 The room now follows the background in the exact original monster painting,
 including its artwork tier. Sixteen new empty environments use each original
