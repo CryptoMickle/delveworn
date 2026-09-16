@@ -58,8 +58,8 @@ export function getEnemyArt(type: MonsterType, room = 1): DungeonEnemyArt {
 export const EnemySprite = memo(function EnemySprite({ type, room = 1, className }: { type: MonsterType; room?: number; className?: string }) {
   const id = useId(), art = getEnemyArt(type,room);
   return <svg className={className} viewBox={art.crop} aria-hidden="true">
-    <defs><clipPath id={id}>{art.outline.split(/(?=M)/).map((contour,index) => <path key={index} d={contour} />)}</clipPath></defs>
-    <image href={art.src} width={art.width} height={art.height} clipPath={`url(#${id})`} />
+    <defs><clipPath id={id}>{[art.outline,art.spriteOutline].filter(Boolean).flatMap(outline => outline!.split(/(?=M)/)).map((contour,index) => <path key={index} d={contour} />)}</clipPath></defs>
+    <image href={art.spriteSrc ?? art.src} width={art.width} height={art.height} clipPath={`url(#${id})`} />
   </svg>;
 });
 

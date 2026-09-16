@@ -82,6 +82,21 @@ test("manual crops and outlines stay inside each source without falling back to 
   }
 });
 
+test("Gary's Supervisor keeps the repaired crown inside a transparent room sprite", async () => {
+  const supervisor=HIGHER_TIER_ART[1][2];
+  assert.equal(supervisor.spriteSrc,"/monsters/goblin-4-garys-supervisor-crown-fixed.webp");
+  const sprite=sharp(`public${supervisor.spriteSrc}`);
+  const metadata=await sprite.metadata(), stats=await sprite.stats();
+  assert.deepEqual([metadata.width,metadata.height],[supervisor.width,supervisor.height]);
+  assert.equal(metadata.hasAlpha,true);
+  assert.equal(stats.isOpaque,false,"the repaired crown cannot reveal a painted background around the cutout");
+  assert.match(supervisor.spriteOutline ?? "",/^M/);
+  const values=[...(supervisor.spriteOutline ?? "").matchAll(/-?\d+(?:\.\d+)?/g)].map(match=>Number(match[0]));
+  const points=Array.from({length:values.length/2},(_,index)=>({x:values[index*2],y:values[index*2+1]}));
+  assert.ok(Math.min(...points.map(point=>point.y)) === 0,"the completed crown reaches its natural top without a flat cutoff");
+  assert.ok(Math.min(...points.map(point=>point.x)) >= 17 && Math.max(...points.map(point=>point.x)) <= 757);
+});
+
 // These are perceived progression guarantees, independent of individual art sizes.
 test("every ten-room tier increases monster size without outgrowing the doorway", () => {
   for (const type of [0, 1, 2, 3] as const) {
