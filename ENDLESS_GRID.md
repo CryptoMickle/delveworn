@@ -84,20 +84,25 @@ boss cadence, relic rules and respective randomness authorities.
   Field Notes; the persistent floor note is hidden. The full painting is fitted
   above scrollable notes, keeping the text off the artwork. The old
   bottom-right "Dungeon remarks" parchment is removed. Short speech bubbles
-  next to the enemy contain direct spoken lines from that monster or boss,
-  selected from its persona and confirmed combat outcome while it is alive.
-  The compact speech bubble shares Field Notes' parchment background, dark ink,
-  book-serif font and body-text sizing (12px desktop, 10.5px mobile), using the
-  same appearance variables. It has no text shadow or visible nameplate;
-  on mobile, it sits along the lower-right edge with at most three visible lines,
-  leaving the centered monster and doorway clear. Its full line remains in the
-  accessible text;
-  its accessible label still identifies the speaker. A line disappears after
-  4.2 seconds; ordinary rerenders do not restart its timer. Defeating the enemy
-  immediately removes the bubble, with no final/death remark. Speech uses no
-  randomness and does not alter the saved combat log. Neither
-  notes nor speech take pointer input or change room size. The full log remains
-  available. The cosmetic armor ring over the avatar is removed.
+  at the top right contain direct spoken lines from the living monster or boss,
+  with a small speaker name and a tail pointing toward the room. They share
+  Field Notes' parchment, dark ink and book-serif sizing (12px desktop, 10.5px
+  mobile). Desktop Field Notes yield while a bubble is visible, then return;
+  expanded artwork notes are unaffected. Mobile speech uses a narrow corner
+  footprint and shows the complete line, without clipping the punchline.
+  Neither notes nor speech take pointer input or change room size.
+  The catalogue contains 264 unique lines: four personal greetings for each
+  of 16 monsters and family reactions to hits, Storm, misses, criticals,
+  potions, revives and low HP. Each deck is exhausted before reuse, including
+  across rooms/new runs during the same page visit, with no adjacent repeat
+  at a deck boundary. Bounded in-memory history resets on a full reload and
+  uses no storage, tracking or gameplay RNG.
+  Speech is selected after a committed combat event. Repeated renders and
+  clearing a short combat-animation cue cannot draw another line or restart
+  the 4.2-second lifetime. Initial server rendering stays silent rather than
+  flashing an unconsumed greeting. Defeating the enemy immediately removes
+  the bubble, with no final/death remark. The saved combat log is unchanged
+  and remains available. The cosmetic armor ring over the avatar is removed.
   The notes use IM Fell English, served with the app through the existing font
   pipeline, with book-serif fallbacks and slightly larger mobile text.
 - The tier-two goblin is **Gribnob the Unqualified**; **Quartermaster Kevin**

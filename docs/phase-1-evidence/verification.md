@@ -1,6 +1,55 @@
 # First Descent verification — 2026-09-16
 
-## Current correction — reduce mobile idle and repeated rendering work
+## Current correction — varied spoken humour and a top-right bubble
+
+### Changes
+
+- Expanded 72 lines to **264 unique spoken lines**, with four personal openings
+  for every named monster, plus separate zombie/goblin/orc/boss reactions.
+  Short complete lines respond to ordinary hits, Storm, misses, criticals,
+  potions, revives and low HP. No final/death remarks are added.
+- Replaced a modulo selector whose advancing turn and cue counters could keep
+  selecting the same line. Bounded in-memory decks use every line before
+  repeating and avoid an adjacent repeat at the cycle boundary. History spans
+  room remounts and new runs within this page visit; a full reload clears it.
+- Dialogue observes committed event identifiers, independent of the brief visual
+  cue's cleanup. Clearing a cue or refreshing HP cannot redraw an opening,
+  reset a lifetime timer or respawn expired speech. Initial SSR/hydration is
+  silent until the sole deck-selected line is committed, avoiding a flash of
+  an unconsumed greeting. No game RNG, saved state or combat log changes.
+- Bubble moved to the top-right corner with a small visible speaker name and
+  accessible attribution. Existing parchment, font and restrained styling stay.
+  Desktop Field Notes yield only while speech is visible; expanded artwork
+  notes remain available. Phone bubbles no longer truncate the punchline.
+  Overlays remain pointer-transparent and outside room layout calculations.
+
+### Verification
+
+All **195 automated tests pass**, with no failures or skips. Catalogue tests
+check unique/short lines and all sixteen real art names. Rotation tests cover
+three full cycles of every family/stage, personal greetings across remounts,
+cue cleanup and non-consuming server rendering. Full ESLint has zero errors
+and 14 existing warnings. The Somnia-standard production build passes with
+session keys disabled, including TypeScript; changed CSS parses successfully.
+
+A mounted React Strict Mode probe (no DOM/browser) verifies the accessible and
+visible speaker, one live timer, stable text/timer through cue cleanup, no
+respawn after expiry, rotated greetings on room remount, silent killing blows,
+and zero live timers after unmount. Static geometry review checked the corner
+footprint at 320px and 375px phone widths. This is not a browser screenshot test.
+
+### Preview and limits
+
+Protected preview publication is pending. Existing project/protection/approval
+and Somnia-standard settings are retained. No production promotion, Git push,
+protection bypass or contract transaction. Browser execution remains blocked by
+the earlier mandatory policy check; actual Safari layout and reading comfort
+need phone review. Test several rooms and repeated monster encounters to judge
+both joke quality and readability. Reloading resets dialogue history. Old
+restored saves without turn-history metadata can greet once midfight; normal
+confirmed turns do not repeatedly greet. Mobile power-use changes are untouched.
+
+## Previous correction — reduce mobile idle and repeated rendering work
 
 ### Protected preview — READY
 

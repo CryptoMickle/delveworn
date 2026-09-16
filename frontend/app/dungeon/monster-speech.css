@@ -1,9 +1,9 @@
 .monster-speech {
   position:absolute;
-  top:27%;
-  right:calc(50% + 72px);
+  top:12px;
+  right:12px;
   width:max-content;
-  max-width:min(240px,calc(50% - 84px));
+  max-width:min(218px,34%);
   margin:0;
   padding:8px 12px;
   border:1px solid var(--parchment-border);
@@ -23,24 +23,26 @@
 .monster-speech::after {
   content:"";
   position:absolute;
-  right:-4px;
+  left:-4px;
   bottom:9px;
   width:6px;
   height:6px;
   border-right:1px solid var(--parchment-border);
   border-bottom:1px solid var(--parchment-border);
   background:var(--parchment-paper);
-  transform:rotate(-45deg);
+  transform:rotate(135deg);
 }
+.monster-speech-speaker { display:block; margin-bottom:3px; font-size:10px; font-weight:700; font-variant-caps:small-caps; letter-spacing:.04em; }
 .monster-speech p { margin:0; }
 @keyframes monster-speech-arrive { from { opacity:0; } }
 @media(max-width:760px) {
   .monster-speech {
-    top:25%;
-    right:calc(50% + 36px);
-    max-width:min(190px,calc(50% - 48px));
-    padding:8px 10px;
+    top:8px;
+    right:8px;
+    max-width:clamp(98px,31vw,132px);
+    padding:6px 8px;
     border-radius:8px 8px 3px 8px;
   }
+  .monster-speech-speaker { font-size:9px; letter-spacing:.02em; }
 }
 @media(prefers-reduced-motion:reduce) { .monster-speech { animation:none; } }

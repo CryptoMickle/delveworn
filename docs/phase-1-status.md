@@ -24,7 +24,28 @@ proportions, practical clothing and a hidden face. Same plum cloak/art style.
 Tier 1 actors are smaller, especially Grave Belle. The original monster images
 and the androgynous adventurer remain unchanged.
 
-## Current checkpoint — first mobile power-use reductions
+## Current checkpoint — expanded monster dialogue and top-right speech
+
+The shared room now has **264 unique spoken lines**, including four personal
+openings for each of the sixteen monsters. Zombie, goblin, orc and boss reactions
+have distinct voices. Each dialogue deck is exhausted before repeating, across
+rooms and new runs within the same page visit. A full reload clears this small
+in-memory history; it creates no stored identifier or gameplay randomness.
+
+The compact parchment bubble is at the top right with the speaker's name.
+Desktop Field Notes yield while speech is visible and return afterward. Mobile
+shows complete lines without the former three-line truncation. Clearing a
+combat effect no longer redraws a greeting or resets the bubble's timer;
+killing blows remain silent. Original artwork and combat rules are unchanged.
+
+All **195 tests** and the Somnia-standard production build pass. ESLint has zero
+errors and 14 pre-existing warnings. A mounted React Strict Mode probe verifies
+rotation, cue cleanup, expiry, attribution and death cleanup without a browser.
+Protected preview publication is pending; see
+[verification](phase-1-evidence/verification.md). Actual Safari/phone layout
+review remains pending because browser execution is policy-blocked.
+
+## Previous checkpoint — first mobile power-use reductions
 
 Following the iPhone 11 Pro heat report, mobile/touch rooms no longer keep
 avatar/enemy breathing and relic floating running between actions. Walking,

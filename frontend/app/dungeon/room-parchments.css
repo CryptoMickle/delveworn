@@ -26,6 +26,7 @@
 }
 .room-parchment::before { content:""; position:absolute; inset:5px; border:1px solid #98703a50; pointer-events:none; }
 .room-parchment-monster { top:12px; transform:rotate(1deg); }
+.room-parchments:has(.monster-speech) > .room-parchment-monster { visibility:hidden; }
 .room-parchment .room-parchment-label { margin:0 0 6px; color:#785631; font:700 10px/1.2 var(--parchment-book-font); font-variant-caps:small-caps; letter-spacing:.08em; }
 .descent-shell .room-parchment h2 { margin:0 0 7px; color:#352316; font:400 clamp(15px,1.7vw,20px)/1.12 var(--parchment-book-font); letter-spacing:.015em; }
 .room-parchment .room-parchment-copy { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; margin:0; }
@@ -39,21 +40,4 @@
   .room-parchment .room-parchment-label { margin-bottom:4px; font-size:8px; letter-spacing:.055em; }
   .descent-shell .room-parchment h2 { margin-bottom:4px; font-size:12px; }
   .room-parchment .room-parchment-copy { -webkit-line-clamp:3; }
-  .monster-speech {
-    top:auto;
-    bottom:8px;
-    right:8px;
-    left:auto;
-    width:auto;
-    max-width:min(160px,44%);
-    padding:6px 9px;
-    transform:none;
-  }
-  .monster-speech p {
-    display:-webkit-box;
-    overflow:hidden;
-    -webkit-box-orient:vertical;
-    -webkit-line-clamp:3;
-  }
-  .monster-speech::after { top:-4px; right:auto; bottom:auto; left:18px; transform:rotate(-135deg); }
 }
