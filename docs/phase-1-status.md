@@ -42,6 +42,12 @@ errors and 14 existing warnings. Static original/room/open-door images were
 reviewed; actual mobile/desktop gameplay QA remains pending due to the existing
 browser-policy block.
 
+Source `8f2693bc92788fb9c137d58501d21fef254c3b3b` is **READY** on protected
+preview deployment `dpl_CHfezKstXWXHV3J6d8RAh1r9Uiv7`:
+[Practice preview](https://delveworn-lp401ogaw-crypto-mickle.vercel.app/practice).
+The existing preview approval and protection remain in effect; no production
+promotion or contract transaction occurred.
+
 ## Previous checkpoint — monster-specific rooms and shared Field Notes
 
 The shared grid now selects a room by monster family: the original zombie crypt,

@@ -2,6 +2,19 @@
 
 ## Current correction — rooms derived from the original monster paintings
 
+### Protected preview — READY
+
+- Source `8f2693bc92788fb9c137d58501d21fef254c3b3b`; deployment
+  `dpl_CHfezKstXWXHV3J6d8RAh1r9Uiv7` is **READY**, verified through Vercel's API.
+- [Practice preview](https://delveworn-lp401ogaw-crypto-mickle.vercel.app/practice)
+- Updated under the user's existing explicit preview approval. Existing project
+  and preview protection, Somnia standard, session keys disabled. No Git push,
+  production promotion, protection bypass, wallet or contract transaction.
+- First check: compare the room with **View monster**, play through different
+  families, and continue beyond rooms 10, 20 and 30 to see the matching tier rooms.
+
+### Changes and checks
+
 The user requested that room designs follow the backgrounds in the original
 monster illustrations. Sixteen new room images now correspond one-to-one with
 the sixteen original paintings. Each was generated with the existing room as
