@@ -15,6 +15,7 @@ import { ROOMS, createDescent, enemyIntent, phase, roomNumber, transition, type 
 import { DESCENT_SAVE_KEY, loadDescent, saveDescent } from "./storage";
 import { exclusiveSave } from "./save-lock";
 import { DescentCombatPanel, DescentEnemyStatus } from "./combat-panel";
+import { COMBAT_CUE_DURATION_MS, descentActionCooldown } from "./action-timing";
 import { useRoomSidebar } from "../dungeon/use-room-sidebar";
 import { MonsterReveal } from "./monster-reveal";
 import { ShopKeeper, ShopVitals } from "../dungeon/shop-vitals";
@@ -123,6 +124,7 @@ export default function DescentGame() {
   async function act(action: DescentAction) {
     const before = current.current;
     if (!before || lock.current) return;
+    if (timer.current) { clearTimeout(timer.current); timer.current=null; }
     lock.current=true; setBusy(true);
     try {
     const next = transition(before,action,before.revision);
@@ -158,7 +160,15 @@ export default function DescentGame() {
       if (action === "collect") audio.playOutcome(next.game.roomsCleared === 10 ? "victory" : "loot");
       if (action === "claim" || action === "claim-equip") audio.playOutcome("relic");
     }
-    timer.current=setTimeout(() => { lock.current=false; setBusy(false); setCue(null); timer.current=null; },combatAction ? 280 : 160);
+    const cooldown=descentActionCooldown(combatAction,window.matchMedia("(pointer: coarse)").matches);
+    if (cooldown === 0) {
+      // The confirmed save is already complete. Release desktop input now,
+      // while leaving the short visual cue alive independently.
+      lock.current=false; setBusy(false);
+      timer.current=setTimeout(() => { setCue(null); timer.current=null; },COMBAT_CUE_DURATION_MS);
+    } else {
+      timer.current=setTimeout(() => { lock.current=false; setBusy(false); setCue(null); timer.current=null; },cooldown);
+    }
     } catch (error) {
       // Route error boundaries do not catch rejected event-handler promises.
       // Surface the failure on render; resuming reads the last committed save
