@@ -401,6 +401,31 @@ test("Redis REST keeps its token in the authorization header and rate limits ato
   assert.match(String(calls[0].init?.body), /^\["EVAL",/);
 });
 
+test("Redis namespace configuration fails closed for invalid names without affecting the local store", () => {
+  const environment = {
+    NODE_ENV: "production",
+    KV_REST_API_URL: "https://redis.example",
+    KV_REST_API_TOKEN: "token",
+    DELVEWORN_LEADERBOARD_COOKIE_SECRET: "x".repeat(32),
+  };
+  for (const namespace of ["production:preview", "production*", " production", "production\n", "prod/uction", "ø", "a".repeat(33)]) {
+    assert.deepEqual(createLeaderboardBackend({ ...environment, DELVEWORN_LEADERBOARD_NAMESPACE: namespace }), {
+      status: { enabled: false, mode: "disabled", reason: "invalid_namespace" },
+      store: null,
+      cookieSecret: null,
+    });
+    assert.throws(() => new RedisRestLeaderboardStore({
+      url: "https://redis.example", token: "token", namespace,
+    }), /namespace must contain 1–32 letters, numbers, hyphens or underscores/);
+  }
+  for (const namespace of [undefined, "", "production", "Preview-2_test", "a".repeat(32)]) {
+    assert.equal(createLeaderboardBackend({ ...environment, DELVEWORN_LEADERBOARD_NAMESPACE: namespace }).status.mode, "redis");
+  }
+  assert.equal(createLeaderboardBackend({
+    NODE_ENV: "development", DELVEWORN_LEADERBOARD_NAMESPACE: "ignored:local",
+  }).status.mode, "local");
+});
+
 test("the nonproduction file store persists replayed rows and atomically retains equal scores", async () => {
   const directory = await mkdtemp(join(tmpdir(), "delveworn-leaderboard-test-"));
   const file = join(directory, "leaderboard.json");

@@ -25,6 +25,17 @@ production. Local development uses an atomically replaced JSON file in the
 operating system temporary directory, or `DELVEWORN_LEADERBOARD_LOCAL_FILE`
 when explicitly set.
 
+`DELVEWORN_LEADERBOARD_NAMESPACE` optionally isolates Redis records when Preview
+and Production share the same database. Set it to `production` only in the
+Production environment to keep its scores, guest indexes, entries and rate
+limits separate. The prefix becomes `dw:lb:ns:production:`; an unset or empty
+value preserves the existing `dw:lb:` preview keys without migrating records.
+Names must contain 1–32 ASCII letters, numbers, hyphens or underscores. An
+invalid name disables the Redis backend with status reason `invalid_namespace`
+rather than reading or writing another environment's records. The local file
+store is unchanged and ignores this setting. This capability does not itself
+activate a production deployment.
+
 ## HTTP API
 
 `GET /api/leaderboard/<challenge-id>` returns current or archived standings.
@@ -90,8 +101,9 @@ The suite found and fixed two integration bugs:
   in local and Redis storage. They still share the same competition rank.
 
 It also covers concurrent best-score retries, retention of an equal result,
-capacity, top-ten/own-neighbor windows, and expired rate limits. The Frontend CI
-runs it as a separate Redis integration job. Locally, install standard Redis
+capacity, top-ten/own-neighbor windows, expired rate limits, and isolation of
+best scores and rate limits between default and production namespaces. The
+Frontend CI runs it as a separate Redis integration job. Locally, install standard Redis
 binaries or set `REDIS_SERVER_BIN` and `REDIS_CLI_BIN` to existing binaries.
 
 New server submissions retain the verified action proof privately for future

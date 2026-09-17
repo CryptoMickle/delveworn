@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalFileLeaderboardStore } from "./local-store";
-import { RedisRestLeaderboardStore } from "./redis-store";
+import { isValidLeaderboardNamespace, RedisRestLeaderboardStore } from "./redis-store";
 import type { LeaderboardStore } from "./store";
 
 export type LeaderboardBackendStatus = {
   enabled: boolean;
   mode: "redis" | "local" | "disabled";
-  reason: "ready" | "disabled_by_config" | "missing_storage" | "missing_cookie_secret";
+  reason: "ready" | "disabled_by_config" | "missing_storage" | "missing_cookie_secret" | "invalid_namespace";
 };
 
 export type LeaderboardBackend = {
@@ -45,12 +45,21 @@ export function createLeaderboardBackend(
   const production = environment.NODE_ENV === "production";
 
   if (redisUrl && redisToken && configuredSecret && configuredSecret.length >= 32) {
+    const namespace = environment.DELVEWORN_LEADERBOARD_NAMESPACE;
+    if (!isValidLeaderboardNamespace(namespace)) {
+      return {
+        status: { enabled: false, mode: "disabled", reason: "invalid_namespace" },
+        store: null,
+        cookieSecret: null,
+      };
+    }
     return {
       status: { enabled: true, mode: "redis", reason: "ready" },
       store: new RedisRestLeaderboardStore({
         url: redisUrl,
         token: redisToken,
         fetcher: options.fetcher,
+        namespace,
       }),
       cookieSecret: configuredSecret,
     };

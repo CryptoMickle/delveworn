@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { leaderboardMemberId, leaderboardWindow, type StoredLeaderboardEntry } from "../app/leaderboard/core";
+import { createLeaderboardBackend } from "../app/leaderboard/config";
 import { RedisRestLeaderboardStore } from "../app/leaderboard/redis-store";
 
 const exec = promisify(execFile);
@@ -87,6 +88,45 @@ test("real Redis: empty boards, concurrent best updates, ties, neighbors and exp
       assert.equal(await store.consumeRateLimit("short", 1, 60), false);
       await command(["PEXPIRE", "dw:lb:rate:short", 0]);
       assert.equal(await store.consumeRateLimit("short", 1, 60), true);
+    });
+    await t.test("production and default namespaces isolate best scores, reads and rate limits for the same guest", async () => {
+      const production = createLeaderboardBackend({
+        NODE_ENV: "production",
+        KV_REST_API_URL: "https://local-redis.invalid",
+        KV_REST_API_TOKEN: "test-only",
+        DELVEWORN_LEADERBOARD_COOKIE_SECRET: "x".repeat(32),
+        DELVEWORN_LEADERBOARD_NAMESPACE: "production",
+      }, { fetcher }).store;
+      assert.ok(production);
+      const board = "weekly:2026-W38:v2";
+      const guest = "shared-guest";
+      const previewEntry = entry(guest, 200, 0);
+      // The same member ID also verifies isolation of the stored entry hash.
+      const productionEntry = entry(guest, 100, 0);
+      assert.equal((await store.submitBest(board, guest, previewEntry)).status, "inserted");
+      assert.deepEqual(await production.getWindow(board, guest), { totalEntries: 0, entries: [] });
+      assert.equal((await production.submitBest(board, guest, productionEntry)).status, "inserted");
+      assert.deepEqual((await store.getWindow(board, guest)).entries[0].entry, previewEntry);
+      assert.deepEqual((await production.getWindow(board, guest)).entries[0].entry, productionEntry);
+      const improvedProduction = entry(guest, 150, 1);
+      assert.equal((await production.submitBest(board, guest, improvedProduction)).status, "improved");
+      assert.equal((await store.submitBest(board, guest, entry(guest, 150, 1))).status, "retained");
+      assert.deepEqual(await store.getWindow(board, guest), leaderboardWindow([previewEntry], guest));
+      assert.deepEqual(await production.getWindow(board, guest), leaderboardWindow([improvedProduction], guest));
+
+      const rateKey = `guest:${guest}`;
+      assert.equal(await store.consumeRateLimit(rateKey, 1, 60), true);
+      assert.equal(await store.consumeRateLimit(rateKey, 1, 60), false);
+      assert.equal(await production.consumeRateLimit(rateKey, 1, 60), true);
+      assert.equal(await production.consumeRateLimit(rateKey, 1, 60), false);
+      await command(["PEXPIRE", `dw:lb:rate:${rateKey}`, 0]);
+      assert.equal(await store.consumeRateLimit(rateKey, 1, 60), true);
+      assert.equal(await production.consumeRateLimit(rateKey, 1, 60), false);
+      assert.equal(await command(["EXISTS",
+        `dw:lb:${board}:scores`, `dw:lb:${board}:guests`, `dw:lb:${board}:entries`, `dw:lb:rate:${rateKey}`,
+        `dw:lb:ns:production:${board}:scores`, `dw:lb:ns:production:${board}:guests`,
+        `dw:lb:ns:production:${board}:entries`, `dw:lb:ns:production:rate:${rateKey}`,
+      ]), 8);
     });
   } finally {
     server.kill("SIGTERM");

@@ -74,22 +74,32 @@ if count == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end
 return count
 `;
 
+export function isValidLeaderboardNamespace(namespace: string | undefined): boolean {
+  return !namespace || (namespace.length <= 32 && !/[^a-zA-Z0-9_-]/.test(namespace));
+}
+
 export class RedisRestLeaderboardStore implements LeaderboardStore {
   private readonly url: string;
   private readonly token: string;
   private readonly fetcher: typeof fetch;
   private readonly maxEntries: number;
+  private readonly keyPrefix: string;
 
   constructor(options: {
     url: string;
     token: string;
     fetcher?: typeof fetch;
     maxEntries?: number;
+    namespace?: string;
   }) {
+    if (!isValidLeaderboardNamespace(options.namespace)) {
+      throw new Error("Leaderboard namespace must contain 1–32 letters, numbers, hyphens or underscores.");
+    }
     this.url = options.url.replace(/\/+$/, "");
     this.token = options.token;
     this.fetcher = options.fetcher ?? fetch;
     this.maxEntries = options.maxEntries ?? LEADERBOARD_MAX_ENTRIES;
+    this.keyPrefix = options.namespace ? `dw:lb:ns:${options.namespace}` : "dw:lb";
   }
 
   private async command(command: readonly (string | number)[]): Promise<unknown> {
@@ -111,7 +121,7 @@ export class RedisRestLeaderboardStore implements LeaderboardStore {
   }
 
   private keys(board: string): [string, string, string] {
-    return [`dw:lb:${board}:scores`, `dw:lb:${board}:guests`, `dw:lb:${board}:entries`];
+    return [`${this.keyPrefix}:${board}:scores`, `${this.keyPrefix}:${board}:guests`, `${this.keyPrefix}:${board}:entries`];
   }
 
   async submitBest(
@@ -162,7 +172,7 @@ export class RedisRestLeaderboardStore implements LeaderboardStore {
   }
 
   async consumeRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
-    const result = await this.command(["EVAL", RATE_SCRIPT, 1, `dw:lb:rate:${key}`, windowSeconds]);
+    const result = await this.command(["EVAL", RATE_SCRIPT, 1, `${this.keyPrefix}:rate:${key}`, windowSeconds]);
     return typeof result === "number" && result <= limit;
   }
 }
