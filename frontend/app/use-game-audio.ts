@@ -77,6 +77,7 @@ const getServerSnapshot = () => INITIAL_GAME_AUDIO_SNAPSHOT;
 
 const methods = {
   playAction: (action: GameAudioAction) => getController()?.playAction(action),
+  playSceneAction: (action: GameAudioAction) => controller?.playSceneAction(action),
   playOutcome: (outcome: GameAudioOutcome) => controller?.playOutcome(outcome),
   playCharacter: (name: string) => controller?.playCharacter(name),
   setBossBattle: (active: boolean) => controller?.setBossBattle(active),

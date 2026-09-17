@@ -243,7 +243,13 @@ export class GameAudioController {
 
   /** Mouse and keyboard should call this same method from the same action handler. */
   playAction = (action: GameAudioAction) => {
-    if (!this.activate() || !this.canPlay() || !this.context) return;
+    if (!this.activate()) return;
+    this.playSceneAction(action);
+  };
+
+  /** Play an action with its confirmed animation, without unlocking or resuming audio. */
+  playSceneAction = (action: GameAudioAction) => {
+    if (!this.canPlay() || !this.context) return;
     try {
       const now = this.context.currentTime + 0.008;
       if (action === "attack") {

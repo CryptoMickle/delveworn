@@ -186,9 +186,12 @@ test("boss music matches the frozen Market Dungeon 16-bar note, tempo and synthe
   assert.equal(timers.size, 0);
 });
 
-test("loading, outcomes and boss snapshots never create audio before a player gesture", () => {
+test("loading, scene actions, outcomes and boss snapshots never create audio before a player gesture", () => {
   const { controller, context, creations, timers } = fixture();
   controller.setBossBattle(true);
+  controller.playSceneAction("attack");
+  controller.playSceneAction("storm");
+  controller.playSceneAction("potion");
   controller.playOutcome("loot");
   controller.playCharacter("Gary");
   assert.equal(creations(), 0);
@@ -199,6 +202,53 @@ test("loading, outcomes and boss snapshots never create audio before a player ge
   assert.ok(context.sources.length > 0);
   assert.equal(timers.size, 1);
   controller.destroy();
+});
+
+test("a confirmed scene action plays the original effect at the animation time after a click", () => {
+  for (const action of ["attack", "storm", "potion", "click"] as const) {
+    const immediate = fixture();
+    const delayed = fixture();
+    delayed.controller.playAction("click");
+    assert.equal(delayed.context.sources.length, 1, "the button initially produces just a click");
+    delayed.context.sources = [];
+    immediate.context.currentTime = delayed.context.currentTime = 8;
+    immediate.controller.playAction(action);
+    delayed.controller.playSceneAction(action);
+    // Noise samples are decorative randomness; compare the complete synthesis
+    // and scheduling trace, excluding only the random sample contents.
+    const effectTrace = (context: FakeContext) => scoreTrace(context).map(({ noise, ...trace }) => ({
+      ...trace, noise: noise !== null,
+    }));
+    assert.deepEqual(effectTrace(delayed.context), effectTrace(immediate.context), action);
+    assert.ok(delayed.context.sources.every(source => source.starts[0] >= 8), "nothing is backdated to submission time");
+    assert.equal(delayed.context.resumes, 0);
+    assert.equal(delayed.creations(), 1);
+    assert.equal(delayed.timers.size, 0);
+    immediate.controller.destroy();
+    delayed.controller.destroy();
+  }
+});
+
+test("late scene actions remain silent when hidden, muted or paused after losing focus", () => {
+  for (const interruption of ["hidden", "muted", "blur", "device", "destroyed"] as const) {
+    const { controller, context, foreground, creations } = fixture();
+    controller.playAction("click");
+    if (interruption === "hidden") foreground(false);
+    else if (interruption === "muted") controller.toggleSound();
+    else if (interruption === "device") context.interrupt("interrupted");
+    else if (interruption === "destroyed") controller.destroy();
+    else {
+      foreground(false);
+      controller.pause();
+      foreground(true);
+    }
+    const count = context.sources.length;
+    for (const action of ["attack", "storm", "potion"] as const) controller.playSceneAction(action);
+    assert.equal(context.sources.length, count, interruption);
+    assert.equal(context.resumes, 0, `${interruption} cannot be resumed by a delayed animation`);
+    assert.equal(creations(), 1);
+    controller.destroy();
+  }
 });
 
 test("ordinary actions and confirmed rewards are short cues with no background scheduler", () => {

@@ -49,6 +49,7 @@ import {
   acknowledgeOnchainLoot,
   applyConfirmedOnchainPresentation,
   canUseOnchainPresentationAction,
+  confirmedOnchainCombatCue,
   createOnchainPresentationState,
   engageOnchainEncounter,
   onchainDoorDecision,
@@ -3312,6 +3313,13 @@ function DelvewornGame() {
 
   const sceneCueTimerRef =
     useRef<number | null>(null);
+  const sceneCueSequenceRef = useRef(0);
+  const presentedSceneActionRef = useRef<string | null>(null);
+  const sceneAudioRef = useRef<{
+    scope: string | null;
+    cueId: number;
+    sounds: NonNullable<ReturnType<typeof confirmedOnchainCombatCue>>;
+  } | null>(null);
 
   const presentationScope =
     onchainPresentationScope(
@@ -4409,7 +4417,7 @@ function DelvewornGame() {
     beforeState: PlayerState | null,
     resolvedState: PlayerState
   ) {
-    if (!beforeState) {
+    if (!beforeState || resolvedState.pendingRequestId !== BigInt(0)) {
       return;
     }
 
@@ -4418,6 +4426,9 @@ function DelvewornGame() {
     }
 
     const action = actionTimingRef.current?.name;
+    const actionKey = `${presentationScope}:${actionTimingRef.current?.startedAt}:${action}`;
+    if (presentedSceneActionRef.current === actionKey) return;
+    presentedSceneActionRef.current = actionKey;
     setOnchainPresentation((current) =>
       applyConfirmedOnchainPresentation(
         current,
@@ -4435,6 +4446,7 @@ function DelvewornGame() {
       }
       setSceneCue(null);
       setSceneCueScope(null);
+      sceneAudioRef.current = null;
     }
 
     if (
@@ -4446,23 +4458,18 @@ function DelvewornGame() {
         window.clearTimeout(sceneCueTimerRef.current);
       }
 
-      const revived =
-        !beforeState.relicReviveUsed &&
-        resolvedState.relicReviveUsed;
-
-      setSceneCue(
-        revived
-          ? "revive"
-          : action === "stormAttack"
-            ? "storm"
-            : action === "usePotion"
-              ? "potion"
-              : resolvedState.lastCritical
-                ? "critical"
-                : "attack"
-      );
+      const sounds = confirmedOnchainCombatCue(action, beforeState, resolvedState);
+      if (!sounds) return;
+      const cueId = ++sceneCueSequenceRef.current;
+      sceneAudioRef.current = { scope: presentationScope, cueId, sounds };
+      setSceneCue(sounds.cue);
       setSceneCueScope(presentationScope);
-      setSceneCueId((value) => value + 1);
+      setSceneCueId(cueId);
+      // A fatal result replaces the room with the run-end screen.
+      if (!resolvedState.active) {
+        sceneAudioRef.current = null;
+        audio.playOutcome("death");
+      }
       sceneCueTimerRef.current = window.setTimeout(() => {
         setSceneCue(null);
         setSceneCueScope(null);
@@ -4470,6 +4477,14 @@ function DelvewornGame() {
       }, 360);
     }
 
+  }
+
+  function playSceneCueAudio(cue: Exclude<SceneCue, null>, cueId: number) {
+    const queued = sceneAudioRef.current;
+    if (!queued || queued.scope !== presentationScope || queued.cueId !== cueId || queued.sounds.cue !== cue) return;
+    sceneAudioRef.current = null;
+    audio.playSceneAction(queued.sounds.actionSound);
+    if (queued.sounds.outcomeSound) audio.playOutcome(queued.sounds.outcomeSound);
   }
 
   function finishFastVrfResolution(
@@ -7760,6 +7775,8 @@ function DelvewornGame() {
     functionName:
       GameAction
   ) {
+    // Reject duplicate clicks before they can replace the in-flight cue identity.
+    if (interactionLock.current) return;
     if (
       !player ||
       !connectedAddress
@@ -7853,13 +7870,12 @@ function DelvewornGame() {
       "button handler start"
     );
 
-    if (interactionLock.current) return;
     const playerAddress = connectedAddress;
     const actionView = walletViewRef.current.capture();
     let submissionObserved = false;
     interactionLock.current = true;
     setWalletMessage("");
-    audio.playAction(functionName === "attack" ? "attack" : functionName === "stormAttack" ? "storm" : functionName === "usePotion" ? "potion" : "click");
+    audio.playAction("click");
 
     try {
       setPendingAction(
@@ -8109,7 +8125,6 @@ function DelvewornGame() {
         const cleared = resolved.roomsCleared > before.roomsCleared;
         setActionFeedback(`${result} HP ${resolved.hp}/${resolved.maxHp}.${cleared ? ` ${before.monsterType === 3 ? "Management defeated!" : "Room cleared!"} ${resolved.supportsPendingLoot ? "Loot dropped." : "Loot confirmed."}` : ""}`);
         audio.setBossBattle(Boolean(resolved.active && resolved.monsterType === 3 && resolved.monsterHp > 0));
-        audio.playOutcome(!resolved.active ? "death" : cleared ? before.monsterType === 3 ? "victory" : "loot" : resolved.lastCritical ? "critical" : "hit");
       } else {
         setActionFeedback(`Room ${resolved.roomsCleared + 1} · ${resolved.campOpen ? "Prepare at Kevin's camp." : resolved.supplyOpen ? "Supplies available from Kevin." : "Encounter confirmed. Choose your next move."}`);
         if (resolved.monsterHp > 0) audio.playCharacter(getMonsterPersona(resolved.monsterType, resolved.roomsCleared + 1).name);
@@ -10406,6 +10421,8 @@ function DelvewornGame() {
       <EndlessRoom
         key={onchainPresentationKey(onchainPresentation, presentationScope)}
         mode="onchain"
+        allowPendingCombatMovement={ACTIVE_ECOSYSTEM_NAME === "Somnia" && !walletTransitionPending && !somniaSessionCreating}
+        onCueStart={playSceneCueAudio}
         view={{
           room: sceneRoom,
           enemy: player.monsterType as MonsterType,

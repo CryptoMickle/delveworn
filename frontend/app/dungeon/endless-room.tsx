@@ -7,7 +7,7 @@ import { GameLogo } from "../game-logo";
 import { GameHud } from "../game-ui";
 import { DescentEnemyStatus } from "../descent/combat-panel";
 import { MonsterReveal } from "../descent/monster-reveal";
-import { DungeonScene, getEnemyArt, type RoomActions, type RoomView } from "./scene";
+import { DungeonScene, getEnemyArt, type RoomActions, type RoomCueStart, type RoomView } from "./scene";
 import { ShopKeeper, ShopVitals } from "./shop-vitals";
 import { InventoryPotions, type SafePotionAction } from "./inventory-potions";
 import { RoomParchments } from "./room-parchments";
@@ -24,6 +24,8 @@ export type EndlessRoomProps = {
   mode: "practice" | "onchain";
   view: RoomView;
   actions: RoomActions;
+  allowPendingCombatMovement?: boolean;
+  onCueStart?: RoomCueStart;
   enemyMaxHp: number;
   monsterDescription: string;
   maxHp: number;
@@ -49,7 +51,7 @@ export type EndlessRoomProps = {
 
 /** Only presentation and local walking. Every gameplay action belongs to its caller. */
 export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescription, maxHp, gold, potions, roomTurns,
-  incoming, combatActions, combatPotions, healAction, safePotion, shop, relics, ownedRelicCount = 0, reward, notices, menu, feedback, lootDetail, log, sound }: EndlessRoomProps) {
+  incoming, combatActions, combatPotions, allowPendingCombatMovement, onCueStart, healAction, safePotion, shop, relics, ownedRelicCount = 0, reward, notices, menu, feedback, lootDetail, log, sound }: EndlessRoomProps) {
   const [panel, setPanel] = useState<{ room: number; kind: "menu" | "shop" | "relics" | "log" | "status" } | null>(null);
   const sidebarControls = useRoomSidebar();
   const dialog = useRef<HTMLDialogElement>(null), rewardDialog = useRef<HTMLDialogElement>(null);
@@ -136,6 +138,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
     <div className="descent-room-heading"><div><p className="descent-kicker">{mode === "practice" ? "PRACTICE" : "ONCHAIN"} · TIER {tier}</p><h1>Room {view.room} · {view.enemyName}</h1></div><span>Next boss: room {tier * 10}</span></div>
     <div className="descent-layout"><div className="descent-world">
       <DungeonScene key={`${view.seed ?? 0}:${view.room}`} view={view}
+        allowPendingCombatMovement={allowPendingCombatMovement} onCueStart={onCueStart}
         actions={{ ...actions, merchant: merchantAvailable ? () => open("shop") : undefined }} topOverlay={top} footer={footer}
         roomNotes={<RoomParchments monster={view.enemyHp > 0 ? {name:view.enemyName,role:art.role,description:monsterDescription} : undefined}
           speech={{name:view.enemyName,monsterType:view.enemy,room:view.room,phase:view.phase,cue:view.cue,cueId:view.cueId,roomTurns,hp:view.enemyHp,maxHp:enemyMaxHp,damage:view.damage}} />}

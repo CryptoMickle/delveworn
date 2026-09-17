@@ -1,4 +1,5 @@
-import type { RoomLoot, RoomView } from "./dungeon/scene";
+import type { RoomLoot, RoomView, SceneCue } from "./dungeon/scene";
+import type { GameAudioAction, GameAudioOutcome } from "./game-audio";
 import type { LootType } from "./practice/engine";
 import type { WalletView } from "./wallet-view-guard";
 import type { PendingRoomLootState } from "./onchain-v4";
@@ -22,6 +23,34 @@ export type OnchainPresentationAction =
   | "stormAttack"
   | "usePotion"
   | string;
+
+type CombatCueSnapshot = {
+  active: boolean;
+  monsterType: number;
+  monsterHp: number;
+  roomsCleared: number;
+  pendingRequestId: bigint;
+  relicReviveUsed: boolean;
+  lastCritical: boolean;
+  lastMonsterDamage: number;
+};
+
+/** Animation and sound describe the same resolved exchange, never a pending roll. */
+export function confirmedOnchainCombatCue(
+  action: OnchainPresentationAction,
+  before: CombatCueSnapshot,
+  after: CombatCueSnapshot
+): { cue: Exclude<SceneCue, null>; actionSound: GameAudioAction; outcomeSound: GameAudioOutcome | null } | null {
+  if (after.pendingRequestId !== BigInt(0) || !["attack", "stormAttack", "usePotion"].includes(action)) return null;
+  const revived = !before.relicReviveUsed && after.relicReviveUsed;
+  const cleared = after.roomsCleared > before.roomsCleared;
+  return {
+    cue: revived ? "revive" : action === "stormAttack" ? "storm" : action === "usePotion" ? "potion" : after.lastCritical ? "critical" : "attack",
+    actionSound: revived || action === "usePotion" ? "potion" : action === "stormAttack" ? "storm" : "attack",
+    outcomeSound: !after.active ? "death" : cleared ? before.monsterType === 3 ? "victory" : "loot"
+      : action === "usePotion" && after.lastMonsterDamage === 0 ? null : after.lastCritical ? "critical" : "hit",
+  };
+}
 
 export type OnchainPresentationState = Readonly<{
   scope: string | null;

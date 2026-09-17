@@ -11,7 +11,56 @@ import {
   type Point,
   type RoomFrameHost,
 } from "../app/dungeon/movement";
-import { clampRoomPoint, nearRoomLoot, portraitRoomCamera } from "../app/dungeon/scene";
+import { canWalkRoom, clampRoomPoint, nearRoomLoot, portraitRoomCamera, type RoomView } from "../app/dungeon/scene";
+
+test("pending walking is an explicit combat-only permission and never bypasses death or reward locks", () => {
+  const phases: RoomView["phase"][]=["explore","combat","loot","recovery","reward","won","lost"];
+  for (const phase of phases) {
+    const state={phase,pending:true,hp:80};
+    assert.equal(canWalkRoom(state),false,`${phase}: existing callers keep their pending lock`);
+    assert.equal(canWalkRoom(state,true),phase === "combat",`${phase}: only a combat wait can allow movement`);
+    assert.equal(canWalkRoom({...state,hp:0},true),false,`${phase}: defeated players cannot walk`);
+    assert.equal(canWalkRoom({...state,pending:false}),["explore","combat","loot","recovery"].includes(phase));
+  }
+});
+
+test("a walk crosses a combat wait and its resolution without resetting its position", () => {
+  const scheduler=controlledHost();
+  let view: Pick<RoomView,"phase" | "pending" | "hp">={phase:"combat",pending:false,hp:80};
+  let point: Point={x:400,y:391}, arrivals=0;
+  const control=createRoomSteering(() => point,target => {
+    if (!canWalkRoom(view,true)) return false;
+    point=clampRoomPoint(target,false);
+  },() => {},scheduler.frames);
+  control.press("d");
+  scheduler.advance(80); scheduler.fireFrame();
+  const beforeWait=point.x;
+  view={...view,pending:true};
+  scheduler.advance(80); scheduler.fireFrame();
+  assert.ok(point.x > beforeWait,"held WASD continues during VRF wait");
+  const beforeResolution=point.x;
+  view={...view,pending:false,hp:72};
+  scheduler.advance(80); scheduler.fireFrame();
+  assert.ok(point.x > beforeResolution,"resolution keeps the current path and position");
+  control.stop();
+
+  const clickStart={...point},clickTarget={x:650,y:440};
+  view={...view,pending:true};
+  startRoomWalk(clickStart,clickTarget,step => {
+    if (!canWalkRoom(view,true)) return false;
+    point=step;
+  },() => {arrivals++;},scheduler.frames);
+  scheduler.advance(200); scheduler.fireFrame();
+  assert.ok(point.x > clickStart.x,"floor walking advances during the wait");
+  const clickBeforeResolution=point.x;
+  view={...view,pending:false};
+  scheduler.advance(80); scheduler.fireFrame();
+  assert.ok(point.x > clickBeforeResolution,"resolution keeps the floor target");
+  scheduler.advance(2_000); scheduler.fireFrame();
+  assert.deepEqual(point,clickTarget);
+  assert.equal(arrivals,1);
+  assert.deepEqual(scheduler.pending(),{frames:0,timers:0});
+});
 
 test("direction follows subpixel steps and reversals without turning at rest", () => {
   const from={x:400,y:391};

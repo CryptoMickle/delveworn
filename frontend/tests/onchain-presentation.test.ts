@@ -4,6 +4,7 @@ import {
   acknowledgeOnchainLoot,
   applyConfirmedOnchainPresentation,
   canUseOnchainPresentationAction,
+  confirmedOnchainCombatCue,
   createOnchainPresentationState,
   engageOnchainEncounter,
   onchainDoorDecision,
@@ -36,6 +37,33 @@ const pendingLoot = (overrides: Partial<OnchainPresentationSnapshot["pendingLoot
   lootType: 3 as const,
   lootAmount: 1,
   ...overrides,
+});
+
+test("combat animation and audio wait for VRF, including interrupted-confirmation recovery", () => {
+  const before = { active: true, monsterType: 1, monsterHp: 30, roomsCleared: 0,
+    pendingRequestId: BigInt(0), relicReviveUsed: false, lastCritical: false, lastMonsterDamage: 0 };
+  for (const action of ["attack", "stormAttack", "usePotion"]) {
+    assert.equal(confirmedOnchainCombatCue(action, before, { ...before, pendingRequestId: BigInt(87) }), null);
+  }
+  const resolved = { ...before, monsterHp: 20, lastMonsterDamage: 4 };
+  assert.deepEqual(confirmedOnchainCombatCue("attack", before, resolved), { cue: "attack", actionSound: "attack", outcomeSound: "hit" });
+  assert.deepEqual(confirmedOnchainCombatCue("stormAttack", before, resolved), { cue: "storm", actionSound: "storm", outcomeSound: "hit" });
+  assert.deepEqual(confirmedOnchainCombatCue("usePotion", before, resolved), { cue: "potion", actionSound: "potion", outcomeSound: "hit" });
+  assert.equal(confirmedOnchainCombatCue("enterNextRoom", before, resolved), null);
+});
+
+test("confirmed scene sounds distinguish critical, boss kill, revive, death and safe healing", () => {
+  const before = { active: true, monsterType: 3, monsterHp: 30, roomsCleared: 9,
+    pendingRequestId: BigInt(0), relicReviveUsed: false, lastCritical: false, lastMonsterDamage: 0 };
+  assert.deepEqual(confirmedOnchainCombatCue("attack", before, { ...before, lastCritical: true }),
+    { cue: "critical", actionSound: "attack", outcomeSound: "critical" });
+  assert.equal(confirmedOnchainCombatCue("attack", before, { ...before, monsterHp: 0, roomsCleared: 10 })?.outcomeSound, "victory");
+  assert.equal(confirmedOnchainCombatCue("attack", { ...before, monsterType: 1 }, { ...before, monsterHp: 0, roomsCleared: 10 })?.outcomeSound, "loot");
+  assert.equal(confirmedOnchainCombatCue("attack", before, { ...before, active: false })?.outcomeSound, "death");
+  assert.deepEqual(confirmedOnchainCombatCue("attack", before, { ...before, relicReviveUsed: true }),
+    { cue: "revive", actionSound: "potion", outcomeSound: "hit" });
+  assert.deepEqual(confirmedOnchainCombatCue("usePotion", before, before),
+    { cue: "potion", actionSound: "potion", outcomeSound: null });
 });
 
 test("confirmed kills expose optional floor loot without changing credited resources", () => {

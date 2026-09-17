@@ -25,9 +25,11 @@ export type RoomView = {
   pending: boolean; cue: SceneCue; cueId: number; damage: number; incoming: number;
 };
 /** Walking is presentation only; it never spends a combat turn or rolls RNG. */
-function canWalk(view: RoomView) {
-  return !view.pending && view.hp > 0 && ["explore","combat","loot","recovery"].includes(view.phase);
+export function canWalkRoom(view: Pick<RoomView, "pending" | "hp" | "phase">, allowPendingCombatMovement = false) {
+  const movementAllowed = !view.pending || (allowPendingCombatMovement && view.phase === "combat");
+  return movementAllowed && view.hp > 0 && ["explore","combat","loot","recovery"].includes(view.phase);
 }
+export type RoomCueStart = (cue: Exclude<SceneCue, null>, cueId: number) => void;
 type WalkGoal = { target: Point; destination?: "enemy" | "door" | "merchant" | "loot" };
 export type RoomActions = { approach: () => void; enter: (leaveLoot?: boolean) => void; collect?: () => void; skipLoot?: () => void; merchant?: () => void; interact?: () => void };
 export type RoomDepthActor<T = ReactNode> = { id: string; footY: number; content: T };
@@ -191,7 +193,7 @@ export function measuredRoomCamera(width: number, height: number, portrait: bool
 }
 
 /** Mount with a confirmed run/room key. Recovery never trusts saved coordinates. */
-export function DungeonScene({ view, actions, children, topOverlay, footer, presentationOverlay, roomNotes }: { view: RoomView; actions: RoomActions; children?: ReactNode; topOverlay?: ReactNode; footer?: ReactNode; presentationOverlay?: ReactNode; roomNotes?: ReactNode }) {
+export function DungeonScene({ view, actions, allowPendingCombatMovement = false, onCueStart, children, topOverlay, footer, presentationOverlay, roomNotes }: { view: RoomView; actions: RoomActions; allowPendingCombatMovement?: boolean; onCueStart?: RoomCueStart; children?: ReactNode; topOverlay?: ReactNode; footer?: ReactNode; presentationOverlay?: ReactNode; roomNotes?: ReactNode }) {
   const [position, setPosition] = useState<Point>(view.phase === "explore" ? ENTRY : STAGING);
   const [walking, setWalking] = useState(false);
   const [facing, setFacing] = useState<Facing>("right");
@@ -202,7 +204,8 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const walkGoal = useRef<WalkGoal | null>(null);
   const movementBlocked = useRef<(target?: EventTarget | null) => boolean>(() => false);
   const continueWalk = useRef<((goal: WalkGoal, bounds: RoomCamera) => void) | null>(null);
-  const latest = useRef({ view, actions });
+  const latest = useRef({ view, actions, allowPendingCombatMovement });
+  const startedCue = useRef<number | null>(null);
   const [merchantGate]=useState(createMerchantArrivalGate);
   const openMerchant=useCallback(() => {
     const current=latest.current;
@@ -217,7 +220,14 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const merchantArrivalChanged=useCallback((arrived: boolean) => {
     if (merchantGate.merchantArrived(arrived)) openMerchant();
   },[merchantGate,openMerchant]);
-  useEffect(() => { latest.current = { view, actions }; }, [view, actions]);
+  useEffect(() => { latest.current = { view, actions, allowPendingCombatMovement }; }, [view, actions, allowPendingCombatMovement]);
+  useEffect(() => {
+    // Effects run after the grid has committed its new animation. A re-render,
+    // including walking or a refreshed callback, must never replay its sound.
+    if (!view.cue || !onCueStart || startedCue.current === view.cueId) return;
+    startedCue.current = view.cueId;
+    onCueStart(view.cue, view.cueId);
+  }, [view.cue, view.cueId, onCueStart]);
   const svg = useRef<SVGSVGElement>(null), pointer = useRef<Point | null>(null);
   const [camera,setCamera] = useState<RoomCamera>({actorScale:1,minX:170,maxX:733});
   const currentCamera = useRef(camera);
@@ -243,6 +253,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const spriteWidth = spriteHeight * cropWidth / cropHeight;
   const impact = { x: GUARD.x, y: GUARD.y - spriteHeight * enemyScale * .55 };
   const damageLabelY=Math.max(camera.characterScale === undefined ? -Infinity : 42,GUARD.y-spriteHeight*enemyScale-12);
+  const movementAllowed=canWalkRoom(view,allowPendingCombatMovement);
 
   useEffect(() => {
     const element=svg.current;
@@ -292,14 +303,17 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     };
     movementBlocked.current=blocked;
     const control=createRoomSteering(() => point.current, target => {
-      const {view:current,actions:callbacks}=latest.current;
-      if (!canWalk(current) || blocked()) return false;
+      const {view:current,actions:callbacks,allowPendingCombatMovement:pendingMovement}=latest.current;
+      if (!canWalkRoom(current,pendingMovement) || blocked()) return false;
       const bounds=currentCamera.current;
       const from=point.current;
       const next=clampRoomPoint(target,current.enemyHp === 0,bounds);
       setFacing(previous => movementFacing(from,next,previous));
       setOrientation(previous => movementOrientation(from,next,previous));
       point.current=next; setPosition(next);
+      // Waiting movement is cosmetic. It cannot trigger another contract
+      // action, even if the avatar reaches an actor or doorway.
+      if (current.pending) return;
       if (current.phase === "explore" && Math.hypot(next.x-GUARD.x,next.y-GUARD.y) < 125) {
         setFacing(previous => movementFacing(next,GUARD,previous));
         setOrientation(previous => movementOrientation(next,GUARD,previous)); callbacks.approach(); return false;
@@ -335,17 +349,18 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       // already started its walk, so a handled event must not cancel it.
       if (event.defaultPrevented) return;
       if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { stopAllMovement(); return; }
-      const current=latest.current.view;
-      if (!canWalk(current)) return;
+      const {view:current,allowPendingCombatMovement:pendingMovement}=latest.current;
+      if (!canWalkRoom(current,pendingMovement)) return;
       const key=roomMovementKey(event.key);
       if (!key && event.key.toLowerCase() !== "e") return;
+      if (!key && current.pending) return;
       event.preventDefault();
       // Repeat never starts a fresh walk after a phase transition or focus loss.
       if (event.repeat) return;
       if (key) {
         merchantGate.cancel();
         stopWalk.current?.(); stopWalk.current=null; walkGoal.current=null;
-        latest.current.actions.interact?.();
+        if (!current.pending) latest.current.actions.interact?.();
         control.press(key);
       } else keyboardInteract.current?.();
     };
@@ -364,19 +379,22 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   },[merchantGate,playerArrivedAtMerchant]);
 
   useEffect(() => {
-    steering.current?.stop();
+    // Entering or leaving the network wait should not cancel a held key or
+    // teleport the avatar. Stop only when walking actually becomes blocked.
+    if (!movementAllowed || view.phase !== "combat") steering.current?.stop();
     if (view.pending || (view.phase !== "loot" && view.phase !== "recovery") || !hasMerchant) {
       merchantGate.cancel();
       if (walkGoal.current?.destination === "merchant") walkGoal.current=null;
     }
-  },[view.phase,view.pending,hasMerchant,merchantGate]);
+  },[view.phase,view.pending,movementAllowed,hasMerchant,merchantGate]);
 
   function moveTo(target: Point, destination?: WalkGoal["destination"], interact = true, bounds = camera) {
-    const {view: currentView,actions: currentActions}=latest.current;
-    if (!canWalk(currentView) || !isRoomPoint(target) || movementBlocked.current()) return;
+    const {view: currentView,actions: currentActions,allowPendingCombatMovement:pendingMovement}=latest.current;
+    if (!canWalkRoom(currentView,pendingMovement) || !isRoomPoint(target) || movementBlocked.current()) return;
+    if (currentView.pending && destination) return;
     merchantGate.cancel();
     steering.current?.stop();
-    if (interact) currentActions.interact?.();
+    if (interact && !currentView.pending) currentActions.interact?.();
     stopWalk.current?.();
     const from=point.current;
     const next = clampRoomPoint(target,currentView.enemyHp === 0,bounds);
@@ -387,10 +405,11 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     setOrientation(previous => movementOrientation(from,next,previous)); setWalking(true);
     stopWalk.current=startRoomWalk(from,next,step => {
       const current=latest.current;
-      if (!canWalk(current.view) || movementBlocked.current()) {
+      if (!canWalkRoom(current.view,current.allowPendingCombatMovement) || movementBlocked.current()) {
         merchantGate.cancel(); stopWalk.current=null; walkGoal.current=null; setWalking(false); return false;
       }
       point.current=step; setPosition(step);
+      if (current.view.pending) return;
       if (destination !== "door" && current.view.phase === "loot" && current.view.loot && nearRoomLoot(step,currentLootPoint.current)) {
         stopWalk.current=null; walkGoal.current=null; setWalking(false); current.actions.collect?.(); return false;
       }
@@ -449,6 +468,11 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     catch { return; }
     if (!isRoomPoint(p)) return;
     svg.current?.focus({preventScroll:true});
+    if (latest.current.view.pending) {
+      // Floor clicks stay plain movement while the confirmed action is pending;
+      // resolving a guard/door target here would queue a second interaction.
+      moveTo(p); return;
+    }
     if (loot && event.target instanceof Element && event.target.closest(".dungeon-loot")) {
       moveTo(lootPoint,"loot"); return;
     }
@@ -478,7 +502,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
     <ellipse cx="0" cy="0" rx="43" ry="13" fill="#000" opacity=".64" />
     <g transform={`scale(${facing === "left" ? -1 : 1} 1)`}>
     <g key={view.cue ? `avatar-${view.cueId}` : "avatar-idle"} className={`dungeon-avatar ${walking ? "is-walking" : ""} ${view.hp === 0 ? "is-dead" : ""} ${view.cue === "attack" || view.cue === "critical" ? "is-attacking" : ""} ${view.incoming && view.cue ? "takes-hit" : ""}`}>
-      <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite walking={walking && !view.pending} orientation={orientation} /></svg>
+      <svg x="-70" y="-151" width="158" height="164" overflow="visible"><AvatarSprite walking={walking && movementAllowed} orientation={orientation} /></svg>
       {view.weapon > 0 && <path d="M34 -57 L66 -92" stroke="#f9dea3" strokeWidth="2" opacity=".8" />}
     </g>
     </g>
