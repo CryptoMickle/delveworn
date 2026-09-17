@@ -327,7 +327,11 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
       setWalking(false);
     };
     const keydown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { stopAllMovement(); return; }
+      // Arrow/Enter navigation may synchronously click a focused floor action
+      // before this room listener receives the same event. That click has
+      // already started its walk, so a handled event must not cancel it.
+      if (event.defaultPrevented) return;
+      if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || blocked(event.target)) { stopAllMovement(); return; }
       const current=latest.current.view;
       if (!canWalk(current)) return;
       const key=roomMovementKey(event.key);
