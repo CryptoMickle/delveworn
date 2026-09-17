@@ -225,6 +225,9 @@ contract RelicsV1Test is Test {
             // deterministic bonus-gold loot on the killing hit.
             _fulfill(_attackWords(4, 0, 0, 50, 0));
         }
+
+        vm.prank(player);
+        dungeon.collectLoot();
     }
 
     function _choose(Delveworn.Relic relic) internal {

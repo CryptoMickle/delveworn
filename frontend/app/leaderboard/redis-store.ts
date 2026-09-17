@@ -61,6 +61,10 @@ for _, member in ipairs(members) do
   end
 end
 table.sort(rows, function(a, b) return a.rank < b.rank end)
+-- Lua cjson encodes an empty table as {}, while the API requires rows: [].
+if #rows == 0 then
+  return '{"totalEntries":' .. tostring(redis.call("ZCARD", KEYS[1])) .. ',"rows":[]}'
+end
 return cjson.encode({ totalEntries = redis.call("ZCARD", KEYS[1]), rows = rows })
 `;
 

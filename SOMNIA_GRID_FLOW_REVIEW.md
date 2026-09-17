@@ -2,6 +2,13 @@
 
 Date: 2026-09-17
 
+Historical baseline: this review describes commit `cfff2eb` and the legacy
+contract behavior. The subsequent [local V4 implementation](./SOMNIA_PENDING_LOOT_V4.md)
+adds authoritative pending loot; it has not been deployed. The later
+[read-only preflight](./SOMNIA_READONLY_PREFLIGHT_2026-09-17.md) verifies live
+core/adapter wiring while leaving historical pending requests unresolved.
+Line references and verification counts below belong to the original review.
+
 ## Decision
 
 The live onchain route already renders the shared walking grid for every loaded

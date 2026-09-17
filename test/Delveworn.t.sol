@@ -9,8 +9,16 @@ import {Delveworn} from "../src/Delveworn.sol";
 
 import {MockVRFCoordinator} from "../src/MockVRFCoordinator.sol";
 
+contract DelvewornHarness is Delveworn {
+    constructor(address coordinatorAddress) Delveworn(coordinatorAddress) {}
+
+    function forceInactive(address playerAddress) external {
+        players[playerAddress].active = false;
+    }
+}
+
 contract DelvewornTest is Test {
-    Delveworn dungeon;
+    DelvewornHarness dungeon;
     MockVRFCoordinator mockVRF;
 
     address player = address(0x1234);
@@ -18,7 +26,7 @@ contract DelvewornTest is Test {
     function setUp() public {
         mockVRF = new MockVRFCoordinator();
 
-        dungeon = new Delveworn(address(mockVRF));
+        dungeon = new DelvewornHarness(address(mockVRF));
     }
 
     /*
@@ -43,6 +51,19 @@ contract DelvewornTest is Test {
         assertTrue(p.hasStarted);
         assertTrue(p.active);
 
+        assertGt(dungeon.pendingRequestId(player), 0);
+    }
+
+    function testStartingNewRunClearsStalePendingLoot() public {
+        _killRoomOnePending(50, 10);
+        assertTrue(dungeon.frontendSnapshotV4(player).pendingLoot.available);
+
+        dungeon.forceInactive(player);
+
+        vm.prank(player);
+        dungeon.startGame();
+
+        assertFalse(dungeon.frontendSnapshotV4(player).pendingLoot.available);
         assertGt(dungeon.pendingRequestId(player), 0);
     }
 
@@ -142,7 +163,7 @@ contract DelvewornTest is Test {
 
         vm.startPrank(player);
 
-        vm.expectRevert(bytes("VRF request not timed out"));
+        vm.expectRevert(Delveworn.VrfRequestNotTimedOut.selector);
 
         dungeon.retryRandomness();
 
@@ -210,7 +231,7 @@ contract DelvewornTest is Test {
         numbers[3] = 50;
         numbers[4] = 0;
 
-        vm.expectRevert(bytes("Unknown VRF request"));
+        vm.expectRevert(Delveworn.UnknownRequest.selector);
 
         mockVRF.fulfill(oldRequestId, numbers);
 
@@ -723,6 +744,178 @@ contract DelvewornTest is Test {
         assertEq(p.armorLevel, 1);
     }
 
+    function testPendingLootDoesNotChangeSpendableStateUntilCollectedExactlyOnce() public {
+        _killRoomOnePending(50, 10);
+
+        Delveworn.Player memory beforeCollection = dungeon.getPlayer(player);
+        assertEq(beforeCollection.gold, 0);
+        assertEq(beforeCollection.lastLootAmount, 15);
+
+        (bool available, uint256 room, uint256 pendingGold, Delveworn.LootType lootType, uint256 lootAmount) =
+            dungeon.pendingRoomLoot(player);
+        assertTrue(available);
+        assertEq(room, 1);
+        assertEq(pendingGold, 20);
+        assertEq(uint256(lootType), uint256(Delveworn.LootType.BonusGold));
+        assertEq(lootAmount, 15);
+
+        vm.prank(player);
+        dungeon.collectLoot();
+
+        assertEq(dungeon.getPlayer(player).gold, 20);
+
+        vm.prank(player);
+        dungeon.collectLoot();
+
+        assertEq(dungeon.getPlayer(player).gold, 20);
+        (available,,,,) = dungeon.pendingRoomLoot(player);
+        assertFalse(available);
+    }
+
+    function testFrontendSnapshotV4RestoresPendingLoot() public {
+        _killRoomOnePending(85, 0);
+
+        Delveworn.FrontendSnapshotV4 memory snapshot = dungeon.frontendSnapshotV4(player);
+        assertEq(snapshot.base.base.roomsCleared, 1);
+        assertEq(snapshot.base.base.gold, 0);
+        assertTrue(snapshot.pendingLoot.available);
+        assertEq(snapshot.pendingLoot.room, 1);
+        assertEq(snapshot.pendingLoot.gold, 5);
+        assertEq(uint256(snapshot.pendingLoot.lootType), uint256(Delveworn.LootType.Weapon));
+        assertEq(snapshot.pendingLoot.lootAmount, 1);
+
+        vm.expectRevert(Delveworn.NoPendingRandomness.selector);
+        vm.prank(player);
+        dungeon.retryRandomness();
+
+        assertTrue(dungeon.frontendSnapshotV4(player).pendingLoot.available);
+    }
+
+    function testOrdinaryEntryAtomicallyDiscardsPendingLoot() public {
+        _killRoomOnePending(50, 10);
+
+        vm.prank(player);
+        dungeon.enterNextRoom();
+
+        (bool available,,,,) = dungeon.pendingRoomLoot(player);
+        assertFalse(available);
+        assertEq(dungeon.getPlayer(player).gold, 0);
+        assertEq(uint256(dungeon.pendingRequestKind(player)), uint256(Delveworn.RequestKind.Monster));
+    }
+
+    function testEntryFailurePreservesPendingLoot() public {
+        _killRoomOnePending(50, 10);
+
+        vm.mockCallRevert(
+            address(mockVRF), abi.encodeWithSignature("requestRandomNumbers(uint32,uint256)"), bytes("request failed")
+        );
+
+        vm.expectRevert("request failed");
+        vm.prank(player);
+        dungeon.enterNextRoom();
+
+        (bool available, uint256 room, uint256 pendingGold,,) = dungeon.pendingRoomLoot(player);
+        assertTrue(available);
+        assertEq(room, 1);
+        assertEq(pendingGold, 20);
+        assertEq(dungeon.pendingRequestId(player), 0);
+    }
+
+    function testSafePotionLeavesPendingLootAvailable() public {
+        _killRoomOnePending(50, 10);
+
+        vm.prank(player);
+        dungeon.usePotion();
+
+        Delveworn.Player memory state = dungeon.getPlayer(player);
+        assertEq(state.hp, 100);
+        assertEq(state.potions, 2);
+        assertTrue(dungeon.frontendSnapshotV4(player).pendingLoot.available);
+
+        vm.prank(player);
+        dungeon.collectLoot();
+        assertEq(dungeon.getPlayer(player).gold, 20);
+    }
+
+    function testPendingPotionReservesShopInventoryCapacity() public {
+        _startWithMonster(0);
+
+        for (uint256 room = 1; room <= 5; room++) {
+            if (room < 5) {
+                _killCurrentMonsterWithBonusGold();
+            } else {
+                _killCurrentMonsterWithPotionLootPending();
+            }
+
+            if (room < 5) {
+                vm.prank(player);
+                dungeon.enterNextRoom();
+                _fulfillCurrent(_one(0));
+            }
+        }
+
+        vm.prank(player);
+        dungeon.supplyBuyPotion();
+
+        vm.expectRevert("Potion inventory full");
+        vm.prank(player);
+        dungeon.supplyBuyPotion();
+
+        vm.prank(player);
+        dungeon.collectLoot();
+
+        assertEq(dungeon.getPlayer(player).potions, 5);
+    }
+
+    function testBossLootMustSettleBeforeRelicAndCanBeDiscarded() public {
+        _reachCamp();
+
+        vm.prank(player);
+        dungeon.enterNextRoom();
+        _fulfillCurrent(_one(0));
+
+        _killCurrentMonsterWithBonusGoldPending();
+        assertTrue(dungeon.relicOfferAvailable(player));
+
+        vm.expectRevert(Delveworn.BossLootPending.selector);
+        vm.prank(player);
+        dungeon.claimRelic(false);
+
+        vm.prank(player);
+        dungeon.discardLoot();
+
+        vm.prank(player);
+        dungeon.discardLoot();
+
+        vm.prank(player);
+        dungeon.claimRelic(false);
+
+        assertFalse(dungeon.relicOfferAvailable(player));
+        assertTrue(dungeon.supplyAvailable(player));
+    }
+
+    function testKillEmitsRolledButNotGrantedBeforeCollection() public {
+        _startWithMonster(0);
+        _attackResolve(2, 99, 1, 50, 0);
+        _attackResolve(2, 99, 1, 50, 0);
+
+        vm.recordLogs();
+        _attackResolve(2, 99, 1, 50, 10);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 rolledSignature = keccak256(bytes("LootRolled(address,uint256)"));
+        bytes32 grantedSignature = keccak256(bytes("LootGranted(address,uint8,uint256)"));
+        bool sawRolled;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter != address(dungeon)) continue;
+            assertTrue(logs[i].topics[0] != grantedSignature);
+            if (logs[i].topics[0] == rolledSignature) sawRolled = true;
+        }
+
+        assertTrue(sawRolled);
+    }
+
     /*
         ========================================================
         SCALING
@@ -801,7 +994,7 @@ contract DelvewornTest is Test {
     }
 
     function testInvalidSupplyRoomReverts() public {
-        vm.expectRevert("Invalid supply stop");
+        vm.expectRevert(Delveworn.InvalidRoom.selector);
 
         dungeon.supplyPricesForStop(12);
     }
@@ -1110,7 +1303,7 @@ contract DelvewornTest is Test {
 
         uint256 requestId = dungeon.pendingRequestId(player);
 
-        vm.expectRevert("Only VRF coordinator");
+        vm.expectRevert(Delveworn.OnlyCoordinator.selector);
 
         vm.prank(player);
 
@@ -1123,7 +1316,7 @@ contract DelvewornTest is Test {
 
         uint256 requestId = dungeon.pendingRequestId(player);
 
-        vm.expectRevert("Wrong random number count");
+        vm.expectRevert(Delveworn.WrongRandomNumberCount.selector);
 
         vm.prank(address(mockVRF));
 
@@ -1138,7 +1331,7 @@ contract DelvewornTest is Test {
 
         uint256 requestId = dungeon.pendingRequestId(player);
 
-        vm.expectRevert("Wrong random number count");
+        vm.expectRevert(Delveworn.WrongRandomNumberCount.selector);
 
         vm.prank(address(mockVRF));
 
@@ -1146,7 +1339,7 @@ contract DelvewornTest is Test {
     }
 
     function testUnknownRequestReverts() public {
-        vm.expectRevert("Unknown VRF request");
+        vm.expectRevert(Delveworn.UnknownRequest.selector);
 
         vm.prank(address(mockVRF));
 
@@ -1167,6 +1360,13 @@ contract DelvewornTest is Test {
     }
 
     function _killRoomOne(uint256 lootRoll, uint256 amountRoll) internal {
+        _killRoomOnePending(lootRoll, amountRoll);
+
+        vm.prank(player);
+        dungeon.collectLoot();
+    }
+
+    function _killRoomOnePending(uint256 lootRoll, uint256 amountRoll) internal {
         _startWithMonster(0);
 
         _attackResolve(2, 99, 1, 50, 0);
@@ -1242,6 +1442,13 @@ contract DelvewornTest is Test {
     }
 
     function _killCurrentMonsterWithBonusGold() internal {
+        _killCurrentMonsterWithBonusGoldPending();
+
+        vm.prank(player);
+        dungeon.collectLoot();
+    }
+
+    function _killCurrentMonsterWithBonusGoldPending() internal {
         while (true) {
             Delveworn.Player memory p = dungeon.getPlayer(player);
 
@@ -1256,6 +1463,13 @@ contract DelvewornTest is Test {
     }
 
     function _killCurrentMonsterWithPotionLoot() internal {
+        _killCurrentMonsterWithPotionLootPending();
+
+        vm.prank(player);
+        dungeon.collectLoot();
+    }
+
+    function _killCurrentMonsterWithPotionLootPending() internal {
         while (true) {
             Delveworn.Player memory p = dungeon.getPlayer(player);
 
@@ -1286,6 +1500,9 @@ contract DelvewornTest is Test {
 
             _attackResolve(2, 0, 0, 95, 0);
         }
+
+        vm.prank(player);
+        dungeon.collectLoot();
     }
 
     function _attackResolve(

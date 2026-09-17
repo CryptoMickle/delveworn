@@ -1,6 +1,7 @@
 import type { RoomLoot, RoomView } from "./dungeon/scene";
 import type { LootType } from "./practice/engine";
 import type { WalletView } from "./wallet-view-guard";
+import type { PendingRoomLootState } from "./onchain-v4";
 
 export type OnchainPresentationSnapshot = Readonly<{
   active: boolean;
@@ -10,6 +11,8 @@ export type OnchainPresentationSnapshot = Readonly<{
   lastLootType: number;
   lastLootAmount: number;
   relicOfferAvailable: boolean;
+  supportsPendingLoot: boolean;
+  pendingLoot: PendingRoomLootState;
 }>;
 
 export type OnchainPresentationAction =
@@ -101,7 +104,9 @@ export function applyConfirmedOnchainPresentation(
     ...current,
     encounter,
     loot: defeated
-      ? {
+      ? after.supportsPendingLoot
+        ? null
+        : {
           room: after.roomsCleared,
           type: after.lastLootType as LootType,
           amount: after.lastLootAmount,
@@ -115,15 +120,42 @@ export function applyConfirmedOnchainPresentation(
 export function onchainPresentationPhase(
   state: OnchainPresentationState,
   scope: string | null,
-  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable">
+  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable" | "supportsPendingLoot" | "pendingLoot">
 ): RoomView["phase"] {
   if (!snapshot.active) return "lost";
   const current = state.scope === scope ? state : createOnchainPresentationState();
+  if (
+    snapshot.supportsPendingLoot &&
+    snapshot.pendingLoot.available &&
+    snapshot.pendingLoot.room === snapshot.roomsCleared &&
+    snapshot.monsterHp === 0
+  ) return "loot";
   if (current.loot?.room === snapshot.roomsCleared && snapshot.monsterHp === 0) return "loot";
   if (snapshot.relicOfferAvailable) return "reward";
   if (snapshot.monsterHp === 0) return "recovery";
   if (current.encounter?.room === snapshot.roomsCleared + 1 && !current.encounter.engaged) return "explore";
   return "combat";
+}
+
+/** V4 loot is reconstructed from the contract on every load; legacy loot stays local. */
+export function onchainRoomLoot(
+  state: OnchainPresentationState,
+  scope: string | null,
+  snapshot: Pick<OnchainPresentationSnapshot, "monsterHp" | "roomsCleared" | "supportsPendingLoot" | "pendingLoot">
+): (RoomLoot & Readonly<{ room: number }>) | null {
+  if (snapshot.supportsPendingLoot) {
+    const pending = snapshot.pendingLoot;
+    return pending.available && pending.room === snapshot.roomsCleared && snapshot.monsterHp === 0
+      ? {
+          room: pending.room,
+          type: pending.lootType,
+          amount: pending.lootAmount,
+          gold: pending.gold,
+          relicId: 0,
+        }
+      : null;
+  }
+  return state.scope === scope ? state.loot : null;
 }
 
 export function engageOnchainEncounter(
@@ -147,7 +179,7 @@ export function acknowledgeOnchainLoot(
 export function canUseOnchainPresentationAction(
   state: OnchainPresentationState,
   scope: string | null,
-  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable">,
+  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable" | "supportsPendingLoot" | "pendingLoot">,
   pending: boolean,
   action: "approach" | "combat" | "safe-potion" | "acknowledge-loot"
 ) {
@@ -165,6 +197,7 @@ export function canUseOnchainPresentationAction(
 export type OnchainDoorDecision =
   | "blocked"
   | "acknowledge-relic"
+  | "discard-loot"
   | "enter-next-room";
 
 /**
@@ -174,7 +207,7 @@ export type OnchainDoorDecision =
 export function onchainDoorDecision(
   state: OnchainPresentationState,
   scope: string | null,
-  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable">,
+  snapshot: Pick<OnchainPresentationSnapshot, "active" | "monsterHp" | "roomsCleared" | "relicOfferAvailable" | "supportsPendingLoot" | "pendingLoot">,
   pending: boolean,
   leaveLoot: boolean
 ): OnchainDoorDecision {
@@ -182,6 +215,9 @@ export function onchainDoorDecision(
   const phase = onchainPresentationPhase(state, scope, snapshot);
   if (phase === "loot") {
     if (!leaveLoot) return "blocked";
+    if (snapshot.supportsPendingLoot && snapshot.relicOfferAvailable) {
+      return "discard-loot";
+    }
     return snapshot.relicOfferAvailable
       ? "acknowledge-relic"
       : "enter-next-room";

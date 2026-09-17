@@ -1,6 +1,15 @@
 # Arbeidsplan: spillflyt, gjenspilling og Weekly-toppliste
 
 Dato: 17. september 2026. Opprinnelig utgangspunkt: lokal revisjon `8b8b3f2`.
+
+**Seneste oppfølging:** 270 frontendtester, 152 kontrakttester og 5 tester
+mot ekte Redis består. Somnia V4 pending loot er implementert lokalt med
+frontend-støtte; live-adressen er uendret. Upstash via Vercel er valgt for
+preview. Se [oppfølgingsrapporten](./LEVERANSE_OPPFOLGING_2026-09-17.md) for
+aktiveringsstatus, lesende Somnia-kontroll og gjenstående produksjonsgrenser.
+Testantall og leveransestatus under beskriver det opprinnelige `cfff2eb`-
+kontrollpunktet med mindre annet er oppgitt.
+
 Status: pakke 0–6 er implementert lokalt. Én nåværende Weekly V2-inngang bruker
 det delte gridet; V1 er frosset for gamle lenker og bevis. Intern nettleser-QA og produksjonsbygg er fullført. Fysisk Safari og ekstern
 spilltest er ikke utført. Se `LEVERANSE_FASE_1_2026-09-17.md` for faktiske

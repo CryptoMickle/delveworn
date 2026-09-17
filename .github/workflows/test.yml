@@ -51,8 +51,11 @@ jobs:
       - name: Check formatting
         run: forge fmt --check
 
-      - name: Build contracts
-        run: forge build --sizes
+      - name: Check production contract sizes
+        run: forge build --sizes --skip test --skip script
+
+      - name: Build all Solidity
+        run: forge build
 
       - name: Run contract tests
         run: forge test -vvv

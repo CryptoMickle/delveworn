@@ -175,6 +175,9 @@ contract RelicsV2BalanceTest is Test {
                 continue;
             }
 
+            vm.prank(playerAddress);
+            dungeon.collectLoot();
+
             if (dungeon.relicOfferAvailable(playerAddress)) {
                 if (relic != Delveworn.Relic.None && dungeon.equippedRelic(playerAddress) == Delveworn.Relic.None) {
                     dungeon.forceRelicOffer(playerAddress, relic);

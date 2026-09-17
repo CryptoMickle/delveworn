@@ -26,3 +26,4 @@ docs/
 *.bak-*
 broadcast/
 *.code-workspace
+.vercel

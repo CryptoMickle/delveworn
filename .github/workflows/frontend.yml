@@ -14,6 +14,34 @@ on:
   workflow_dispatch:
 
 jobs:
+  redis:
+    name: Redis leaderboard integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install local Redis test binaries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends redis-server redis-tools
+      - name: Test the production Redis Lua scripts
+        run: npm run test:redis
+
   check:
     name: Next.js checks (${{ matrix.name }})
     runs-on: ubuntu-latest

@@ -2,6 +2,11 @@
 
 Dato: 17. september 2026 · branch `feat/phase-1-dungeon-slice`.
 
+Denne rapporten beskriver den opprinnelige leveransen i `cfff2eb`. Se
+[oppfølgingsrapporten](./LEVERANSE_OPPFOLGING_2026-09-17.md) for senere Redis-
+rettelser, Somnia V4, oppdatert testgrunnlag og aktiveringsstatus. Resultatene
+og begrensningene nedenfor er historikk fra den opprinnelige leveransen.
+
 ## Status
 
 Arbeidspakke 0–6 er implementert. Eksterne brukertester er utsatt etter avtale.

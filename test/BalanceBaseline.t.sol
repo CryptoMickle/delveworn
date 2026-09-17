@@ -126,6 +126,9 @@ contract BalanceBaselineTest is Test {
                 continue;
             }
 
+            vm.prank(playerAddress);
+            dungeon.collectLoot();
+
             if (dungeon.relicOfferAvailable(playerAddress)) {
                 vm.prank(playerAddress);
                 dungeon.claimRelic(false);

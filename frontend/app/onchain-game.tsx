@@ -19,7 +19,6 @@ import {
   decodeEventLog,
   encodeFunctionData,
   getAddress,
-  keccak256,
   toHex,
   type Address,
 } from "viem";
@@ -56,7 +55,31 @@ import {
   onchainPresentationKey,
   onchainPresentationPhase,
   onchainPresentationScope,
+  onchainRoomLoot,
 } from "./onchain-presentation";
+import {
+  EMPTY_PENDING_ROOM_LOOT,
+  DUNGEON_CUSTOM_ERROR_ABI,
+  PENDING_ROOM_LOOT_ABI_PARAMETER,
+  V4_SESSION_FUNCTION_SIGNATURES,
+  V4_SESSION_SIGNATURE_BY_ACTION,
+  V4_SNAPSHOT_FUNCTION_SIGNATURE,
+  bytecodeAdvertisesFunction,
+  createFrontendSnapshotV4AbiParameter,
+  executePendingLootAction,
+  handleSnapshotCapabilityFailure,
+  inheritSnapshotCapabilityProof,
+  isMissingSnapshotSelectorError,
+  markSnapshotCapabilitySupported,
+  parseFrontendSnapshotV4,
+  potionInventoryWithPendingLoot,
+  scopedSnapshotCapabilities,
+  selectorForSessionSignature,
+  sessionPermissionAllows,
+  shouldProbeSnapshotCapability,
+  type SnapshotCapabilitiesBySource,
+  type V4LootAction,
+} from "./onchain-v4";
 import {
   BossRelicReward,
   CombatActionDock,
@@ -117,6 +140,14 @@ import {
   type SomniaSessionHandle,
   type SomniaSessionTransactionPhase,
 } from "./somnia-session-keys";
+import {
+  canResolveVrfState,
+  canonicalStateShowsSubmittedAction,
+} from "./onchain-vrf";
+import {
+  isExplicitWalletRejection,
+  pollForCanonicalRecovery,
+} from "./onchain-recovery";
 
 /*
   ============================================================
@@ -125,7 +156,7 @@ import {
   ============================================================
 */
 
-const FRONTEND_SNAPSHOT_V3_RETRY_MS = 5_000;
+const FRONTEND_SNAPSHOT_RETRY_MS = 5_000;
 
 const SESSION_STATUS_TIMEOUT_MS = 12_000;
 const SESSION_STATUS_POLL_MS = 40;
@@ -286,7 +317,13 @@ const frontendSnapshotV3AbiParameter = {
   ],
 } as const;
 
+const frontendSnapshotV4AbiParameter =
+  createFrontendSnapshotV4AbiParameter(
+    frontendSnapshotV3AbiParameter.components
+  );
+
 const dungeonAbi = [
+  ...DUNGEON_CUSTOM_ERROR_ABI,
   {
     anonymous: false,
     inputs: [
@@ -401,6 +438,22 @@ const dungeonAbi = [
   {
     inputs: [],
     name: "enterNextRoom",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+
+  {
+    inputs: [],
+    name: "collectLoot",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+
+  {
+    inputs: [],
+    name: "discardLoot",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -740,6 +793,32 @@ const dungeonAbi = [
     stateMutability: "view",
     type: "function",
   },
+
+  {
+    inputs: [
+      {
+        name: "playerAddress",
+        type: "address",
+      },
+    ],
+    name: "frontendSnapshotV4",
+    outputs: [frontendSnapshotV4AbiParameter],
+    stateMutability: "view",
+    type: "function",
+  },
+
+  {
+    inputs: [
+      {
+        name: "playerAddress",
+        type: "address",
+      },
+    ],
+    name: "pendingRoomLoot",
+    outputs: PENDING_ROOM_LOOT_ABI_PARAMETER.components,
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 type FrontendSnapshotV3Availability = {
@@ -760,6 +839,12 @@ const frontendSnapshotV3Availability: Record<
     retryAfter: 0,
   },
 };
+
+const frontendSnapshotV4Availability =
+  new Map<
+    string,
+    SnapshotCapabilitiesBySource
+  >();
 
 type CachedRelicSnapshot =
   NonNullable<
@@ -797,6 +882,8 @@ type GameAction =
   | "usePotion"
   | "enterNextRoom";
 
+type LootAction = V4LootAction;
+
 type CampAction =
   | "campRest"
   | "campBuyPotion"
@@ -814,6 +901,7 @@ type RelicAction =
 
 type PendingAction =
   | GameAction
+  | LootAction
   | CampAction
   | SupplyAction
   | RelicAction;
@@ -841,20 +929,8 @@ const SESSION_FUNCTION_SIGNATURES = [
   "campBuyPotion()",
   "campBuyWeapon()",
   "campBuyArmor()",
+  ...V4_SESSION_FUNCTION_SIGNATURES,
 ] as const;
-
-function selectorFor(
-  signature: string
-) {
-  return keccak256(
-    toHex(
-      signature
-    )
-  ).slice(
-    0,
-    10
-  ) as `0x${string}`;
-}
 
 /*
   ============================================================
@@ -1697,7 +1773,8 @@ const lootTypes = [
 
 function playerStateFromFrontendSnapshot(
   snapshot: any,
-  relicSnapshot?: any
+  relicSnapshot?: any,
+  pendingLootSnapshot?: ReturnType<typeof parseFrontendSnapshotV4>["pendingLoot"]
 ) {
   const ownedRelicsMask =
     Number(
@@ -1922,6 +1999,15 @@ function playerStateFromFrontendSnapshot(
         relicSnapshot
       ),
 
+    supportsPendingLoot:
+      Boolean(
+        pendingLootSnapshot
+      ),
+
+    pendingLoot:
+      pendingLootSnapshot ??
+      EMPTY_PENDING_ROOM_LOOT,
+
     maxHp:
       Number(
         snapshot.maxHp ??
@@ -1955,12 +2041,90 @@ async function fetchPlayerState(
       : publicClient;
 
   let snapshot: unknown;
+  const v4Capabilities =
+    scopedSnapshotCapabilities(
+      frontendSnapshotV4Availability,
+      ACTIVE_CHAIN_ID,
+      DUNGEON_ADDRESS
+    );
+  const v4Availability =
+    v4Capabilities[source];
   const v3Availability =
     frontendSnapshotV3Availability[
       source
     ];
   const playerCacheKey =
     playerAddress.toLowerCase();
+
+  inheritSnapshotCapabilityProof(
+    v4Availability,
+    Object.values(
+      v4Capabilities
+    )
+  );
+  const shouldTryV4 =
+    shouldProbeSnapshotCapability(
+      v4Availability,
+      runtimeNowMs()
+    );
+
+  if (shouldTryV4) {
+    try {
+      const v4Snapshot =
+        await reader.readContract({
+          address: DUNGEON_ADDRESS,
+          abi: dungeonAbi,
+          functionName: "frontendSnapshotV4",
+          args: [playerAddress],
+          ...(source === "realtime"
+            ? { blockTag: "pending" as const }
+            : {}),
+        });
+      const parsed =
+        parseFrontendSnapshotV4(
+          v4Snapshot
+        );
+
+      markSnapshotCapabilitySupported(
+        v4Availability
+      );
+      v3Availability.supported = true;
+      v3Availability.retryAfter = 0;
+      lastRelicSnapshotByPlayer.set(
+        playerCacheKey,
+        parsed.relicSnapshot
+      );
+      return playerStateFromFrontendSnapshot(
+        parsed.baseSnapshot,
+        parsed.relicSnapshot,
+        parsed.pendingLoot
+      );
+    } catch (error) {
+      let selectorDefinitelyAbsent = false;
+      if (isMissingSnapshotSelectorError(error)) {
+        try {
+          const bytecode = await publicClient.getBytecode({
+            address: DUNGEON_ADDRESS,
+          });
+          selectorDefinitelyAbsent = Boolean(bytecode) &&
+            !bytecodeAdvertisesFunction(
+              bytecode,
+              V4_SNAPSHOT_FUNCTION_SIGNATURE
+            );
+        } catch {
+          // A failed bytecode proof is ambiguous, so the V4 read fails closed.
+        }
+      }
+      handleSnapshotCapabilityFailure(
+        v4Availability,
+        runtimeNowMs(),
+        FRONTEND_SNAPSHOT_RETRY_MS,
+        error,
+        selectorDefinitelyAbsent
+      );
+    }
+  }
+
   const shouldTryV3 =
     v3Availability.supported !==
       false ||
@@ -2014,7 +2178,7 @@ async function fetchPlayerState(
         false;
       v3Availability.retryAfter =
         runtimeNowMs() +
-        FRONTEND_SNAPSHOT_V3_RETRY_MS;
+        FRONTEND_SNAPSHOT_RETRY_MS;
       // Fall back for this read, then retry V3 after a short cooldown.
     }
   }
@@ -2208,7 +2372,13 @@ function playerStateChanged(
     before.stormMax !== after.stormMax ||
     before.maxHp !== after.maxHp ||
     before.criticalChance !== after.criticalChance ||
-    before.relicReviveUsed !== after.relicReviveUsed
+    before.relicReviveUsed !== after.relicReviveUsed ||
+    before.supportsPendingLoot !== after.supportsPendingLoot ||
+    before.pendingLoot.available !== after.pendingLoot.available ||
+    before.pendingLoot.room !== after.pendingLoot.room ||
+    before.pendingLoot.gold !== after.pendingLoot.gold ||
+    before.pendingLoot.lootType !== after.pendingLoot.lootType ||
+    before.pendingLoot.lootAmount !== after.pendingLoot.lootAmount
   );
 }
 
@@ -2829,6 +2999,25 @@ function getLootMessage(
   state: PlayerState
 ) {
   if (
+    state.supportsPendingLoot &&
+    state.pendingLoot.available
+  ) {
+    if (state.pendingLoot.lootType === 1) {
+      return "🧪 A potion dropped.";
+    }
+    if (state.pendingLoot.lootType === 2) {
+      return `🪙 Bonus gold +${state.pendingLoot.lootAmount} dropped.`;
+    }
+    if (state.pendingLoot.lootType === 3) {
+      return "⚔️ A weapon upgrade dropped.";
+    }
+    if (state.pendingLoot.lootType === 4) {
+      return "🛡️ An armor upgrade dropped.";
+    }
+    return "";
+  }
+
+  if (
     state.lastLootType ===
     1
   ) {
@@ -3371,6 +3560,13 @@ function DelvewornGame() {
       key?: {
         publicKey?:
           string;
+      };
+
+      permissions?: {
+        calls?: ReadonlyArray<{
+          to?: string;
+          signature?: string;
+        }>;
       };
     }>;
 
@@ -4623,10 +4819,15 @@ function DelvewornGame() {
               runtimeNowMs();
           }
 
-          if (
-            resolvedState.pendingRequestId ===
-            BigInt(0)
-          ) {
+          const changed = beforeState
+            ? playerStateChanged(beforeState, resolvedState)
+            : false;
+
+          if (canResolveVrfState(
+            resolvedState.pendingRequestId,
+            sawPendingRequest,
+            changed
+          )) {
             const remainingDisplay =
               MIN_VRF_DISPLAY_MS -
               (
@@ -4705,15 +4906,11 @@ function DelvewornGame() {
                 )
               : false;
 
-          if (
-            realtime.pendingRequestId ===
-              BigInt(0) &&
-            (
-              cached ||
-              sawPendingRequest ||
-              changed
-            )
-          ) {
+          if (canResolveVrfState(
+            realtime.pendingRequestId,
+            sawPendingRequest,
+            changed
+          )) {
             const actionTiming =
               actionTimingRef.current;
 
@@ -4799,15 +4996,11 @@ function DelvewornGame() {
                   )
                 : false;
 
-            if (
-              canonical.pendingRequestId ===
-                BigInt(0) &&
-              (
-                cached ||
-                sawPendingRequest ||
-                changed
-              )
-            ) {
+            if (canResolveVrfState(
+              canonical.pendingRequestId,
+              sawPendingRequest,
+              changed
+            )) {
               return finishFastVrfResolution(
                 playerAddress,
                 displayStartedAt,
@@ -5458,9 +5651,9 @@ function DelvewornGame() {
                     DUNGEON_ADDRESS,
 
                   signature:
-                    selectorFor(
+                    selectorForSessionSignature(
                       signature
-                    ),
+                    ) as `0x${string}`,
                 })
               ),
           },
@@ -5927,7 +6120,9 @@ function DelvewornGame() {
       true,
 
     args:
-      readonly unknown[] = []
+      readonly unknown[] = [],
+
+    onSubmitted?: () => void
   ):
     Promise<
       SessionSendResult
@@ -6122,6 +6317,8 @@ function DelvewornGame() {
             "RISE Wallet returned no call bundle id."
           );
         }
+
+        onSubmitted?.();
 
         setActionProgressPhase(
           "inclusion"
@@ -6322,7 +6519,9 @@ function DelvewornGame() {
       SessionAction,
 
     args:
-      readonly unknown[] = []
+      readonly unknown[] = [],
+
+    onSubmitted?: () => void
   ): Promise<
     SessionSendResult
   > {
@@ -6373,6 +6572,8 @@ function DelvewornGame() {
           data,
         });
 
+    onSubmitted?.();
+
     setActionProgressPhase(
       "inclusion"
     );
@@ -6409,7 +6610,9 @@ function DelvewornGame() {
       true,
 
     args:
-      readonly unknown[] = []
+      readonly unknown[] = [],
+
+    onSubmitted?: () => void
   ): Promise<
     SessionSendResult
   > {
@@ -6450,6 +6653,8 @@ function DelvewornGame() {
           );
         }
       );
+
+    onSubmitted?.();
 
     if (actionTimingRef.current) {
       actionTimingRef.current.smartAccount =
@@ -6510,7 +6715,9 @@ function DelvewornGame() {
       true,
 
     args:
-      readonly unknown[] = []
+      readonly unknown[] = [],
+
+    onSubmitted?: () => void
   ): Promise<
     SessionSendResult
   > {
@@ -6525,10 +6732,30 @@ function DelvewornGame() {
         );
       }
 
+      if (
+        (functionName === "collectLoot" || functionName === "discardLoot") &&
+        !sessionAuthorized &&
+        !sessionPermissionAllows(
+          activePermission,
+          DUNGEON_ADDRESS,
+          V4_SESSION_SIGNATURE_BY_ACTION[functionName]
+        )
+      ) {
+        // Sessions granted before V4 do not include these selectors. Use the
+        // connected wallet for this one call instead of submitting an action
+        // the temporary key is not authorized to make.
+        return sendDungeonStandardCall(
+          functionName,
+          args,
+          onSubmitted
+        );
+      }
+
       return sendDungeonSessionCall(
         functionName,
         waitForStatus,
-        args
+        args,
+        onSubmitted
       );
     }
 
@@ -6541,13 +6768,15 @@ function DelvewornGame() {
         return sendDungeonSomniaSessionCall(
           functionName,
           waitForStatus,
-          args
+          args,
+          onSubmitted
         );
       }
 
       return sendDungeonStandardCall(
         functionName,
-        args
+        args,
+        onSubmitted
       );
     }
 
@@ -6915,6 +7144,152 @@ function DelvewornGame() {
 
   /*
     ==========================================================
+    PENDING LOOT TRANSACTION
+    ==========================================================
+  */
+
+  async function runPendingLootTransaction(
+    functionName: LootAction
+  ) {
+    if (
+      !player ||
+      !connectedAddress ||
+      !player.supportsPendingLoot ||
+      !player.pendingLoot.available ||
+      player.pendingLoot.room !== player.roomsCleared ||
+      interactionLock.current ||
+      !actionReady ||
+      canonicalSyncing ||
+      player.pendingRequestId > BigInt(0)
+    ) {
+      return;
+    }
+
+    const playerAddress = connectedAddress;
+    const view = walletViewRef.current.capture();
+    let submissionObserved = false;
+    interactionLock.current = true;
+    setWalletMessage("");
+    audio.playAction("click");
+
+    try {
+      setPendingAction(functionName);
+      setActionProgressPhase("preparing");
+
+      if (!canPlay) {
+        setWalletMessage(
+          supportsInstantPlay()
+            ? "Connect RISE Wallet or MetaMask before continuing."
+            : "Connect MetaMask before continuing."
+        );
+        return;
+      }
+
+      const after = await executePendingLootAction(
+        () => sendDungeonActionCall(
+          functionName,
+          true,
+          [],
+          () => {
+            submissionObserved = true;
+          }
+        ),
+        () => fetchPlayerState(playerAddress, "canonical")
+      );
+      if (!isPlayerViewCurrent(view, playerAddress)) return;
+
+      setPlayer(after);
+      setActionReady(true);
+      setCanonicalSyncing(false);
+      setActionFeedback(
+        functionName === "collectLoot"
+          ? "Loot collected."
+          : "Loot left behind."
+      );
+      if (functionName === "collectLoot") {
+        audio.playOutcome("loot");
+        addMessages(["🎒 Loot collected."]);
+      } else {
+        addMessages(["🚪 You leave the loot behind."]);
+      }
+    } catch (error) {
+      // A wallet or receipt waiter may throw after inclusion. These actions
+      // are idempotent, so every error gets one canonical recovery read before
+      // the floor remains visible or the UI reports failure.
+      try {
+        const recovered = await fetchPlayerState(
+          playerAddress,
+          "canonical"
+        );
+        if (!isPlayerViewCurrent(view, playerAddress)) return;
+        setPlayer(recovered);
+        if (!recovered.pendingLoot.available) {
+          setActionReady(true);
+          setCanonicalSyncing(false);
+          setActionFeedback(
+            functionName === "collectLoot"
+              ? "Loot collected."
+              : "Loot left behind."
+          );
+          return;
+        }
+      } catch (recoveryError) {
+        console.warn("Pending loot recovery read failed:", recoveryError);
+      }
+
+      if (!isPlayerViewCurrent(view, playerAddress)) return;
+      if (!submissionObserved && isExplicitWalletRejection(error)) {
+        setActionReady(true);
+        setCanonicalSyncing(false);
+        setWalletMessage(transactionFailureMessage(error, ACTIVE_NETWORK_LABEL));
+        return;
+      }
+
+      setActionReady(false);
+      setCanonicalSyncing(true);
+      setWalletMessage(
+        "Loot confirmation was interrupted. Actions stay paused while the latest result is checked."
+      );
+      const settled = await pollForCanonicalRecovery({
+        readCanonical: () => fetchPlayerState(playerAddress, "canonical"),
+        isRecovered: (state) => !state.pendingLoot.available,
+        wait: () => sleep(ACTION_READY_POLL_MS),
+        now: runtimeNowMs,
+        deadline: runtimeNowMs() + ACTION_READY_TIMEOUT_MS,
+        isActive: () => isPlayerViewCurrent(view, playerAddress),
+        onReadError: (recoveryError) => {
+          console.debug("Pending loot recovery still waiting:", recoveryError);
+        },
+      });
+      if (!isPlayerViewCurrent(view, playerAddress)) return;
+      if (settled) {
+        setPlayer(settled);
+        setActionReady(true);
+        setCanonicalSyncing(false);
+        setWalletMessage("");
+        setActionFeedback(
+          functionName === "collectLoot"
+            ? "Loot collected."
+            : "Loot left behind."
+        );
+        return;
+      }
+
+      console.error("Pending loot action failed:", error);
+      setWalletMessage(
+        "Loot confirmation is still pending. Actions remain paused; reload to restore the latest confirmed floor."
+      );
+    } finally {
+      interactionLock.current = false;
+      if (isPlayerViewCurrent(view, playerAddress)) {
+        setActionProgressPhase("idle");
+        setPendingAction(null);
+      }
+    }
+  }
+
+  /*
+    ==========================================================
     RELIC TRANSACTION
     ==========================================================
   */
@@ -6926,7 +7301,8 @@ function DelvewornGame() {
     if (
       !player ||
       !connectedAddress ||
-      !player.relicOfferAvailable
+      !player.relicOfferAvailable ||
+      player.pendingLoot.available
     ) {
       return;
     }
@@ -7477,10 +7853,10 @@ function DelvewornGame() {
       "button handler start"
     );
 
-    let transactionSubmitted =
-      false;
-
     if (interactionLock.current) return;
+    const playerAddress = connectedAddress;
+    const actionView = walletViewRef.current.capture();
+    let submissionObserved = false;
     interactionLock.current = true;
     setWalletMessage("");
     audio.playAction(functionName === "attack" ? "attack" : functionName === "stormAttack" ? "storm" : functionName === "usePotion" ? "potion" : "click");
@@ -7600,7 +7976,11 @@ function DelvewornGame() {
         await sendDungeonActionCall(
           functionName,
           expectedRequestKind ===
-            RequestKind.None
+            RequestKind.None,
+          [],
+          () => {
+            submissionObserved = true;
+          }
         );
 
       if (
@@ -7616,9 +7996,6 @@ function DelvewornGame() {
           ? "transaction flow completed"
           : "transaction confirmed; VRF wait active"
       );
-
-      transactionSubmitted =
-        true;
 
       if (
         expectedRequestKind !==
@@ -7665,7 +8042,8 @@ function DelvewornGame() {
               expectedRequestKind,
               vrfDisplayStartedAt,
               before,
-              sessionResult.bundleId
+              sessionResult.bundleId,
+              actionView
             );
         } else {
           resolved =
@@ -7676,7 +8054,8 @@ function DelvewornGame() {
               expectedRequestKind,
               vrfDisplayStartedAt,
               before,
-              sessionResult.bundleId
+              sessionResult.bundleId,
+              actionView
             );
         }
 
@@ -7728,7 +8107,7 @@ function DelvewornGame() {
           ? `Potion: ${formatSigned(resolved.hp - before.hp)} net HP · ${resolved.lastMonsterDamage} damage taken.`
           : `${functionName === "stormAttack" ? "Storm" : "Attack"}: ${resolved.lastPlayerDamage} damage${resolved.lastCritical ? " · CRITICAL" : ""} · ${resolved.lastMonsterDamage} taken.`;
         const cleared = resolved.roomsCleared > before.roomsCleared;
-        setActionFeedback(`${result} HP ${resolved.hp}/${resolved.maxHp}.${cleared ? ` ${before.monsterType === 3 ? "Management defeated!" : "Room cleared!"} Loot confirmed.` : ""}`);
+        setActionFeedback(`${result} HP ${resolved.hp}/${resolved.maxHp}.${cleared ? ` ${before.monsterType === 3 ? "Management defeated!" : "Room cleared!"} ${resolved.supportsPendingLoot ? "Loot dropped." : "Loot confirmed."}` : ""}`);
         audio.setBossBattle(Boolean(resolved.active && resolved.monsterType === 3 && resolved.monsterHp > 0));
         audio.playOutcome(!resolved.active ? "death" : cleared ? before.monsterType === 3 ? "victory" : "loot" : resolved.lastCritical ? "critical" : "hit");
       } else {
@@ -7873,7 +8252,9 @@ function DelvewornGame() {
             );
 
           messages.push(
-            `🪙 Base reward: ${reward} gold.`
+            resolved.supportsPendingLoot
+              ? `🪙 ${reward} base gold dropped.`
+              : `🪙 Base reward: ${reward} gold.`
           );
 
           const lootMessage =
@@ -7987,7 +8368,9 @@ function DelvewornGame() {
             );
 
           messages.push(
-            `🪙 Base reward: ${reward} gold.`
+            resolved.supportsPendingLoot
+              ? `🪙 ${reward} base gold dropped.`
+              : `🪙 Base reward: ${reward} gold.`
           );
 
           const lootMessage =
@@ -8124,84 +8507,121 @@ function DelvewornGame() {
     } catch (
       error
     ) {
-      if (
-        transactionSubmitted
-      ) {
-        console.warn(
-          "Submitted transaction; frontend recovery path:",
-          error
-        );
+      if (!isPlayerViewCurrent(actionView, playerAddress)) return;
 
-        setWalletMessage(
-          "The action was submitted, but confirmation was interrupted. Refreshing the latest safe game state."
-        );
-
-        try {
-          const fallback =
-            await fetchPlayerState(
-              connectedAddress,
-              "canonical"
-            );
-
-          if (playerStateChanged(player, fallback)) {
-            presentResolvedScene(
-              player,
-              fallback
-            );
-          }
-
-          setPlayer(
-            fallback
-          );
-
-          if (
-            fallback.pendingRequestId ===
-            BigInt(0)
-          ) {
-            setActionReady(
-              true
-            );
-
-            setCanonicalSyncing(
-              false
-            );
-          }
-        } catch (
-          fallbackError
-        ) {
-          console.warn(
-            "Canonical recovery read not ready:",
-            fallbackError
-          );
+      const applySubmittedFallback = async (fallback: PlayerState) => {
+        const changed = playerStateChanged(player, fallback);
+        if (!canonicalStateShowsSubmittedAction(
+          fallback.pendingRequestId,
+          changed
+        )) {
+          return false;
         }
-      } else {
-        setActionReady(
-          true
-        );
 
-        setCanonicalSyncing(
-          false
-        );
-
-        console.error(
+        console.warn(
+          "Action landed despite an interrupted confirmation:",
           error
         );
+        setWalletMessage(
+          "The action reached the game. Refreshing the latest safe state."
+        );
+        if (changed) {
+          presentResolvedScene(player, fallback);
+        }
+        setPlayer(fallback);
 
-        setWalletMessage(transactionFailureMessage(error, ACTIVE_NETWORK_LABEL));
+        if (fallback.pendingRequestId > BigInt(0)) {
+          setActionReady(false);
+          setCanonicalSyncing(false);
+          setRollingKind(fallback.pendingRequestKind);
+          await waitForFastVRF(
+            fallback.pendingRequestId,
+            playerAddress,
+            actionStartedAt,
+            fallback.pendingRequestKind,
+            0,
+            player,
+            null,
+            actionView
+          );
+        } else {
+          setActionReady(true);
+          setCanonicalSyncing(false);
+          setWalletMessage("");
+        }
+        return true;
+      };
+
+      const recoverAmbiguousSubmission = async () => {
+        setActionReady(false);
+        setCanonicalSyncing(true);
+        setWalletMessage(
+          "Confirmation was interrupted. Actions stay paused while the latest game state is checked."
+        );
+        const recovered = await pollForCanonicalRecovery({
+          readCanonical: () => fetchPlayerState(playerAddress, "canonical"),
+          isRecovered: (state) => canonicalStateShowsSubmittedAction(
+            state.pendingRequestId,
+            playerStateChanged(player, state)
+          ),
+          wait: () => sleep(ACTION_READY_POLL_MS),
+          now: runtimeNowMs,
+          deadline: runtimeNowMs() + ACTION_READY_TIMEOUT_MS,
+          isActive: () => isPlayerViewCurrent(actionView, playerAddress),
+          onReadError: (recoveryError) => {
+            console.debug(
+              "Ambiguous action recovery still waiting:",
+              recoveryError
+            );
+          },
+        });
+        if (!isPlayerViewCurrent(actionView, playerAddress)) return;
+        if (recovered && await applySubmittedFallback(recovered)) return;
+        setWalletMessage(
+          "Confirmation is still pending. Actions remain paused; reload to restore the latest confirmed game state."
+        );
+      };
+
+      try {
+        const fallback = await fetchPlayerState(
+          playerAddress,
+          "canonical"
+        );
+        if (!isPlayerViewCurrent(actionView, playerAddress)) return;
+
+        if (await applySubmittedFallback(fallback)) return;
+
+        if (!submissionObserved && isExplicitWalletRejection(error)) {
+          setActionReady(true);
+          setCanonicalSyncing(false);
+          console.error(error);
+          setWalletMessage(transactionFailureMessage(error, ACTIVE_NETWORK_LABEL));
+          return;
+        }
+
+        await recoverAmbiguousSubmission();
+      } catch (fallbackError) {
+        if (!isPlayerViewCurrent(actionView, playerAddress)) return;
+        console.warn(
+          "Canonical recovery read not ready:",
+          fallbackError
+        );
+        if (!submissionObserved && isExplicitWalletRejection(error)) {
+          setActionReady(true);
+          setCanonicalSyncing(false);
+          setWalletMessage(transactionFailureMessage(error, ACTIVE_NETWORK_LABEL));
+          return;
+        }
+
+        await recoverAmbiguousSubmission();
       }
     } finally {
       interactionLock.current = false;
-      setRollingKind(
-        RequestKind.None
-      );
-
-      setActionProgressPhase(
-        "idle"
-      );
-
-      setPendingAction(
-        null
-      );
+      if (isPlayerViewCurrent(actionView, playerAddress)) {
+        setRollingKind(RequestKind.None);
+        setActionProgressPhase("idle");
+        setPendingAction(null);
+      }
     }
   }
 
@@ -8372,6 +8792,7 @@ function DelvewornGame() {
         onchainPresentation.loot !== null
       ) ||
       !player?.supportsRelicCollection ||
+      player.pendingLoot.available ||
       !player.relicOfferAvailable
     ) {
       return;
@@ -8383,6 +8804,7 @@ function DelvewornGame() {
     player?.relicOfferAvailable,
     player?.relicOfferId,
     player?.supportsRelicCollection,
+    player?.pendingLoot.available,
     onchainPresentation,
     presentationScope,
   ]);
@@ -8809,9 +9231,11 @@ function DelvewornGame() {
     );
 
   const roomLoot =
-    onchainPresentation.scope === presentationScope
-      ? onchainPresentation.loot
-      : null;
+    onchainRoomLoot(
+      onchainPresentation,
+      presentationScope,
+      player
+    );
 
   const roomLootActive =
     scenePhase === "loot";
@@ -8854,6 +9278,13 @@ function DelvewornGame() {
       busy,
       "acknowledge-loot"
     )) {
+      return;
+    }
+
+    if (presentationPlayer.supportsPendingLoot) {
+      if (!skipped) {
+        void runPendingLootTransaction("collectLoot");
+      }
       return;
     }
 
@@ -8905,6 +9336,10 @@ function DelvewornGame() {
       acknowledgeRoomLoot(true);
       return;
     }
+    if (decision === "discard-loot") {
+      void runPendingLootTransaction("discardLoot");
+      return;
+    }
     if (decision === "enter-next-room") {
       void runGameTransaction("enterNextRoom");
     }
@@ -8945,7 +9380,10 @@ function DelvewornGame() {
   */
 
   const potionInventoryFull =
-    player.potions >=
+    potionInventoryWithPendingLoot(
+      player.potions,
+      player.pendingLoot
+    ) >=
     MAX_POTIONS;
 
   const combatPotionLimit =
@@ -9941,8 +10379,10 @@ function DelvewornGame() {
 
   const activeRoomFeedback = roomLootActive
     ? {
-        title: "Reward confirmed onchain",
-        detail: `${getLootMessage(player)} Gold and rolled loot are already credited. Tap the loot, or tap the door to continue.${player.relicOfferAvailable ? " Your boss relic choice follows this presentation." : ""}`,
+        title: player.supportsPendingLoot ? "Loot dropped" : "Reward confirmed onchain",
+        detail: player.supportsPendingLoot
+          ? `Tap the loot to collect it, or use the door to leave it behind.${player.relicOfferAvailable ? " Your boss relic choice comes next." : ""}`
+          : `${getLootMessage(player)} Gold and rolled loot are already credited. Tap the loot, or tap the door to continue.${player.relicOfferAvailable ? " Your boss relic choice follows this presentation." : ""}`,
       }
     : {
         title: randomnessPending
@@ -10011,6 +10451,9 @@ function DelvewornGame() {
         notices={activeRoomNotices}
         menu={activeRoomMenu}
         feedback={activeRoomFeedback}
+        lootDetail={player.supportsPendingLoot
+          ? "Tap the loot to collect it, or tap the door to leave it behind."
+          : undefined}
         log={combatLog}
         sound={{
           enabled: audio.enabled,

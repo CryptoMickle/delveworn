@@ -180,7 +180,8 @@ test("guest identity is server-signed, HttpOnly, and a forged identity receives 
 });
 
 test("route logic verifies v2 proofs, enforces current-week writes, and keeps archives readable", async () => {
-  const backend = readyBackend();
+  const store = new MemoryLeaderboardStore();
+  const backend = readyBackend(store);
   const proof = await verifiedProof();
   const url = "https://delveworn.app/api/leaderboard/2026-W38";
   const post = new Request(url, {
@@ -201,6 +202,11 @@ test("route logic verifies v2 proofs, enforces current-week writes, and keeps ar
   assert.equal(postedBody.submission.status, "inserted");
   assert.equal(postedBody.rows[0].own, true);
   assert.equal(postedBody.rows[0].nickname, "Rune Fox");
+  const persisted = [...store.boards.get(weeklyLeaderboardKey("2026-W38"))!.values()][0];
+  assert.equal(persisted.proof, proof, "the verified proof remains available for private replay audits");
+  assert.equal("proof" in postedBody.rows[0], false);
+  assert.equal("guestId" in postedBody.rows[0], false);
+  assert.equal(JSON.stringify(postedBody).includes(proof), false);
 
   const localProxy = await handleLeaderboardPost(new Request(
     "http://localhost:3100/api/leaderboard/2026-W38",

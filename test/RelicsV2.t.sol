@@ -278,6 +278,9 @@ contract RelicsV2Test is Test {
                 _fulfill(_attackWords(4, 0, 0, 50, 0));
             }
 
+            vm.prank(player);
+            dungeon.collectLoot();
+
             if (dungeon.getPlayer(player).roomsCleared < 5) {
                 vm.prank(player);
                 dungeon.enterNextRoom();

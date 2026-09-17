@@ -10,8 +10,10 @@ import {
   onchainPresentationKey,
   onchainPresentationPhase,
   onchainPresentationScope,
+  onchainRoomLoot,
   type OnchainPresentationSnapshot,
 } from "../app/onchain-presentation";
+import { EMPTY_PENDING_ROOM_LOOT } from "../app/onchain-v4";
 import { createWalletViewGuard } from "../app/wallet-view-guard";
 
 const fight = (overrides: Partial<OnchainPresentationSnapshot> = {}): OnchainPresentationSnapshot => ({
@@ -22,6 +24,17 @@ const fight = (overrides: Partial<OnchainPresentationSnapshot> = {}): OnchainPre
   lastLootType: 0,
   lastLootAmount: 0,
   relicOfferAvailable: false,
+  supportsPendingLoot: false,
+  pendingLoot: EMPTY_PENDING_ROOM_LOOT,
+  ...overrides,
+});
+
+const pendingLoot = (overrides: Partial<OnchainPresentationSnapshot["pendingLoot"]> = {}) => ({
+  available: true,
+  room: 1,
+  gold: 12,
+  lootType: 3 as const,
+  lootAmount: 1,
   ...overrides,
 });
 
@@ -148,4 +161,108 @@ test("presentation scope follows wallet ticket generation, mode, and acting play
   assert.notEqual(reselected, onchainPresentationScope(50312, "0xDifferent", guard.capture()));
   const state = applyConfirmedOnchainPresentation(createOnchainPresentationState(), standard, "startGame", fight({ active: false }), fight());
   assert.notEqual(onchainPresentationKey(state, standard), onchainPresentationKey(state, session));
+});
+
+test("V4 reload restores pending floor loot entirely from the canonical snapshot", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const restored = fight({
+    monsterHp: 0,
+    roomsCleared: 1,
+    supportsPendingLoot: true,
+    pendingLoot: pendingLoot(),
+  });
+  const local = createOnchainPresentationState();
+
+  assert.equal(onchainPresentationPhase(local, scope, restored), "loot");
+  assert.deepEqual(onchainRoomLoot(local, scope, restored), {
+    room: 1,
+    type: 3,
+    amount: 1,
+    gold: 12,
+    relicId: 0,
+  });
+});
+
+test("V4 collect changes the floor only after a confirmed snapshot settles it", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const before = fight({
+    monsterHp: 0,
+    roomsCleared: 1,
+    gold: 4,
+    supportsPendingLoot: true,
+    pendingLoot: pendingLoot({ lootType: 2, lootAmount: 7, gold: 12 }),
+  });
+  const local = createOnchainPresentationState();
+
+  // A rejected send applies no later snapshot, so the same canonical floor
+  // object remains visible and collectible.
+  assert.equal(onchainPresentationPhase(local, scope, before), "loot");
+  assert.equal(onchainRoomLoot(local, scope, before)?.gold, 12);
+
+  const after = fight({
+    monsterHp: 0,
+    roomsCleared: 1,
+    gold: 16,
+    supportsPendingLoot: true,
+    pendingLoot: EMPTY_PENDING_ROOM_LOOT,
+  });
+  const confirmed = applyConfirmedOnchainPresentation(local, scope, "collectLoot", before, after);
+  assert.equal(onchainRoomLoot(confirmed, scope, after), null);
+  assert.equal(onchainPresentationPhase(confirmed, scope, after), "recovery");
+});
+
+test("V4 safe potion confirmation preserves canonical pending loot", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const before = fight({
+    monsterHp: 0,
+    roomsCleared: 5,
+    supportsPendingLoot: true,
+    pendingLoot: pendingLoot({ room: 5, lootType: 1, lootAmount: 1 }),
+  });
+  const after = { ...before };
+  const state = applyConfirmedOnchainPresentation(
+    createOnchainPresentationState(),
+    scope,
+    "usePotion",
+    before,
+    after
+  );
+
+  assert.equal(canUseOnchainPresentationAction(state, scope, after, false, "safe-potion"), true);
+  assert.deepEqual(onchainRoomLoot(state, scope, after), {
+    room: 5,
+    type: 1,
+    amount: 1,
+    gold: 12,
+    relicId: 0,
+  });
+});
+
+test("V4 door bypass is atomic for ordinary rooms and confirmed discard gates boss relics", () => {
+  const guard = createWalletViewGuard();
+  const scope = onchainPresentationScope(50312, "0xPlayer", guard.select("0xOwner", "standard"));
+  const local = createOnchainPresentationState();
+  const ordinary = fight({
+    monsterHp: 0,
+    roomsCleared: 1,
+    supportsPendingLoot: true,
+    pendingLoot: pendingLoot(),
+  });
+  assert.equal(onchainDoorDecision(local, scope, ordinary, false, true), "enter-next-room");
+
+  const boss = fight({
+    monsterHp: 0,
+    roomsCleared: 10,
+    relicOfferAvailable: true,
+    supportsPendingLoot: true,
+    pendingLoot: pendingLoot({ room: 10 }),
+  });
+  assert.equal(onchainDoorDecision(local, scope, boss, false, true), "discard-loot");
+  assert.equal(onchainPresentationPhase(local, scope, boss), "loot");
+
+  const discarded = { ...boss, pendingLoot: EMPTY_PENDING_ROOM_LOOT };
+  assert.equal(onchainPresentationPhase(local, scope, discarded), "reward");
 });

@@ -16,6 +16,8 @@ export type StoredLeaderboardEntry = {
   nicknameHidden: boolean;
   achievedAt: string;
   result: WeeklyDescentResult;
+  // Kept privately for replay audits. Older development records may omit it.
+  proof?: string;
 };
 
 export type RankedLeaderboardEntry = {
@@ -103,10 +105,10 @@ export function leaderboardMemberId(
 }
 
 function compareEntries(left: StoredLeaderboardEntry, right: StoredLeaderboardEntry): number {
+  // Redis ZREVRANGE uses reverse lexical member order for equal scores.
+  // The member embeds inverse time, so earlier results still appear first.
   return right.result.score - left.result.score
-    || left.achievedAt.localeCompare(right.achievedAt)
-    || left.entryId.localeCompare(right.entryId)
-    || left.guestId.localeCompare(right.guestId);
+    || right.memberId.localeCompare(left.memberId);
 }
 
 export function rankLeaderboardEntries(

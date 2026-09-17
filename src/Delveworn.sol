@@ -12,6 +12,21 @@ interface IVRFConsumer {
 }
 
 contract Delveworn is IVRFConsumer {
+    error BossLootPending();
+    error GameNotActive();
+    error InvalidCoordinator();
+    error InvalidRelicOffer();
+    error InvalidRequest();
+    error InvalidRoom();
+    error LootActionUnavailable();
+    error NoPendingRandomness();
+    error OnlyCoordinator();
+    error RandomnessPending();
+    error RequestMismatch();
+    error UnknownRequest();
+    error VrfRequestNotTimedOut();
+    error WrongRandomNumberCount();
+
     enum MonsterType {
         Zombie,
         Goblin,
@@ -157,6 +172,19 @@ contract Delveworn is IVRFConsumer {
         uint256 stormMax;
     }
 
+    struct PendingRoomLoot {
+        bool available;
+        uint256 room;
+        uint256 gold;
+        LootType lootType;
+        uint256 lootAmount;
+    }
+
+    struct FrontendSnapshotV4 {
+        FrontendSnapshotV3 base;
+        PendingRoomLoot pendingLoot;
+    }
+
     /*
         ========================================================
         BALANCE
@@ -252,6 +280,8 @@ contract Delveworn is IVRFConsumer {
     mapping(address => uint256) public playerMaxHp;
     mapping(address => bool) public relicReviveUsed;
 
+    mapping(address => PendingRoomLoot) public pendingRoomLoot;
+
     uint256 public requestNonce;
 
     /*
@@ -280,6 +310,12 @@ contract Delveworn is IVRFConsumer {
     );
 
     event LootGranted(address indexed player, LootType lootType, uint256 amount);
+
+    event LootRolled(address indexed player, uint256 indexed room);
+
+    event LootCollected(address indexed player, uint256 indexed room);
+
+    event LootDiscarded(address indexed player, uint256 indexed room);
 
     event CampOpened(address indexed player, uint256 indexed nextBossRoom, uint256 healingReceived);
 
@@ -312,19 +348,19 @@ contract Delveworn is IVRFConsumer {
     */
 
     constructor(address coordinatorAddress) {
-        require(coordinatorAddress != address(0), "Invalid coordinator");
+        if (coordinatorAddress == address(0)) revert InvalidCoordinator();
 
         coordinator = IVRFCoordinator(coordinatorAddress);
     }
 
     modifier onlyCoordinator() {
-        require(msg.sender == address(coordinator), "Only VRF coordinator");
+        if (msg.sender != address(coordinator)) revert OnlyCoordinator();
 
         _;
     }
 
     modifier noPending(address playerAddress) {
-        require(pendingRequestId[playerAddress] == 0, "Randomness pending");
+        if (pendingRequestId[playerAddress] != 0) revert RandomnessPending();
 
         _;
     }
@@ -378,6 +414,7 @@ contract Delveworn is IVRFConsumer {
         playerBaseMaxHp[msg.sender] = BASE_MAX_HP;
         playerMaxHp[msg.sender] = BASE_MAX_HP;
         relicReviveUsed[msg.sender] = false;
+        delete pendingRoomLoot[msg.sender];
 
         _requestRandomness(msg.sender, RequestKind.Monster, 1);
     }
@@ -438,7 +475,7 @@ contract Delveworn is IVRFConsumer {
     function equipOwnedRelic(Relic relic) external noPending(msg.sender) {
         Player storage player = players[msg.sender];
 
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.monsterHp == 0, "Equip relic between rooms");
         require(!relicOfferAvailable[msg.sender], "Claim boss relic first");
         require(
@@ -464,39 +501,33 @@ contract Delveworn is IVRFConsumer {
     */
 
     function attack() external noPending(msg.sender) {
-        Player storage player = players[msg.sender];
-
-        require(player.active, "Game is not active");
-        require(player.monsterHp > 0, "No monster");
-
-        _requestRandomness(msg.sender, RequestKind.Attack, 5);
+        _requestCombatRandomness(RequestKind.Attack, 5);
     }
 
     function stormAttack() external noPending(msg.sender) {
+        _requestCombatRandomness(RequestKind.Storm, 4);
+    }
+
+    function _requestCombatRandomness(RequestKind kind, uint32 numberCount) internal {
         Player storage player = players[msg.sender];
 
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.monsterHp > 0, "No monster");
 
-        _requestRandomness(msg.sender, RequestKind.Storm, 4);
+        _requestRandomness(msg.sender, kind, numberCount);
     }
 
     function usePotion() external noPending(msg.sender) {
         Player storage player = players[msg.sender];
         uint256 maximumHp = _maxHp(msg.sender);
 
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.potions > 0, "No potions left");
         require(player.hp < maximumHp, "HP already full");
 
         if (player.monsterHp == 0) {
             player.potions -= 1;
-
-            uint256 newHp = player.hp + 25;
-            if (newHp > maximumHp) {
-                newHp = maximumHp;
-            }
-            player.hp = newHp;
+            _heal(player, 25, maximumHp);
 
             lastPlayerDamage[msg.sender] = 0;
             lastMonsterDamage[msg.sender] = 0;
@@ -511,13 +542,22 @@ contract Delveworn is IVRFConsumer {
         _requestRandomness(msg.sender, RequestKind.Potion, 1);
     }
 
+    function collectLoot() external noPending(msg.sender) {
+        _settleLoot(msg.sender, _lootActionPlayer(), true);
+    }
+
+    function discardLoot() external noPending(msg.sender) {
+        _settleLoot(msg.sender, _lootActionPlayer(), false);
+    }
+
     function enterNextRoom() external noPending(msg.sender) {
         Player storage player = players[msg.sender];
 
-        require(player.active, "Game over");
+        if (!player.active) revert GameNotActive();
         require(player.monsterHp == 0, "Defeat monster first");
         require(!relicOfferAvailable[msg.sender], "Claim boss relic first");
 
+        _settleLoot(msg.sender, player, false);
         _applyRoomEntryRelic(msg.sender, player);
         _requestRandomness(msg.sender, RequestKind.Monster, 1);
     }
@@ -525,16 +565,16 @@ contract Delveworn is IVRFConsumer {
     function retryRandomness() external returns (uint256 newRequestId) {
         uint256 oldRequestId = pendingRequestId[msg.sender];
 
-        require(oldRequestId != 0, "No pending randomness");
+        if (oldRequestId == 0) revert NoPendingRandomness();
 
         uint256 requestedAt = pendingRequestTimestamp[msg.sender];
-        require(requestedAt != 0, "Missing request timestamp");
-        require(block.timestamp >= requestedAt + VRF_TIMEOUT, "VRF request not timed out");
+        if (requestedAt == 0) revert InvalidRequest();
+        if (block.timestamp < requestedAt + VRF_TIMEOUT) revert VrfRequestNotTimedOut();
 
         RequestInfo memory oldRequest = requests[oldRequestId];
 
-        require(oldRequest.player == msg.sender, "Request mismatch");
-        require(oldRequest.kind != RequestKind.None, "Invalid request kind");
+        if (oldRequest.player != msg.sender) revert RequestMismatch();
+        if (oldRequest.kind == RequestKind.None) revert InvalidRequest();
 
         delete requests[oldRequestId];
 
@@ -572,12 +612,7 @@ contract Delveworn is IVRFConsumer {
         _spendGold(player, cost);
 
         supplyBandageUsed[msg.sender] = true;
-
-        uint256 newHp = player.hp + SUPPLY_BANDAGE_HEAL;
-        if (newHp > maximumHp) {
-            newHp = maximumHp;
-        }
-        player.hp = newHp;
+        _heal(player, SUPPLY_BANDAGE_HEAL, maximumHp);
 
         emit SupplyPurchase(msg.sender, SupplyItem.Bandage, cost);
     }
@@ -588,12 +623,9 @@ contract Delveworn is IVRFConsumer {
 
         Player storage player = players[msg.sender];
 
-        require(player.potions < MAX_POTIONS, "Potion inventory full");
-
         uint256 cost = _currentSupplyPotionCost(player);
-        _spendGold(player, cost);
+        _buyPotion(msg.sender, player, cost);
 
-        player.potions += 1;
         supplyPotionsBought[msg.sender] += 1;
 
         emit SupplyPurchase(msg.sender, SupplyItem.Potion, cost);
@@ -622,12 +654,7 @@ contract Delveworn is IVRFConsumer {
         _spendGold(player, cost);
 
         campRestUsed[msg.sender] = true;
-
-        uint256 newHp = player.hp + REST_HEAL;
-        if (newHp > maximumHp) {
-            newHp = maximumHp;
-        }
-        player.hp = newHp;
+        _heal(player, REST_HEAL, maximumHp);
 
         emit CampPurchase(msg.sender, CampItem.Rest, cost);
     }
@@ -638,39 +665,36 @@ contract Delveworn is IVRFConsumer {
 
         Player storage player = players[msg.sender];
 
-        require(player.potions < MAX_POTIONS, "Potion inventory full");
-
         uint256 cost = _currentPotionCost(player);
-        _spendGold(player, cost);
+        _buyPotion(msg.sender, player, cost);
 
-        player.potions += 1;
         campPotionsBought[msg.sender] += 1;
 
         emit CampPurchase(msg.sender, CampItem.Potion, cost);
     }
 
     function campBuyWeapon() external noPending(msg.sender) {
-        require(_campAvailable(msg.sender), "Camp not available");
-
-        Player storage player = players[msg.sender];
-        uint256 cost = _currentWeaponCost(player);
-
-        _spendGold(player, cost);
-        player.weaponLevel += 1;
-
-        emit CampPurchase(msg.sender, CampItem.Weapon, cost);
+        _campBuyGear(true);
     }
 
     function campBuyArmor() external noPending(msg.sender) {
+        _campBuyGear(false);
+    }
+
+    function _campBuyGear(bool weapon) internal {
         require(_campAvailable(msg.sender), "Camp not available");
 
         Player storage player = players[msg.sender];
-        uint256 cost = _currentArmorCost(player);
+        uint256 cost = weapon ? _currentWeaponCost(player) : _currentArmorCost(player);
 
         _spendGold(player, cost);
-        player.armorLevel += 1;
+        if (weapon) {
+            player.weaponLevel += 1;
+        } else {
+            player.armorLevel += 1;
+        }
 
-        emit CampPurchase(msg.sender, CampItem.Armor, cost);
+        emit CampPurchase(msg.sender, weapon ? CampItem.Weapon : CampItem.Armor, cost);
     }
 
     /*
@@ -686,9 +710,9 @@ contract Delveworn is IVRFConsumer {
     {
         RequestInfo memory request = requests[requestId];
 
-        require(request.player != address(0), "Unknown VRF request");
-        require(pendingRequestId[request.player] == requestId, "Request mismatch");
-        require(randomNumbers.length == request.expectedNumbers, "Wrong random number count");
+        if (request.player == address(0)) revert UnknownRequest();
+        if (pendingRequestId[request.player] != requestId) revert RequestMismatch();
+        if (randomNumbers.length != request.expectedNumbers) revert WrongRandomNumberCount();
 
         delete requests[requestId];
 
@@ -722,7 +746,7 @@ contract Delveworn is IVRFConsumer {
             return;
         }
 
-        revert("Invalid request kind");
+        revert InvalidRequest();
     }
 
     /*
@@ -741,6 +765,15 @@ contract Delveworn is IVRFConsumer {
     }
 
     function frontendSnapshotV3(address playerAddress) external view returns (FrontendSnapshotV3 memory snapshot) {
+        return _frontendSnapshotV3(playerAddress);
+    }
+
+    function frontendSnapshotV4(address playerAddress) external view returns (FrontendSnapshotV4 memory snapshot) {
+        snapshot.base = _frontendSnapshotV3(playerAddress);
+        snapshot.pendingLoot = pendingRoomLoot[playerAddress];
+    }
+
+    function _frontendSnapshotV3(address playerAddress) internal view returns (FrontendSnapshotV3 memory snapshot) {
         Player storage player = players[playerAddress];
         snapshot.base = _frontendSnapshot(playerAddress, player);
         snapshot.relicOffer = relicOfferId[playerAddress];
@@ -832,7 +865,7 @@ contract Delveworn is IVRFConsumer {
         pure
         returns (uint256 hp, uint256 minDamage, uint256 maxDamage, uint256 goldReward)
     {
-        require(room > 0, "Invalid room");
+        if (room == 0) revert InvalidRoom();
 
         hp = _scaledMonsterHp(monsterType, room);
 
@@ -853,7 +886,7 @@ contract Delveworn is IVRFConsumer {
         pure
         returns (uint256 restCost, uint256 potionCost, uint256 weaponCost, uint256 armorCost)
     {
-        require(bossRoom > 0 && bossRoom % 10 == 0, "Invalid boss room");
+        if (bossRoom == 0 || bossRoom % 10 != 0) revert InvalidRoom();
 
         uint256 tier = (bossRoom / 10) - 1;
 
@@ -864,7 +897,7 @@ contract Delveworn is IVRFConsumer {
     }
 
     function supplyPricesForStop(uint256 roomCleared) public pure returns (uint256 bandageCost, uint256 potionCost) {
-        require(roomCleared >= 5 && roomCleared % 5 == 0, "Invalid supply stop");
+        if (roomCleared < 5 || roomCleared % 5 != 0) revert InvalidRoom();
 
         uint256 tier = (roomCleared - 5) / 10;
 
@@ -952,7 +985,7 @@ contract Delveworn is IVRFConsumer {
     */
 
     function _requestRandomness(address playerAddress, RequestKind kind, uint32 numberCount) internal {
-        require(pendingRequestId[playerAddress] == 0, "Randomness already pending");
+        if (pendingRequestId[playerAddress] != 0) revert RandomnessPending();
 
         uint256 seed = uint256(
             keccak256(abi.encode(playerAddress, players[playerAddress].roomsCleared, uint8(kind), requestNonce))
@@ -961,7 +994,7 @@ contract Delveworn is IVRFConsumer {
         requestNonce += 1;
 
         uint256 requestId = coordinator.requestRandomNumbers(numberCount, seed);
-        require(requestId != 0, "Invalid request id");
+        if (requestId == 0) revert InvalidRequest();
 
         requests[requestId] = RequestInfo({player: playerAddress, kind: kind, expectedNumbers: numberCount});
 
@@ -979,7 +1012,7 @@ contract Delveworn is IVRFConsumer {
     */
 
     function _resolveMonster(address playerAddress, Player storage player, uint256 randomNumber) internal {
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
 
         uint256 room = player.roomsCleared + 1;
 
@@ -1017,7 +1050,7 @@ contract Delveworn is IVRFConsumer {
     */
 
     function _resolveAttack(address playerAddress, Player storage player, uint256[] memory randomNumbers) internal {
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.monsterHp > 0, "No monster");
 
         uint256 minDamage = _playerBaseDamage(player) - 2;
@@ -1065,7 +1098,7 @@ contract Delveworn is IVRFConsumer {
     */
 
     function _resolveStorm(address playerAddress, Player storage player, uint256[] memory randomNumbers) internal {
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.monsterHp > 0, "No monster");
 
         uint256 maxDamage = _playerBaseDamage(player) * 2;
@@ -1106,7 +1139,7 @@ contract Delveworn is IVRFConsumer {
     */
 
     function _resolvePotion(address playerAddress, Player storage player, uint256 randomNumber) internal {
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.potions > 0, "No potions left");
 
         uint256 maximumHp = _maxHp(playerAddress);
@@ -1158,11 +1191,9 @@ contract Delveworn is IVRFConsumer {
         uint256 room = player.roomsCleared + 1;
 
         player.monsterHp = 0;
-        uint256 roomGold = _scaledGoldReward(player.monsterType, room);
-        player.gold += RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), roomGold);
         player.roomsCleared += 1;
 
-        _grantLoot(playerAddress, player, lootRoll, amountRoll);
+        _rollLoot(playerAddress, player, lootRoll, amountRoll);
         _applyKillRelic(playerAddress, player);
 
         if (player.monsterType == MonsterType.DungeonLord) {
@@ -1220,16 +1251,10 @@ contract Delveworn is IVRFConsumer {
         campPotionsBought[playerAddress] = 0;
 
         uint256 hpBefore = player.hp;
-        uint256 newHp = player.hp + CAMP_ARRIVAL_HEAL;
         uint256 maximumHp = _maxHp(playerAddress);
+        _heal(player, CAMP_ARRIVAL_HEAL, maximumHp);
 
-        if (newHp > maximumHp) {
-            newHp = maximumHp;
-        }
-
-        player.hp = newHp;
-
-        emit CampOpened(playerAddress, player.roomsCleared + 1, newHp - hpBefore);
+        emit CampOpened(playerAddress, player.roomsCleared + 1, player.hp - hpBefore);
     }
 
     function _campAvailable(address playerAddress) internal view returns (bool) {
@@ -1245,19 +1270,22 @@ contract Delveworn is IVRFConsumer {
         ========================================================
     */
 
-    function _grantLoot(address playerAddress, Player storage player, uint256 randomLoot, uint256 randomAmount)
+    function _rollLoot(address playerAddress, Player storage player, uint256 randomLoot, uint256 randomAmount)
         internal
     {
+        uint256 room = player.roomsCleared;
+        uint256 roomGold = _scaledGoldReward(player.monsterType, room);
+        roomGold = RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), roomGold);
         uint256 lootRoll = randomLoot % 100;
+        uint256 pendingGold = roomGold;
 
         if (lootRoll < 30) {
             if (player.potions >= MAX_POTIONS) {
                 uint256 convertedGold = RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), FULL_POTION_LOOT_GOLD);
-                player.gold += convertedGold;
+                pendingGold += convertedGold;
                 player.lastLootType = LootType.BonusGold;
                 player.lastLootAmount = convertedGold;
             } else {
-                player.potions += 1;
                 player.lastLootType = LootType.Potion;
                 player.lastLootAmount = 1;
             }
@@ -1265,20 +1293,68 @@ contract Delveworn is IVRFConsumer {
             uint256 bonusGold = 5 + (randomAmount % 16) + (player.roomsCleared / 5);
 
             bonusGold = RelicRules.scaleGold(uint8(equippedRelic[playerAddress]), bonusGold);
-            player.gold += bonusGold;
+            pendingGold += bonusGold;
             player.lastLootType = LootType.BonusGold;
             player.lastLootAmount = bonusGold;
         } else if (lootRoll < 90) {
-            player.weaponLevel += 1;
             player.lastLootType = LootType.Weapon;
             player.lastLootAmount = 1;
         } else {
-            player.armorLevel += 1;
             player.lastLootType = LootType.Armor;
             player.lastLootAmount = 1;
         }
 
-        emit LootGranted(playerAddress, player.lastLootType, player.lastLootAmount);
+        PendingRoomLoot storage pendingLoot = pendingRoomLoot[playerAddress];
+        pendingLoot.available = true;
+        pendingLoot.room = room;
+        pendingLoot.gold = pendingGold;
+        pendingLoot.lootType = player.lastLootType;
+        pendingLoot.lootAmount = player.lastLootAmount;
+
+        emit LootRolled(playerAddress, room);
+    }
+
+    function _lootActionPlayer() internal view returns (Player storage player) {
+        player = players[msg.sender];
+        if (!player.active) revert GameNotActive();
+        if (player.monsterHp != 0) revert LootActionUnavailable();
+    }
+
+    function _settleLoot(address playerAddress, Player storage player, bool collect) internal {
+        PendingRoomLoot storage pendingLoot = pendingRoomLoot[playerAddress];
+        if (!pendingLoot.available) return;
+
+        if (!collect) {
+            emit LootDiscarded(playerAddress, pendingLoot.room);
+            delete pendingRoomLoot[playerAddress];
+            return;
+        }
+
+        player.gold += pendingLoot.gold;
+
+        if (pendingLoot.lootType == LootType.Potion) {
+            require(player.potions + pendingLoot.lootAmount <= MAX_POTIONS, "Potion inventory full");
+            player.potions += pendingLoot.lootAmount;
+        } else if (pendingLoot.lootType == LootType.Weapon) {
+            player.weaponLevel += pendingLoot.lootAmount;
+        } else if (pendingLoot.lootType == LootType.Armor) {
+            player.armorLevel += pendingLoot.lootAmount;
+        }
+
+        emit LootCollected(playerAddress, pendingLoot.room);
+        delete pendingRoomLoot[playerAddress];
+    }
+
+    function _reservedPotionLoot(address playerAddress) internal view returns (uint256) {
+        PendingRoomLoot storage pendingLoot = pendingRoomLoot[playerAddress];
+        if (!pendingLoot.available || pendingLoot.lootType != LootType.Potion) return 0;
+        return pendingLoot.lootAmount;
+    }
+
+    function _buyPotion(address playerAddress, Player storage player, uint256 cost) internal {
+        require(player.potions + _reservedPotionLoot(playerAddress) < MAX_POTIONS, "Potion inventory full");
+        _spendGold(player, cost);
+        player.potions += 1;
     }
 
     /*
@@ -1290,13 +1366,14 @@ contract Delveworn is IVRFConsumer {
     function _claimRelic(address playerAddress, bool equip) internal {
         Player storage player = players[playerAddress];
 
-        require(player.active, "Game is not active");
+        if (!player.active) revert GameNotActive();
         require(player.monsterHp == 0, "Claim relic between rooms");
+        if (pendingRoomLoot[playerAddress].available) revert BossLootPending();
         require(relicOfferAvailable[playerAddress], "No relic offer");
 
         Relic relic = relicOfferId[playerAddress];
-        require(relic != Relic.None && uint256(relic) <= uint256(Relic.Worldbreaker), "Invalid relic offer");
-        require(relicRarityOf(relic) == relicOfferRarity[playerAddress], "Relic offer mismatch");
+        if (relic == Relic.None || uint256(relic) > uint256(Relic.Worldbreaker)) revert InvalidRelicOffer();
+        if (relicRarityOf(relic) != relicOfferRarity[playerAddress]) revert InvalidRelicOffer();
 
         bool alreadyOwned = ownsRelic(playerAddress, relic);
         uint8 relicIndex = uint8(relic) - 1;
@@ -1327,9 +1404,7 @@ contract Delveworn is IVRFConsumer {
 
         equippedRelic[playerAddress] = relic;
         playerMaxHp[playerAddress] = newMaxHp;
-
-        uint256 newHp = player.hp + bonusHealing;
-        player.hp = newHp > newMaxHp ? newMaxHp : newHp;
+        _heal(player, bonusHealing, newMaxHp);
 
         emit RelicEquipped(playerAddress, previousRelic, relic, newMaxHp);
     }
@@ -1386,10 +1461,7 @@ contract Delveworn is IVRFConsumer {
     function _applyKillRelic(address playerAddress, Player storage player) internal {
         uint256 healing = RelicRules.killHeal(uint8(equippedRelic[playerAddress]));
         if (healing == 0 || player.hp == 0) return;
-
-        uint256 maximumHp = _maxHp(playerAddress);
-        uint256 newHp = player.hp + healing;
-        player.hp = newHp > maximumHp ? maximumHp : newHp;
+        _heal(player, healing, _maxHp(playerAddress));
     }
 
     function _handleLethalDamage(address playerAddress, Player storage player) internal {
@@ -1454,6 +1526,11 @@ contract Delveworn is IVRFConsumer {
     function _spendGold(Player storage player, uint256 amount) internal {
         require(player.gold >= amount, "Not enough gold");
         player.gold -= amount;
+    }
+
+    function _heal(Player storage player, uint256 amount, uint256 maximumHp) internal {
+        uint256 newHp = player.hp + amount;
+        player.hp = newHp > maximumHp ? maximumHp : newHp;
     }
 
     /*

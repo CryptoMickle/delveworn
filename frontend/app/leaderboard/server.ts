@@ -257,6 +257,7 @@ export async function handleLeaderboardPost(
       nicknameHidden: nickname.nicknameHidden,
       achievedAt,
       result: verified.result,
+      proof: verified.proof,
     };
     const update = await backend.store.submitBest(weeklyLeaderboardKey(challengeId), guest.guestId, entry);
     if (update.status === "full") {

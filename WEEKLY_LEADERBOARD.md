@@ -73,3 +73,50 @@ fail CI before deployment.
 V1 is stronger than a release gate: its verifier imports a frozen rules module
 under `app/challenge/v1/`. New Practice behavior must never be added to that
 module; a new weekly rules version is required instead.
+
+## Database verification (17 September 2026)
+
+The Lua used by `RedisRestLeaderboardStore` is now exercised against a real,
+isolated Redis server by `npm run test:redis`. The test server has no TCP port,
+uses a temporary Unix socket, and is stopped/removed after the tests. Its CLI
+transport wraps actual Redis responses in the REST JSON envelope; this tests
+Redis execution, not a live Upstash service or its authentication.
+
+The suite found and fixed two integration bugs:
+
+- Lua encodes an empty table as an object. Empty boards now explicitly return
+  `rows: []`, so a new week can load before its first submission.
+- Entries with identical scores and timestamps now have the same stable order
+  in local and Redis storage. They still share the same competition rank.
+
+It also covers concurrent best-score retries, retention of an equal result,
+capacity, top-ten/own-neighbor windows, and expired rate limits. The Frontend CI
+runs it as a separate Redis integration job. Locally, install standard Redis
+binaries or set `REDIS_SERVER_BIN` and `REDIS_CLI_BIN` to existing binaries.
+
+New server submissions retain the verified action proof privately for future
+replay audits. Public responses omit both that proof and the secret guest ID.
+Previous development-only records may lack a proof. Public result sharing is
+still voluntary and separate from leaderboard submission.
+
+## Preview activation
+
+Initial read-only Vercel checks found no storage resources and no Marketplace
+installations in the `crypto-mickle` scope. The user subsequently authorized
+the recommended database setup through Vercel. A random private cookie-signing
+secret is now installed in Preview only. Production settings are unchanged.
+
+Selected resource: **Upstash Redis, Free plan, `delveworn-weekly-preview`**, scoped
+to `delveworn-app` Preview only, in IAD1 near the current server functions.
+The provider currently lists a $0 plan with 256 MB and 500,000
+commands/month; paid tiers must not be selected automatically.
+[Provider pricing](https://upstash.com/pricing/redis).
+
+The reviewed creation request explicitly sets `autoUpgrade=false`,
+`prodPack=false`, and `eviction=false`. Vercel requires separate Marketplace
+terms acceptance before creation; that step is pending. No integration or
+database has yet been created. Once accepted, retry that same creation request,
+connect only Preview, then redeploy and check empty/current/archive reads,
+first submission, retries and best-score updates against the hosted service.
+Production remains a separate activation. Do not put credentials in public
+variables, Git, reports, logs or chat.

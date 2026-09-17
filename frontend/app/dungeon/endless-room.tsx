@@ -40,13 +40,14 @@ export type EndlessRoomProps = {
   notices?: ReactNode;
   menu?: ReactNode;
   feedback?: { title: string; detail: string };
+  lootDetail?: string;
   log: string[];
   sound: { enabled: boolean; available: boolean; paused: boolean; toggleSound: () => void };
 };
 
 /** Only presentation and local walking. Every gameplay action belongs to its caller. */
 export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescription, maxHp, gold, potions, roomTurns,
-  incoming, combatActions, combatPotions, healAction, safePotion, shop, relics, reward, notices, menu, feedback, log, sound }: EndlessRoomProps) {
+  incoming, combatActions, combatPotions, healAction, safePotion, shop, relics, reward, notices, menu, feedback, lootDetail, log, sound }: EndlessRoomProps) {
   const [panel, setPanel] = useState<{ room: number; kind: "menu" | "shop" | "relics" | "log" | "status" } | null>(null);
   const sidebarControls = useRoomSidebar();
   const dialog = useRef<HTMLDialogElement>(null), rewardDialog = useRef<HTMLDialogElement>(null);
@@ -69,7 +70,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
   const soundLabel = !sound.available ? "Sound unavailable" : sound.paused && sound.enabled ? "Resume sound" : sound.enabled ? "Mute sound" : "Enable sound";
   const title = view.phase === "explore" ? `Approach ${view.enemyName}` : view.phase === "loot" ? "Loot on the floor" : recovery ? "Room secured" : view.phase === "reward" ? "Boss defeated" : "Your turn";
   const detail = view.phase === "explore" ? "Tap the floor or use WASD to walk. Use the arrow keys and Enter to choose room actions."
-    : view.phase === "loot" ? mode === "onchain" ? "Rewards are already credited onchain. Tap the loot, or tap the door to continue." : "Tap the loot to collect it, or tap the door to leave it behind."
+    : view.phase === "loot" ? lootDetail ?? (mode === "onchain" ? "Rewards are already credited onchain. Tap the loot, or tap the door to continue." : "Tap the loot to collect it, or tap the door to leave it behind.")
     : recovery ? "Use Potion below to heal, open Relics above, or walk to the next room." : "Attack is steady. Storm can miss. Potions heal before a reduced reply.";
   const report = feedback ?? { title, detail };
   const tier = Math.ceil(view.room / 10), inTier = (view.room - 1) % 10 + 1;

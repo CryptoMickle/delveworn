@@ -132,7 +132,7 @@ export function WeeklyLeaderboard({
       </button>
     </div>}
 
-    {proof && board && <details className="weekly-proof-details"><summary>What is saved?</summary><p>Posting is optional. The server replays your actions and keeps your best result for this week, your optional nickname, and a guest identity in a browser cookie. Clear the cookie and you may lose access to that guest profile. Scores and nicknames are public; past weeks remain readable.</p><p>Basic start, completion and share events help improve the game. They contain no action proof, nickname or wallet address. No wallet or account is needed.</p></details>}
+    {proof && board && <details className="weekly-proof-details"><summary>What is saved?</summary><p>Posting is optional. The server replays your actions and keeps your best result for this week and the action history needed to check it. Your optional nickname is saved, and a guest identity stays in a browser cookie. Clear the cookie and you may lose access to that guest profile. Scores and nicknames are public; past weeks remain readable.</p><p>Basic start, completion and share events help improve the game. They contain no action proof, nickname or wallet address. No wallet or account is needed.</p></details>}
     {message && <p role="status">{message}</p>}
     {loading && <p role="status">Loading standings…</p>}
     {!loading && board && board.rows.length === 0 && <p>{board.archived
