@@ -52,3 +52,15 @@ Validation: 278 frontend tests pass, including regressions built with the instal
 Both the production RPC (`https://api.infra.testnet.somnia.network/`) and the repository fallback (`https://dream-rpc.somnia.network/`) returned the same evidence. All four [Frontend CI jobs](https://github.com/CryptoMickle/delveworn/actions/runs/35213015079) passed.
 
 The fix was built as Production deployment `dpl_EC6xBnqcXVfEDTQaTnYp8A7QwRgt` (`https://delveworn-kpfyfo6s7-crypto-mickle.vercel.app`), checked before promotion, and promoted to `delveworn.app`. Post-promotion HTTP checks confirmed the fixed classifier in the public JavaScript bundle, a working Onchain entry page and `ready / redis` leaderboard status. The preceding deployment `dpl_ByMqdwSJxcZRgbW3PwwXyni7Tu8L` is the immediate rollback reference. Signed wallet activation remains outside these read-only checks.
+
+## Somnia movement and combat audio
+
+Commit `a07c0413fbe261d99cdd096f977cfe88d0b23d0c` allows local floor/WASD movement during Somnia combat confirmation and VRF waits, with walking legs and preserved position across resolution. Gameplay actions, interactions and doors remain locked. Existing Practice callers retain their pending-action lock.
+
+Combat submission plays a click. Attack, Storm and Potion effects play once when the confirmed cue is committed to the grid; result sounds follow that same cue. Delayed cues cannot reactivate paused or muted audio. Pending recovery snapshots cannot consume the final animation, and repeated confirmation cannot replay the exchange. Fatal results retain their end-screen sound.
+
+Validation: 284 frontend tests, TypeScript and lint pass (13 existing warnings). A temporary local room fixture verified floor movement with zero interaction callbacks while pending, disabled E interaction, unchanged avatar coordinates across resolution, a single cue callback and active leg animation. The fixture was removed before deployment. No wallet signature or gameplay transaction was used for this validation.
+
+[The Somnia leaderboard assessment](./SOMNIA_LEADERBOARD_RECOMMENDATION.md) recommends a separate depth-based board without time bonuses. It is an assessment only; no onchain leaderboard or contract change was added.
+
+All four [Frontend CI jobs](https://github.com/CryptoMickle/delveworn/actions/runs/35217651021) passed. Production deployment `dpl_2EhFF21qzwcXDqqgHhRgmpABL1zL` (`https://delveworn-2b33oonok-crypto-mickle.vercel.app`) was checked and promoted to `delveworn.app`. Public checks verified the new movement permission and scene-audio hooks in the served client bundle, HTTP 200 Onchain and the existing leaderboard's `ready / redis` status. Immediate rollback: `dpl_EC6xBnqcXVfEDTQaTnYp8A7QwRgt`.
