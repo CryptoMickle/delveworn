@@ -7,6 +7,12 @@ import { getRelicDefinition, type RelicDefinition } from "./relics";
 import { useGameAudio } from "./use-game-audio";
 import { GameLogo } from "./game-logo";
 import { DesktopNavigation, KeyboardHint } from "./desktop-navigation";
+import {
+  formatCombatRange,
+  lethalRetaliationIsPossible,
+  parseCombatRange,
+  potionResultingHpRange,
+} from "./combat-consequences";
 
 export type DelvewornMode = "practice" | "challenge" | "onchain";
 
@@ -757,6 +763,20 @@ export function CombatActionDock({
   onAttack: () => void;
 }) {
   const potionUnavailable = potionLimitReached ? "Combat limit reached" : potionDisabledReason ?? (hp !== undefined && maxHp !== undefined && hp >= maxHp ? "HP is full · save it for later" : null);
+  const incomingRange = retaliation ? parseCombatRange(retaliation) : null;
+  const stormRange = parseCombatRange(stormDamage);
+  const attackRange = parseCombatRange(attackDamage);
+  const potionHp = hp !== undefined && maxHp !== undefined && incomingRange
+    ? potionResultingHpRange({ hp, maxHp, incoming: incomingRange })
+    : null;
+  const potionOutcome = potionHp ? `HP AFTER POTION ${formatCombatRange(potionHp)} · half retaliation` : null;
+  const stormLethalRisk = hp !== undefined && enemyHp !== undefined && incomingRange && stormRange
+    ? lethalRetaliationIsPossible({ hp, enemyHp, actionDamage: stormRange, incoming: incomingRange })
+    : false;
+  const attackLethalRisk = hp !== undefined && enemyHp !== undefined && incomingRange && attackRange
+    ? lethalRetaliationIsPossible({ hp, enemyHp, actionDamage: attackRange, incoming: incomingRange })
+    : false;
+  const potionLethalRisk = potionHp ? potionHp[0] === 0 : false;
   return (
     <div aria-label="Combat actions" aria-busy={busy} className="practice-action-dock practice-combat-dock sticky bottom-2 z-40 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-xl">
       <div className="practice-combat-vitals">
@@ -772,6 +792,7 @@ export function CombatActionDock({
           <p className="font-black">⚡ STORM</p>
           <p className="mt-1 text-sm font-black">DAMAGE {stormDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] text-violet-200">Unpredictable · no critical</p>
+          {stormLethalRisk && <p className="mt-2 text-xs font-black text-red-200">☠ LETHAL REPLY POSSIBLE</p>}
           {stormRelicSummary && (
             <p className="practice-action-relic mt-2 rounded-md border border-violet-300/30 bg-black/20 px-2 py-1 text-[9px] font-black leading-tight text-violet-100">
               ◆ {relicName}: {stormRelicSummary}
@@ -782,6 +803,7 @@ export function CombatActionDock({
           <p className="font-black">⚔️ ATTACK</p>
           <p className="mt-1 text-sm font-black">DAMAGE {attackDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] opacity-70">Reliable · {criticalChance}% critical</p>
+          {attackLethalRisk && <p className="mt-2 text-xs font-black text-red-950">☠ LETHAL REPLY POSSIBLE</p>}
           {attackRelicSummary && (
             <p className="practice-action-relic mt-2 rounded-md border border-black/20 bg-black/20 px-2 py-1 text-[9px] font-black leading-tight">
               ◆ {relicName}: {attackRelicSummary}
@@ -800,9 +822,10 @@ export function CombatActionDock({
           <div className="flex h-full flex-col items-center justify-center text-center">
             <p className="font-black">{potionLabel}</p>
             <p className={potionLimitReached ? "practice-potion-description mt-1 text-[10px] text-red-300" : potionDisabled ? "practice-potion-description mt-1 text-[10px] text-zinc-400" : "practice-potion-description mt-1 text-[10px] text-emerald-800"}>
-              {potionUnavailable ?? potionDetail}
+              {potionUnavailable ?? potionOutcome ?? potionDetail}
             </p>
-            <p className="practice-potion-compact">{potionUnavailable ?? "Heal 25 HP · half retaliation"}</p>
+            <p className="practice-potion-compact" aria-hidden="true">{potionUnavailable ?? potionOutcome ?? "Heal 25 HP · half retaliation"}</p>
+            {!potionUnavailable && potionLethalRisk && <p className="mt-2 text-xs font-black text-red-700">☠ LETHAL REPLY POSSIBLE</p>}
             <div className="mt-2 text-center text-xs font-bold">{potionUsage}</div>
           </div>
         </button>

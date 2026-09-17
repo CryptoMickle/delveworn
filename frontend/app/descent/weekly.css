@@ -1,0 +1,46 @@
+.weekly-shared-result { max-width:600px; margin:32px auto; }
+.weekly-result { min-width:0; }
+.weekly-result .weekly-copy-button { background:transparent; border-color:transparent; color:#d5b987; text-decoration:underline; font-size:12px; font-weight:500; }
+.weekly-result .weekly-verified { color:#a7f3d0; }
+.weekly-share-link { width:100%; min-height:95px; padding:10px; background:#17121e; color:#ead7bb; border:1px solid #816b51; overflow-wrap:anywhere; font-size:12px; }
+.weekly-proof-details { text-align:left; margin:16px 0; font-size:12px; }
+.weekly-proof-details summary { min-height:44px; padding:12px 0; cursor:pointer; color:#edd1a5; }
+.weekly-context { color:#dfc8a5; font-size:12px; line-height:1.7; }
+.weekly-entry-rules { max-width:760px; margin:24px auto; padding:16px 22px; border:1px solid #705534; }
+.weekly-entry-rules p { color:#d0bdab; font-size:13px; line-height:1.7; }
+.weekly-entry-rules summary { cursor:pointer; min-height:40px; }
+.weekly-entry-rules details p { font-size:12px; }
+.descent-edition.weekly-edition { letter-spacing:1px; max-width:300px; text-align:center; line-height:1.5; }
+.weekly-leaderboard { margin-top:24px; padding-top:20px; border-top:1px solid #705534; text-align:left; }
+.weekly-leaderboard h2 { font-size:22px; }
+.weekly-leaderboard-submit { display:grid; gap:8px; margin:12px 0; }
+.weekly-leaderboard-submit label { font-size:12px; color:#dfc8a5; }
+.weekly-leaderboard-submit input { display:block; width:100%; min-height:44px; margin:5px 0; padding:8px; background:#211927; color:#fff5df; border:1px solid #96794d; border-radius:5px; font-size:16px; }
+.weekly-leaderboard-table-wrap { overflow-x:auto; }
+.weekly-leaderboard table { width:100%; border-collapse:collapse; font-size:12px; }
+.weekly-leaderboard th,.weekly-leaderboard td { padding:10px 5px; border-bottom:1px solid #514155; text-align:left; overflow-wrap:anywhere; }
+.weekly-leaderboard tr[data-own] { background:#30263a; color:#ffdfa8; }
+.weekly-leaderboard-comparison { margin:10px 0; }
+.weekly-leaderboard-page { min-height:100svh; }
+.weekly-leaderboard-page-main { width:min(760px,100%); margin:0 auto; padding:48px 0 64px; }
+.weekly-leaderboard-page-intro { text-align:center; }
+.weekly-leaderboard-page-intro h1 { margin:8px 0 12px; color:#f2dcb5; font-size:clamp(34px,6vw,54px); line-height:1.05; }
+.weekly-leaderboard-page-intro > p:not(.descent-kicker) { max-width:590px; margin:0 auto; color:#d0bdab; font-size:14px; line-height:1.75; }
+.weekly-leaderboard-page-nav { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:9px; margin:24px 0 32px; }
+.weekly-leaderboard-page-nav a { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px 15px; border:1px solid #816b51; border-radius:7px; background:#241c26; color:#ead7bb; font-size:12px; font-weight:700; text-decoration:none; }
+.weekly-leaderboard-page-nav a:first-child { border-color:#f2d19c; background:#e0b574; color:#1b130c; }
+.weekly-leaderboard-page-card { padding:22px; border:1px solid #89673e; background:linear-gradient(145deg,#19141a,#0b090d); }
+.weekly-leaderboard-page-card .weekly-leaderboard { margin-top:0; padding-top:0; border-top:0; }
+.weekly-leaderboard-page .descent-footer { width:min(760px,100%); margin:0 auto; }
+.weekly-result + .descent-result { margin-top:20px; padding:16px 0; border:0; border-top:1px solid #705534; background:none; }
+@media(max-width:760px) {
+  .weekly-shared-page.descent-shell { height:auto; overflow:auto; min-height:100svh; padding:16px; }
+  .weekly-shared-page .descent-header { display:flex; min-height:60px; gap:12px; }
+  .weekly-shared-page .descent-header .delveworn-brand-logo { width:150px; }
+  .weekly-shared-page .descent-edition { letter-spacing:1px; }
+  .weekly-shared-result { margin:16px auto; padding:18px; }
+  .weekly-entry-rules { padding:12px; }
+  .weekly-leaderboard-page-main { padding:30px 6px 46px; }
+  .weekly-leaderboard-page-card { padding:16px 12px; }
+  .weekly-leaderboard-page-nav { margin-bottom:24px; }
+}

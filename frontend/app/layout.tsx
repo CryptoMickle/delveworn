@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, IM_Fell_English } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
 import { SITE_ORIGIN } from "./site-origin";
 import { onchainMetadataCopy } from "./deployment-copy";
+import { SafeAnalytics } from "./safe-analytics";
 import "./globals.css";
 import "./game-logo.css";
 import "./between-rooms.css";
@@ -70,7 +70,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <Analytics />
+        <SafeAnalytics />
       </body>
     </html>
   );

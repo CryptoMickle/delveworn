@@ -56,43 +56,44 @@ async function openRelics(page: Page) {
   await expect(page.getByRole("dialog", { name: "Your relics" })).toBeVisible();
 }
 
-test("neutral home waits for a mode choice before routing into a dungeon", async ({ page }) => {
+test("home leads with the weekly First Descent and keeps every mode selectable", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Your call. Your way in.", level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Choose your way into the dungeon.", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The First Descent starts here.", level: 2 })).toBeVisible();
   const modes = page.getByRole("group", { name: "Choose your dungeon" });
-  const practice = modes.getByRole("button", { name: "Practice", exact: true });
-  const challenge = modes.getByRole("button", { name: "Weekly Challenge", exact: true });
-  const onchain = modes.getByRole("button", { name: "Onchain", exact: true });
+  const practice = modes.getByRole("button", { name: "Endless Practice", exact: true });
+  const challenge = modes.getByRole("button", { name: "Weekly Challenge: The First Descent", exact: true });
+  const onchain = modes.getByRole("button", { name: "Somnia Onchain", exact: true });
   await expect(practice).toHaveAttribute("aria-pressed", "false");
-  await expect(challenge).toHaveAttribute("aria-pressed", "false");
+  await expect(challenge).toHaveAttribute("aria-pressed", "true");
   await expect(onchain).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "CHOOSE A MODE", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "PLAY FREE", exact: true })).toBeEnabled();
   await noOverflow(page);
   await practice.click();
   await expect(page).toHaveURL(/\/$/);
   await expect(practice).toHaveAttribute("aria-pressed", "true");
   await expect(onchain).toHaveAttribute("aria-pressed", "false");
-  await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
+  await page.getByRole("button", { name: "PLAY / RESUME LOCAL", exact: true }).click();
   await expect(page.getByRole("button", { name: /START LOCAL RUN/ })).toBeEnabled();
   await page.getByRole("link", { name: "Delveworn home" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("button", { name: "CHOOSE A MODE", exact: true })).toBeDisabled();
+  await expect(challenge).toHaveAttribute("aria-pressed", "true");
   await challenge.click();
   await expect(challenge).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("WEEKLY · SAME SEED FOR EVERYONE", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
-  await expect(page.getByRole("button", { name: /START \d{4}-W\d{2}/ })).toBeEnabled();
+  await expect(page.getByText("WEEKLY CHALLENGE · NO WALLET NEEDED", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "PLAY FREE", exact: true }).click();
+  await expect(page).toHaveURL(/\/challenge\/\d{4}-W\d{2}\?v=2$/);
+  await expect(page.getByRole("button", { name: /Start run/i })).toBeEnabled();
   await page.getByRole("link", { name: "Delveworn home" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("button", { name: "CHOOSE A MODE", exact: true })).toBeDisabled();
+  await expect(challenge).toHaveAttribute("aria-pressed", "true");
   await onchain.click();
   await expect(page).toHaveURL(/\/$/);
   await expect(practice).toHaveAttribute("aria-pressed", "false");
   await expect(onchain).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("WALLET · SOMNIA SHANNON TESTNET", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "ENTER DUNGEON", exact: true }).click();
+  await page.getByRole("button", { name: "CONTINUE TO WALLET", exact: true }).click();
   await expect(page.getByRole("button", { name: /CONNECT WALLET TO ENTER/ })).toBeVisible({ timeout: 40_000 });
   await noOverflow(page);
 });

@@ -6,15 +6,24 @@ export const PRACTICE_RUN_STORAGE_KEY = "delveworn_practice_run_v1";
 const PRACTICE_RUN_STORAGE_VERSION = 1;
 const MAX_SAVE_LENGTH = 40_000;
 
+export type PracticeImportIdentity = Readonly<{
+  source: "first-descent";
+  sourceRunId: string;
+  handoffId: string;
+}>;
+
 export type PracticeRunStorage = Pick<Storage, "getItem" | "setItem">;
 // A getter is intentional: accessing window.localStorage can itself throw.
 type StorageSource = PracticeRunStorage | (() => PracticeRunStorage);
 export type PracticeRunLoad =
   | { status: "empty" }
-  | { status: "restored"; game: PracticeGame; grid: PracticeGridState; legacy: boolean }
+  | { status: "restored"; game: PracticeGame; grid: PracticeGridState; legacy: boolean; importedFrom?: PracticeImportIdentity }
   | { status: "invalid"; reason: "format" | "version" }
   | { status: "unavailable" };
 export type PracticeRunSave = "saved" | "invalid" | "unavailable";
+export type PracticeRunConditionalSave =
+  | { status: "saved"; serialized: string }
+  | { status: "conflict" | "invalid" | "unavailable" };
 
 const NUMBER_BOUNDS: ReadonlyArray<readonly [keyof PracticeGame, number, number]> = [
   ["hp", 0, 150], ["maxHp", 20, 150], ["baseMaxHp", 20, 100],
@@ -39,6 +48,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function integer(value: unknown, minimum: number, maximum: number): value is number {
   return Number.isSafeInteger(value) && Number(value) >= minimum && Number(value) <= maximum;
+}
+
+export function isPracticeImportIdentity(value: unknown): value is PracticeImportIdentity {
+  if (!isRecord(value)) return false;
+  return value.source === "first-descent"
+    && typeof value.sourceRunId === "string"
+    && /^[a-zA-Z0-9-]{1,80}$/.test(value.sourceRunId)
+    && typeof value.handoffId === "string"
+    && /^fd-[a-zA-Z0-9-]{1,80}$/.test(value.handoffId)
+    && value.handoffId === `fd-${value.sourceRunId}`;
 }
 
 export function isStoredPracticeGame(value: unknown): value is PracticeGame {
@@ -87,12 +106,27 @@ export function inspectPracticeRun(source: StorageSource): PracticeRunLoad {
     if (!isRecord(stored)) return { status: "invalid", reason: "format" };
     if (stored.version !== PRACTICE_RUN_STORAGE_VERSION) return { status: "invalid", reason: "version" };
     if (!isStoredPracticeGame(stored.game)) return { status: "invalid", reason: "format" };
+    if (stored.importedFrom !== undefined && !isPracticeImportIdentity(stored.importedFrom)) {
+      return { status: "invalid", reason: "format" };
+    }
     if (stored.grid === undefined) {
-      return { status: "restored", game: stored.game, grid: legacyPracticeGrid(stored.game), legacy: true };
+      return {
+        status: "restored",
+        game: stored.game,
+        grid: legacyPracticeGrid(stored.game),
+        legacy: true,
+        ...(stored.importedFrom ? { importedFrom: stored.importedFrom } : {}),
+      };
     }
     if (!isPracticeGridState(stored.grid)) return { status: "invalid", reason: "format" };
     if (!isPracticeGridCompatible(stored.game, stored.grid)) return { status: "invalid", reason: "format" };
-    return { status: "restored", game: stored.game, grid: stored.grid, legacy: false };
+    return {
+      status: "restored",
+      game: stored.game,
+      grid: stored.grid,
+      legacy: false,
+      ...(stored.importedFrom ? { importedFrom: stored.importedFrom } : {}),
+    };
   } catch {
     return { status: "unavailable" };
   }
@@ -103,13 +137,55 @@ export function loadPracticeRun(source: StorageSource): PracticeGame | null {
   return loaded.status === "restored" ? loaded.game : null;
 }
 
-export function savePracticeRun(source: StorageSource, game: PracticeGame, grid: PracticeGridState = legacyPracticeGrid(game)): PracticeRunSave {
-  if (!isStoredPracticeGame(game) || !isPracticeGridState(grid) || !isPracticeGridCompatible(game, grid)) return "invalid";
+export function savePracticeRun(
+  source: StorageSource,
+  game: PracticeGame,
+  grid: PracticeGridState = legacyPracticeGrid(game),
+  importedFrom?: PracticeImportIdentity | null,
+): PracticeRunSave {
+  const serialized = serializePracticeRun(game, grid, importedFrom);
+  if (serialized === null) return "invalid";
   try {
     const storage = typeof source === "function" ? source() : source;
-    storage.setItem(PRACTICE_RUN_STORAGE_KEY, JSON.stringify({ version: PRACTICE_RUN_STORAGE_VERSION, game, grid }));
+    storage.setItem(PRACTICE_RUN_STORAGE_KEY, serialized);
     return "saved";
   } catch {
     return "unavailable";
+  }
+}
+
+function serializePracticeRun(
+  game: PracticeGame,
+  grid: PracticeGridState,
+  importedFrom?: PracticeImportIdentity | null,
+): string | null {
+  if (!isStoredPracticeGame(game) || !isPracticeGridState(grid) || !isPracticeGridCompatible(game, grid)
+    || (importedFrom != null && !isPracticeImportIdentity(importedFrom))) return null;
+  return JSON.stringify({
+    version: PRACTICE_RUN_STORAGE_VERSION,
+    game,
+    grid,
+    ...(importedFrom ? { importedFrom } : {}),
+  });
+}
+
+/** Compare and save while the caller holds the shared Practice lock. */
+export function savePracticeRunIfUnchanged(
+  source: StorageSource,
+  expectedSerialized: string | null,
+  game: PracticeGame,
+  grid: PracticeGridState = legacyPracticeGrid(game),
+  importedFrom?: PracticeImportIdentity | null,
+): PracticeRunConditionalSave {
+  const serialized = serializePracticeRun(game, grid, importedFrom);
+  if (serialized === null) return { status: "invalid" };
+  try {
+    const storage = typeof source === "function" ? source() : source;
+    if (storage.getItem(PRACTICE_RUN_STORAGE_KEY) !== expectedSerialized) return { status: "conflict" };
+    storage.setItem(PRACTICE_RUN_STORAGE_KEY, serialized);
+    if (storage.getItem(PRACTICE_RUN_STORAGE_KEY) !== serialized) return { status: "conflict" };
+    return { status: "saved", serialized };
+  } catch {
+    return { status: "unavailable" };
   }
 }

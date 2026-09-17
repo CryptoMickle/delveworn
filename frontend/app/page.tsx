@@ -3,14 +3,14 @@ import DungeonHome from "./dungeon-home";
 import { isSomniaDeployment } from "./deployment";
 
 const onchainNetwork = isSomniaDeployment(process.env.NEXT_PUBLIC_DEPLOYMENT) ? "Somnia Shannon Testnet" : "RISE Testnet";
-const description = `Enter a dungeon of questionable management. Fight monsters, collect relics and learn when to risk it. Choose local Practice or a wallet-connected run on ${onchainNetwork}.`;
+const description = `Play Weekly Challenge: The First Descent, explore Endless Practice, or take your run onchain on ${onchainNetwork}. Fight monsters, collect relics and live with your choices.`;
 
 export const metadata: Metadata = {
-  title: "Delveworn · Enter the dungeon",
+  title: "Delveworn · Weekly Challenge: The First Descent",
   description,
   alternates: { canonical: "/" },
-  openGraph: { title: "Delveworn · Enter the dungeon", description, url: "/" },
-  twitter: { card: "summary_large_image", title: "Delveworn · Enter the dungeon", description },
+  openGraph: { title: "Delveworn · Weekly Challenge: The First Descent", description, url: "/" },
+  twitter: { card: "summary_large_image", title: "Delveworn · Weekly Challenge: The First Descent", description },
 };
 
 export default function HomePage() {

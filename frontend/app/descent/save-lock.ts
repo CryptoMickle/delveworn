@@ -23,11 +23,12 @@ function browserLocks(): SaveLocks | null {
 export async function exclusiveSave(
   write: () => SaveWriteResult,
   locks: SaveLocks | null = browserLocks(),
+  saveKey = DESCENT_SAVE_KEY,
 ): Promise<ExclusiveSaveResult> {
   try {
     if (!locks) return write();
     return await locks.request(
-      DESCENT_SAVE_KEY,
+      saveKey,
       { ifAvailable: true },
       lock => lock ? write() : "busy",
     );

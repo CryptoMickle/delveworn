@@ -24,7 +24,7 @@
 .mode {
   position: relative; display: flex; align-items: center; min-height: 64px; padding: 16px 18px;
   border: 1px solid #493653; border-radius: 12px; background: #141019; color: #fafafa;
-  text-align: left; font: inherit; font-size: 15px; font-weight: 850; cursor: pointer;
+  text-align: left; font: inherit; font-size: 15px; font-weight: 850; line-height: 1.25; cursor: pointer;
 }
 .mode[aria-pressed="true"] { background: #352047; border-color: #ba82ee; box-shadow: inset 0 0 0 1px #ba82ee33; }
 .mode:hover { border-color: #ba82ee; }
@@ -66,7 +66,7 @@
   .header h1 { font-size: 23px; margin-top: 10px; }
   .header p { font-size: 11px; }
   .modes { gap: 6px; margin-bottom: 12px; }
-  .mode { min-height: 54px; padding: 9px 7px; text-align: center; justify-content: center; font-size: 11px; line-height: 1.3; }
+  .mode { min-height: 66px; padding: 9px 7px; text-align: center; justify-content: center; font-size: 11px; line-height: 1.3; }
   .details { display: flex; flex-direction: column; }
   .art { height: 124px; flex-shrink: 0; }
   .art img { object-position: center 38%; }
@@ -86,8 +86,3 @@
   .mode { font-size: 10px; }
   .copy { grid-template-rows: minmax(300px,1fr) 62px 179px; padding: 16px; }
 }
-.firstDescent { display:flex; align-items:center; justify-content:space-between; gap:15px; color:#f0d5aa; border:1px solid #a78650; padding:18px 22px; background:linear-gradient(110deg,#31241d,#251c30); margin:0 0 20px; text-decoration:none; min-height:64px; }
-.firstDescent > span { font-size:10px; letter-spacing:1px; }
-.firstDescent strong { font:23px Georgia,serif; }
-.firstDescent b { padding-left:12px; font-size:22px; }
-@media(max-width:800px) { .firstDescent { flex-wrap:wrap; gap:7px; padding:15px; } .firstDescent strong { order:-1; width:100%; } .firstDescent > span { font-size:8px; } }

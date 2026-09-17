@@ -136,15 +136,14 @@ async function seed(page: Page,run=createDescent(12345,"browser-test")) {
       localStorage.setItem(key,JSON.stringify(run)); sessionStorage.setItem("descent-fixture","1");
     }
   },{key:DESCENT_SAVE_KEY,run});
-  await page.goto("/play");
+  await page.goto("/play?legacy=1");
   await expect(page.locator("[data-descent-phase]")).toHaveAttribute("data-descent-phase",phase(run));
 }
 
 test("a newcomer starts with the original kit and no wallet or RPC",async({page,isMobile})=>{
   const forbidden:string[]=[];
   page.on("request",r=>{ if (/somnia|thirdweb|walletconnect|eth_(call|send)/i.test(r.url()+String(r.postData()))) forbidden.push(r.url()); });
-  await page.goto("/");
-  await page.getByRole("link",{name:/Play The First Descent/}).click();
+  await page.goto("/play?legacy=1");
   await expect(page.getByRole("button",{name:/Start run/i})).toHaveCount(1);
   await expect(page.getByText("100 HP · 3 potions · no relic")).toBeVisible();
   await page.getByRole("button",{name:/Start run/i}).click();
@@ -869,7 +868,7 @@ test("responsive room keeps compact combat controls in their active presentation
 
 test("unknown saves are preserved and denied storage still allows a session",async({page})=>{
   await page.addInitScript(key=>localStorage.setItem(key,'{"rules":"future"}'),DESCENT_SAVE_KEY);
-  await page.goto("/play");
+  await page.goto("/play?legacy=1");
   await expect(page.getByText(/saved descent cannot be read/)).toBeVisible();
   expect(await page.evaluate(key=>localStorage.getItem(key),DESCENT_SAVE_KEY)).toBe('{"rules":"future"}');
   await page.addInitScript(()=>Object.defineProperty(window,"localStorage",{get:()=>{throw Error("Unavailable");}}));

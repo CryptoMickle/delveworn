@@ -43,13 +43,16 @@ async function seed(page: Page, overrides: Partial<PracticeGame> = {}) {
 
 test("arrows and Enter reach Practice from Home and start the local run", async ({ page }) => {
   await page.goto("/");
-  const practice = page.getByRole("button", { name: "Practice", exact: true });
+  const weekly = page.getByRole("button", { name: "Weekly Challenge: The First Descent", exact: true });
+  const practice = page.getByRole("button", { name: "Endless Practice", exact: true });
+  await page.keyboard.press("ArrowRight");
+  await expect(weekly).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(practice).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/$/);
   await expect(practice).toHaveAttribute("aria-pressed", "true");
-  const enter = page.getByRole("button", { name: "ENTER DUNGEON", exact: true });
+  const enter = page.getByRole("button", { name: "PLAY / RESUME LOCAL", exact: true });
   await expect(enter).toBeEnabled();
   await page.keyboard.press("ArrowDown");
   await expect(enter).toBeFocused();

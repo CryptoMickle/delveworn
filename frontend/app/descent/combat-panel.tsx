@@ -1,6 +1,7 @@
 import { CombatActionDock } from "../game-ui";
 import { attackRange, combatRelicSummary, currentCriticalChance, incomingRange, stormRange } from "../practice/engine";
 import { getRelicDefinition } from "../relics";
+import { formatCombatRange, potionResultingHpRange } from "../combat-consequences";
 import type { Descent } from "./model";
 
 const MAX_POTIONS = 5;
@@ -33,6 +34,7 @@ export function DescentCombatPanel({
   const attackDamage = attackRange(game);
   const stormDamage = stormRange(game);
   const incoming = incomingRange(game);
+  const potionHp = potionResultingHpRange({ hp: game.hp, maxHp: game.maxHp, incoming });
   const criticalChance = currentCriticalChance(game);
   const potionLimit = game.monsterType === 3 ? 3 : 2;
   const potionLimitReached = game.combatPotionsUsed >= potionLimit;
@@ -88,7 +90,7 @@ export function DescentCombatPanel({
         attackDamage={damageRange(attackDamage)}
         criticalChance={criticalChance}
         potionLabel={`🧪 POTION · ${game.potions}/${MAX_POTIONS}`}
-        potionDetail="Heal 25 HP · monster retaliates at half damage"
+        potionDetail={`HP AFTER POTION ${formatCombatRange(potionHp)} · half retaliation`}
         potionUsage={<>{game.combatPotionsUsed}/{potionLimit}<span>used</span></>}
         potionDisabled={potionDisabledReason !== null}
         potionDisabledReason={potionDisabledReason}

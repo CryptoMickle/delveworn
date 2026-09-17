@@ -94,6 +94,7 @@ button.dungeon-inventory-relics { background:#25182e; border-color:#91719f; colo
 .descent-result button { background:#e0b574; color:#1b130c; border:1px solid #f2d19c; min-height:46px; width:100%; font-weight:650; padding:10px; }
 .descent-result-actions { display:grid; gap:8px; }
 .descent-result-actions button:first-child { background:#241c26; color:#ead7bb; border-color:#816b51; }
+.descent-result .descent-practice-continuation-link { display:flex; align-items:center; justify-content:center; min-height:46px; width:100%; margin:0; padding:10px; border:1px solid #816b51; background:#241c26; color:#ead7bb; font-size:12px; font-weight:650; text-decoration:none; }
 .descent-result a { display:block; margin-top:12px; padding:8px; color:#d5b987; font-size:12px; text-decoration:underline; }
 .descent-journal { padding:18px 0; border-bottom:1px solid #62472e; margin-top:20px; }
 .descent-journal summary { font-size:12px; color:#bca98c; min-height:32px; cursor:pointer; }

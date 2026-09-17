@@ -58,3 +58,12 @@ test("lock API failures make saving unavailable without rejecting", async () => 
   const locks:SaveLocks={request:async()=>{throw new Error("Lock manager failed");}};
   await assert.doesNotReject(async()=>assert.equal(await exclusiveSave(()=>"saved",locks),"unavailable"));
 });
+
+test("weekly saves acquire their own week-specific lock", async () => {
+  const key="delveworn_weekly_descent_v2:2026-W38";
+  const locks:SaveLocks={request:async(name,_options,callback) => {
+    assert.equal(name,key);
+    return callback({name});
+  }};
+  assert.equal(await exclusiveSave(() => "saved",locks,key),"saved");
+});

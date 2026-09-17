@@ -147,7 +147,7 @@ test("stored runs contain only the action trace and are rebuilt before use", () 
   assert.equal(loadChallengeRun(storage, "2026-W38"), null);
 });
 
-test("analytics markers count one starter per week and a later-week return", () => {
+test("V1 and V2 analytics markers count starts, returns and completions independently", () => {
   const storage = memoryStorage();
   assert.deepEqual(registerChallengeStart(storage, "2026-W38"), {
     uniqueStart: true,
@@ -157,11 +157,27 @@ test("analytics markers count one starter per week and a later-week return", () 
     uniqueStart: false,
     returnVisit: false,
   });
+  assert.deepEqual(registerChallengeStart(storage, "2026-W38", "v2"), {
+    uniqueStart: true,
+    returnVisit: false,
+  });
+  assert.deepEqual(registerChallengeStart(storage, "2026-W38", "v2"), {
+    uniqueStart: false,
+    returnVisit: false,
+  });
+  assert.equal(storage.values.get("delveworn_weekly_last_challenge_v1"), "2026-W38");
+  assert.equal(storage.values.get("delveworn_weekly_last_challenge_v2"), "2026-W38");
   assert.deepEqual(registerChallengeStart(storage, "2026-W39"), {
+    uniqueStart: true,
+    returnVisit: true,
+  });
+  assert.deepEqual(registerChallengeStart(storage, "2026-W39", "v2"), {
     uniqueStart: true,
     returnVisit: true,
   });
   assert.equal(registerChallengeCompletion(storage, "2026-W39", "012345abcdef"), true);
   assert.equal(registerChallengeCompletion(storage, "2026-W39", "012345abcdef"), false);
+  assert.equal(registerChallengeCompletion(storage, "2026-W39", "012345abcdef", "v2"), true);
+  assert.equal(registerChallengeCompletion(storage, "2026-W39", "012345abcdef", "v2"), false);
   assert.equal(registerChallengeCompletion(storage, "2026-W39", "fedcba543210"), true);
 });

@@ -1,22 +1,32 @@
 # Arbeidsplan: spillflyt, gjenspilling og Weekly-toppliste
 
-Dato: 16. september 2026. Utgangspunkt: lokal revisjon `8b8b3f2`.
-Status: pakke 0 og 1 er implementert og lokalt verifisert. Review-preview og
-faktisk telefon-/nettleserkontroll gjenstår før pakke 2 startes.
+Dato: 17. september 2026. Opprinnelig utgangspunkt: lokal revisjon `8b8b3f2`.
+Status: pakke 0–6 er implementert lokalt. Én nåværende Weekly V2-inngang bruker
+det delte gridet; V1 er frosset for gamle lenker og bevis. Intern nettleser-QA og produksjonsbygg er fullført. Fysisk Safari og ekstern
+spilltest er ikke utført. Se `LEVERANSE_FASE_1_2026-09-17.md` for faktiske
+resultater og avgrensninger; preview-publisering rapporteres separat.
 
 ## Leveransestatus
 
-- Kontrollgrunnlaget er oppdatert til 200 beståtte tester, bestått TypeScript-
-  kontroll, bestått produksjonsbygg og 14 kjente lint-advarsler uten nye feil.
+- Kontrollgrunnlaget er oppdatert til 248 beståtte tester, bestått TypeScript-
+  kontroll, produksjonsbygg med webpack og lint med 0 feil og 14 eksisterende
+  advarsler. Produksjonsmiljøet er ikke publisert.
 - Weekly V1 har fått et fast replay-eksempel som låser challenge-ID, handlingslogg,
   resultat, run-ID og bevis før senere Weekly-arbeid.
 - First Descent har nå samme piltast/Enter-kontrakt i start, butikk, relic-valg
   og sluttskjerm. Kevins originale butikkbilde kan åpnes i full størrelse.
 - Åpningsreplikken får full lesetid før én eventuell kampreaksjon. Køen tømmes
   ved seier, død eller rombytte og påvirker ikke spillets tilfeldighetssekvens.
-- Automatisk nettleserkjøring er fortsatt blokkert av den tidligere obligatoriske
-  policykontrollen. E2E-testene er oppdatert, men kan først godkjennes gjennom
-  en tillatt nettleserkjøring eller manuell kontroll av review-previewen.
+- Hovedinngangen, `/play` og `/challenge` fører til samme Weekly V2-grid.
+  Uversjonerte historiske challenge-lenker beholder frosset V1-visning og verifier.
+- Fullførte lokale og Weekly V2-runs kan fortsette med opptjent tilstand til
+  rom 11 i Practice uten å overskrive et eksisterende Practice-save automatisk.
+- Personlig Weekly-best og vennemål lagres som revaliderte proof; lokal Practice-
+  rekord merkes selvrapportert. Topplisten er aktiv med lokal fil-lagring i
+  utvikling, men produksjon mangler varig database og privat cookie-secret.
+- Godkjent in-app browser-QA er gjennomført ved 375×812, 320×568 og desktop:
+  to komplette Weekly-runs, vennemål, deling, lokal innsending og Practice rom 11.
+  Fysisk Safari og ekstern spilltest er fortsatt utsatt.
 
 ## Mål og rammer
 
@@ -58,29 +68,29 @@ redigere samme del av spilltilstanden.
 
 ## Rekkefølge
 
-| Pakke | Leveranse | Avhengighet | Omfang |
+| Pakke | Leveranse | Status | Omfang |
 | --- | --- | --- | --- |
-| 0 | Fastsett kontrollgrunnlag, regler og testløype | Ingen | Liten |
-| 1 | Tastatur, replikk-timing og Kevin-butikk | 0 | Middels |
-| 2 | Tydelig inngang og kampinformasjon | 0; samordnes med 1 | Middels |
-| A | Første spilltest med 5–10 nye spillere | 1 og 2 | Avhenger av testere |
-| 3 | Fortsett fra First Descent til rom 11 | 1 og 2 | Middels |
-| 4 | Weekly Challenge i det delte grid-grensesnittet | 1 og 2 | Stor |
-| 5 | Personlige rekorder, vennemål, deling og måling | 3 og 4 for samlet levering | Middels |
-| 6 | Enkel ukentlig toppliste | 4 og 5 | Stor |
-| B | Samlet kvalitetssjekk og ny ekstern test | 3–6 | Middels + testere |
+| 0 | Fastsett kontrollgrunnlag, regler og testløype | Implementert lokalt | Liten |
+| 1 | Tastatur, replikk-timing og Kevin-butikk | Implementert lokalt | Middels |
+| 2 | Tydelig inngang og kampinformasjon | Implementert lokalt | Middels |
+| A | Første spilltest med 5–10 nye spillere | Utsatt | Avhenger av testere |
+| 3 | Fortsett fra First Descent til rom 11 | Implementert lokalt | Middels |
+| 4 | Weekly Challenge i det delte grid-grensesnittet | Implementert lokalt som V2; V1 frosset | Stor |
+| 5 | Personlige rekorder, vennemål, deling og måling | Implementert lokalt | Middels |
+| 6 | Enkel ukentlig toppliste | Implementert lokalt; produksjonsdatabase mangler | Stor |
+| B | Samlet kvalitetssjekk og ny ekstern test | Intern browser-QA bestått; ekstern test utsatt | Middels + testere |
 
-Omfang er relativt, ikke et kalenderløfte. Backendtilgang og faktisk telefon-/
-nettlesertesting må avklares før en bindende leveringsdato. Pakke 3 og 4 kan
-utvikles parallelt etter at felles romgrensesnitt er stabilt.
+Omfang er relativt, ikke et kalenderløfte. Produksjonsdatabase, fysisk telefon-
+testing og ekstern spilling må avklares før produksjonsklar status.
 
 ## 0. Kontrollgrunnlag og regelavklaringer
 
 **Arbeid**
 
 - Registrer branch, revisjon, uferdig arbeid og teststatus før implementering.
-  Kontrollgrunnlaget er 196 beståtte tester, bestått Somnia-standardbygg og
-  14 kjente lint-advarsler. Kontroller status på nytt ved oppstart.
+  Gjeldende kontrollgrunnlag er 248 beståtte tester, bestått TypeScript-kontroll
+  og lint med 0 feil og 14 eksisterende advarsler. Produksjonsbygg med webpack er bestått. Remote CI og preview rapporteres
+  separat etter publisering.
 - Lag én kort regresjonsløype: start → bevegelse → kamp → potion → loot eller
   bypass → Kevin → boss → relic → rom 11 → lagre/gjenoppta.
 - Oppdater utdaterte beskrivelser av J/K/M, Kevins plassering og start-relics
@@ -95,6 +105,9 @@ utvikles parallelt etter at felles romgrensesnitt er stabilt.
 potion ved nesten full HP, gamle Weekly-lenker og eksisterende Practice-lagring.
 
 ## 1. Rett spillflyt og presentasjon
+
+**Status 17. september:** implementert lokalt. Lesbarhet og responsivitet er
+kontrollert i godkjent in-app browser. Fysisk Safari gjenstår.
 
 ### 1A. Samme tastaturflyt gjennom hele spillet
 
@@ -142,6 +155,9 @@ og desktop; originalgrafikk, verdier og kjøp er lesbare uten overlapp.
 
 ## 2. Tydelig inngang og tydelige kampkonsekvenser
 
+**Status 17. september:** implementert lokalt. Forsiden har ett primært Weekly-
+valg, med Practice og Onchain som tydelige alternativer.
+
 **Arbeid**
 
 - Gjør «Spill gratis» til tydelig hovedinngang for nye spillere, med First
@@ -166,6 +182,9 @@ kritisk treff, full/nesten full HP, potiongrense og relevante relics.
 
 ## Testpunkt A. Første eksterne spilltest
 
+**Status 17. september:** utsatt. Ingen invitasjoner er sendt og ingen eksterne
+spillerresultater påstås i denne leveransen.
+
 Bruk én fast preview-versjon og 5–10 nye spillere, med både telefon og desktop.
 Gi dem målet «spill så langt du kommer», og observer før du forklarer knappene.
 
@@ -174,13 +193,19 @@ Gi dem målet «spill så langt du kommer», og observer før du forklarer knapp
 - Registrer hvem som frivillig starter igjen og hva de ønsker å prøve neste gang.
 - Død i spillet er et gyldig utfall; målet er forståelig og fungerende flyt.
 
-**Videregang:** rett alle bekreftede blokkeringer før topplisten prioriteres.
-Utvalget gir kvalitative funn, ikke sikre konklusjoner om marked eller retention.
-Utsending av invitasjoner gjøres bare når brukeren har bedt om det.
+**Videregang når testen gjenopptas:** rett bekreftede blokkeringer før
+produksjonsaktivering. Utvalget gir kvalitative funn, ikke sikre konklusjoner om
+marked eller retention. Utsending av invitasjoner gjøres bare når brukeren har
+bedt om det.
 
 ## 3. Gi den opptjente relicen videre verdi
 
-**Arbeid**
+**Status 17. september:** implementert lokalt for fullførte lokale og Weekly V2-
+runs. Handoff validerer ferdig loot/relic-tilstand, bevarer kilde-runnet og
+eksisterende Practice-save, og genererer rom 11 én gang med ordinær Practice-
+motor og tilfeldighet.
+
+**Levert løsning**
 
 - Tilby «Fortsett til rom 11 i Practice» etter fullført First Descent og
   eksisterende relic-valg. Behold også oppsummering og «Start nytt run».
@@ -198,8 +223,8 @@ Utsending av invitasjoner gjøres bare når brukeren har bedt om det.
   uttrykkelig å erstatte det. Ved avbrudd skal begge opprinnelige saves bestå.
 - Generer rom 11 én gang gjennom den ordinære motoren; ikke gi nye startverdier
   eller en ekstra kopi av bossbelønningen.
-- Bruk normal Practice-randomness videre. Ved utilgjengelig lagring skal en
-  eventuell fortsettelse i minnet merkes tydelig og ikke regnes som lagret.
+- Bruk normal Practice-randomness videre. Ved utilgjengelig lagring stopper
+  importen med tydelig beskjed og lar begge opprinnelige saves være urørt.
 
 **Ferdig når:** begge relic-valgene kan fortsette til rom 11 med riktig tilstand,
 spilleren kan bruke relicen i kamp og gjenoppta etter omlasting. Et nytt run
@@ -211,21 +236,25 @@ ikke automatisk.
 
 ## 4. Weekly Challenge i det samme grid-grensesnittet
 
-**Arbeid**
+**Status 17. september:** implementert som Weekly V2 bak `?v=2`, og valgt av
+forsiden, `/play` og `/challenge`. Gamle uversjonerte challenge-lenker beholder
+V1. V1 replay bruker frosne moduler og gyldne testvektorer; V2 har egen seed,
+actionlogg, score, proof og serverreplay.
+
+**Levert løsning**
 
 - Gjenbruk eksisterende rom, monsterkunst, bevegelse, kampknapper, Kevin,
   resultatkort og tilgjengelighetsmønstre. Weekly beholder sin egen myndighet
   over seed, handlinger, poeng og verifisering.
-- Kartlegg forskjellen mellom dagens Weekly og gridets fysiske loot. Weekly
-  V1 krediterer loot gjennom kampmotoren; fremtidig utsatt pickup/bypass må
-  ikke late som belønningen kan forsvinne når beviset sier at den er mottatt.
+- V1 krediterer loot gjennom sin frosne kampmotor. V2 holder den rullede
+  belønningen på gulvet og logger eksplisitt collect eller bypass, uten å endre
+  hvordan gamle V1-bevis tolkes.
 - Behold gamle V1-bevis og resultater. Dersom lik grid-oppførsel krever endrede
   belønninger, handlinger, RNG-forbruk eller poeng, innfør en eksplisitt ny
   regelversjon fra en fastsatt uke, med egen replay-støtte for gammel versjon.
-- Før topplistearkiver tas i bruk, lås V1-oppførselen bak en versjonsstyrt
-  verifier. Dagens verifier importerer den løpende Practice-motoren og godtar
-  bare gjeldende versjonskonstant. Senere endringer i Practice må verken endre
-  gamle scorer eller gjøre gamle bevis uleselige.
+- V1-oppførselen er låst bak egne frosne kamp- og randommoduler med gyldne
+  replay-vektorer. V2 har egne release-vektorer, og senere regelendringer skal
+  bruke en ny versjon fremfor å oppdatere V1/V2-resultater.
 - Weekly V1 avsluttes ved første boss-seier, før et relic-valg. Det nye
   grensesnittet skal ikke legge til First Descent sin belønningsfase i V1.
 - Bevegelse, artwork, Kevin-animasjon og nye monsterreplikker skal ikke bruke
@@ -242,7 +271,12 @@ Gamle lenker beholder gamle resultater. Practice- og Somnia-flyt er bevart.
 
 ## 5. Personlig rekord, vennemål, deling og måling
 
-**Arbeid**
+**Status 17. september:** implementert lokalt. Weekly-best og vennemål lagrer
+proof som verifiseres på nytt. Practice-best er lokal og merket selvrapportert.
+Overgangen til rom 11 måles først ved faktisk ny import, ikke ved avbrudd eller
+gjenopptak.
+
+**Levert løsning**
 
 - Behold vennens verifiserte resultat gjennom start, lagring/gjenopptak og eget
   sluttresultat. Vis et diskret mål og sammenligning etterpå.
@@ -267,7 +301,13 @@ Gamle lenker beholder gamle resultater. Practice- og Somnia-flyt er bevart.
 tilbake. Gjenopptak bevarer målet, avbrutt deling teller ikke som gjennomført
 deling, og analysefeil blokkerer aldri spillet.
 
-## 6. Ukentlig toppliste V1
+## 6. Ukentlig toppliste for Weekly V2
+
+**Status 17. september:** V2-topplisten og serverreplay er implementert og aktiv
+med lokal fil-lagring i utvikling. Produksjon er avslått inntil en varig
+Redis-kompatibel database og privat `DELVEWORN_LEADERBOARD_COOKIE_SECRET` er
+konfigurert. Weekly-spill, proof og deling fungerer uten topplisten. Den
+implementerte listen mottar bare V2-resultater.
 
 ### Produktet
 
@@ -311,7 +351,7 @@ deling, og analysefeil blokkerer aldri spillet.
 Serveren kan kontrollere at poengsummen følger reglene. Offentlig seed og
 delbare handlingslogger kan fortsatt kopieres eller beregnes automatisk.
 Servervalidering, signaturer eller en wallet beviser ikke alene menneskelig spill.
-V1 er derfor en uformell konkurranse uten premier eller påstander om full
+V2-topplisten er derfor en uformell konkurranse uten premier eller påstander om full
 juksebeskyttelse. Sterkere konkurransekrav blir en egen senere oppgave.
 
 **Ferdig når:** falske scorer, feil uke/regelversjon og ulovlige logs avvises;
@@ -348,9 +388,10 @@ plassering stemmer også utenfor topp 10. Ingen konto kreves for å spille.
   publisering er en separat beslutning etter at konkret resultat kan vurderes.
 - Topplisten skal kunne slås av uten å deaktivere Weekly-spilling og deling.
 
-Nettleserkjøring er for tiden blokkert av en tidligere obligatorisk policykontroll.
-Det omgås ikke. Kode-/replay-arbeid og tester uten nettleser kan gjennomføres,
-men faktisk nettleser-/telefonkontroll kan ikke markeres som bestått uten bevis.
+Den tidligere blokkerte nettleserbeskrivelsen gjelder ikke denne leveransen.
+Intern QA er gjennomført i den godkjente in-app browseren ved 375×812, 320×568
+og desktop. Resultatene er dokumentert i leveransenotatet. Dette er ikke en fysisk
+Safari-test, og den utsatte eksterne spilltesten erstattes ikke av browser-QA.
 
 ## Avgrensede beslutninger underveis
 
@@ -358,13 +399,15 @@ men faktisk nettleser-/telefonkontroll kan ikke markeres som bestått uten bevis
 | --- | --- | --- |
 | Potionregler | Behold beregning; rett forklaring og konsekvensvisning | Før eventuell spillregelendring |
 | First Descent → Practice | Behold opptjent tilstand og eksisterende saves | Spilleren velger selv eventuell erstatning av lagret Practice-run |
-| Weekly-versjon | Bevar V1; versjoner nødvendige regelendringer | Pakke 4, før ny ukedefinisjon låses |
-| Server/database | Undersøk og gjenbruk tilgjengelig oppsett | Dersom ny konto, kostnad eller ekstern publisering er nødvendig |
+| Weekly-versjon | V1 er frosset; V2 er nåværende delte grid | Før en eventuell V3-regelendring |
+| Server/database | Lokal fil-lagring virker; produksjon mangler varig database og secret | Før produksjonsaktivering av topplisten |
 | Topplisteidentitet | Enkel gjesteprofil; ingen wallet-plikt | Før eventuell senere konto-/premieløsning |
 | Telefonvarme | Videre tiltak står på vent | Når brukeren tar opp arbeidet igjen |
 
-## Første implementeringsleveranse
+## Gjeldende leveranseavgrensning
 
-Start med pakke 0 og 1: fastsett regresjonsgrunnlaget, rett tastaturflyten,
-samordne de to replikkene med monsterbildet og forbedre Kevin-butikken på mobil.
-Lever én samlet review-preview før fortsettelse, Weekly-ombygging og toppliste.
+Pakke 0–6 foreligger lokalt med ett nåværende Weekly V2-grid, bevart V1-arkiv,
+Practice-fortsettelse og valgfri toppliste. Intern browser-QA, byggkontroll og
+leveransenotat er fullført. Produksjonsdatabase, produksjonspublisering, fysisk
+Safari og eksterne brukerprøver står fortsatt åpne. Somnia-vurderingen er ferdig;
+full kontraktparitet krever en separat ny kontrakt-/adapterleveranse.

@@ -1,15 +1,17 @@
-# The First Descent — Phase 1 review build
+# The First Descent — local compatibility mode and Weekly foundation
 
-Status: gameplay corrections available in the phone preview; browser/device verification
-remains open. Preview deployment history is recorded in
-`docs/phase-1-evidence/verification.md`. No production release or contract
-transaction is included. Shareable preview access tokens are never committed.
+Status: the shared grid flow, Weekly V2 entry and Room 11 Practice continuation
+are implemented locally. The current public game entry is **Weekly Challenge:
+The First Descent**; this standalone local run remains available through its
+explicit compatibility URL. No production deployment, contract transaction,
+physical Safari test or external player test is claimed in this document.
 
 ## Start and play
 
 From `frontend/`, install existing dependencies if needed (`npm ci`) and run
 `npm run dev -- --hostname 127.0.0.1 --port 3100`. Open
-<http://127.0.0.1:3100/play>, or choose **Play The First Descent** on the home page.
+<http://127.0.0.1:3100/play?legacy=1> for this standalone compatibility mode.
+`/play` and the home-page Weekly action route to the current Weekly V2 grid.
 `/concept` is the historical development-only visual review.
 
 Monster notes and recent dungeon remarks are shown on small parchment sheets
@@ -64,7 +66,12 @@ The avatar's cosmetic armor ring is removed; armor remains in the original HUD.
    camp retains its original 15 HP arrival
    recovery and existing shop prices.
 6. Defeat the room-10 boss and collect or leave its floor loot. The earned relic can then be
-   kept or equipped using the original relic rules. Review the recap or replay.
+   kept or equipped using the original relic rules. The completed result remains
+   available and can continue to Room 11 in local Endless Practice with the
+   earned HP, supplies, equipment and relic. If another Practice save exists,
+   the player must explicitly keep it or replace it; canceling preserves both
+   original saves. Reopening the same continuation resumes later Practice
+   progress instead of generating Room 11 again.
 
 On mobile, the room panel fills the available browser viewport. Its background
 continues behind the HUD. Room/progress, inventory, sound and Menu occupy the top
@@ -103,10 +110,17 @@ are editable by their owner; validation rejects inconsistent/malformed data, not
 all cheating. This is local gameplay, not a competitive or onchain proof.
 
 The scene consumes `RoomView` / `RoomActions`, not wallets, RPCs or chain names.
-Endless Practice and the existing onchain client now reuse the room renderer;
-see `ENDLESS_GRID.md`. The Weekly mode keeps its existing verified flow.
-Somnia remains the intended onchain configuration. Its previously observed VRF
-adapter mismatch is unresolved; no live onchain verification is claimed here.
+Endless Practice, Weekly V2 and the existing onchain client reuse the room
+renderer; see `ENDLESS_GRID.md`. Weekly keeps separate deterministic state,
+actions, scoring and replay verification. The archived Weekly V1 verifier is
+frozen under `app/challenge/v1/`; old unversioned result links keep that flow,
+while the single current Weekly entry uses V2 and the shared grid.
+
+Somnia remains the intended onchain configuration. Exact physical loot equality
+with local/Weekly play is blocked by the current contract granting loot in the
+kill callback. The source/configuration boundary and required new-core/new-adapter
+approach are documented in `SOMNIA_GRID_FLOW_REVIEW.md`. No live onchain
+verification is claimed here.
 
 ## Save and recovery
 
@@ -125,6 +139,11 @@ their starter relics are not imported into the corrected rules.
   attempted write is not applied. Conflicts expose **Resume saved run**, including
   inside mobile reward panels. Without Web Locks, compare-before-write is best-effort. There is no server/cross-device save.
 - Start again confirms replacement of the active run. Other modes' saves remain.
+- A completed Room 10 run creates a separate validated handoff keyed by its
+  source run ID. Practice writes the import identity in the same save as the
+  imported game and grid. Room 11 is generated once by the normal Practice
+  engine and normal local randomness. Web Locks and compare-before-write checks
+  protect retries, reloads and cooperating tabs.
 
 No new names, emails, wallet identifiers or analytics identities are collected.
 
@@ -141,16 +160,18 @@ node --import tsx scripts/simulate-descent.ts
 npm run test:e2e
 ```
 
-Regression checks compare corrected starts and combat outcomes with the original
-engine, including RNG, all loot types, once-only pickup, reload and boss relic
-keep/equip behavior. The original Practice/Weekly golden traces remain required.
-Actual results and preview checks are in `docs/phase-1-evidence/verification.md`.
+The current local automated baseline is **248 passing tests**, a passing
+production build (`next build --webpack`, including TypeScript) and lint with
+**0 errors and 14 existing warnings**. Regression coverage includes frozen
+Weekly V1 proofs, Weekly V2 replay, physical loot, Room 11 continuation,
+existing-save confirmation, retry/resume behavior and local Practice records.
 
-Browser scenarios cover wallet-free entry, keyboard/repeated actions, movement
-and loot pickup, full run/reload/shop/relic choices, compact mobile controls and
-invalid/blocked storage. Browser automation remains blocked because its required
-admin policy check is unavailable. Static illustration exports and HTTP checks
-are not mobile/browser gameplay verification.
+Internal browser QA completed two full V2 runs, sharing and friend-target
+comparison, local leaderboard submission and Room 11 continuation/reload.
+375×812, 320×568 and desktop layouts were inspected in the approved in-app
+browser. See `LEVERANSE_FASE_1_2026-09-17.md` for actual results and limits.
+Physical Safari, standalone Playwright execution and external players were not
+tested in this delivery. A production build is not a production deployment.
 
 ## Mobile viewport behavior
 
@@ -174,16 +195,17 @@ does not trigger attacks behind the panel. Menu opens help, journal and restart.
 the avatar arrives. Relic rewards and final results use scrollable room panels.
 Storage problems remain visible in the HUD. No new wallet or chain integration.
 
-## Next phone test
+## Remaining browser, phone and player verification
 
-Use the latest owner-authorized preview link. Observe:
+The approved in-app browser run should cover the following at 375×812,
+320×568 and desktop. Physical Safari remains a separate check:
 
 The latest correction covers free walking before Approach, rapid retargeting,
 missing animation frames, invalid floor points, viewport changes and held save
 locks. **Enter room** now walks to the doorway after loot, using the same resilient
-movement clock as floor navigation. The movement and
-full progression checks are recorded in the verification document; this review
-build still needs confirmation on the affected phone.
+movement clock as floor navigation. The movement and full progression behavior
+still need confirmation in the current browser QA and on the affected physical
+phone.
 If a separate error screen appears, use **Copy error report** and share the text with
 the developer. **Resume saved run** reloads the last committed state without
 starting a new run. This report stays local until manually shared. A full
@@ -204,10 +226,11 @@ browser process crash/reload cannot be caught by the in-game error screen.
 - Reload before and after pickup; recovery at supplies/camp and the boss relic.
 - Original background, item transparency, touch targets and sound on a phone.
 
-After browser verification, run the planned uncoached 5–10-person blind test.
+The planned uncoached 5–10-person blind test is intentionally deferred.
+When resumed, run it after browser and physical-phone verification.
 Ask what each action did, when loot entered the inventory, why HP changed and
 what the player would try next. Record anonymous observations and aggregate times.
 Human first-run duration and the intended 10–15-minute session remain unmeasured.
 
-This is a **review build, not production or certified blind-test ready** until
-current browser and physical-phone checks pass.
+This is a local implementation state. It is **not a production deployment or a
+certified external-test result**.

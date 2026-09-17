@@ -11,8 +11,8 @@ import {
   usePotion as drinkPotion,
   type PracticeGame,
   type ShopAction,
-} from "../practice/engine";
-import { createSeededRandom } from "../practice/random";
+} from "./v1/engine";
+import { createV1SeededRandom as createSeededRandom } from "./v1/random";
 
 export const CHALLENGE_RULES_VERSION = 1;
 export const CHALLENGE_TARGET_ROOMS = 10;

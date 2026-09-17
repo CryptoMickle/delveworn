@@ -23,18 +23,32 @@ import { InventoryPotions } from "../dungeon/inventory-potions";
 import { RoomParchments } from "../dungeon/room-parchments";
 import { getMonsterLogPersona } from "../practice/log-copy";
 import { DesktopNavigation } from "../desktop-navigation";
+import { createWeeklyDescent, transitionWeeklyDescent, type WeeklyDescent, type WeeklyDescentDefinition } from "./weekly";
+import { loadWeeklyDescent, saveWeeklyDescent, weeklyDescentSaveKey } from "./weekly-storage";
+import { PracticeContinuation } from "./practice-continuation";
+import { WeeklyRunResult } from "./weekly-result";
+import { recordWeeklyStart } from "./weekly-analytics";
+import { trackChallenge } from "../challenge/analytics";
 import "./game.css";
 import "./combat-panel.css";
 import "./monster-reveal.css";
 import "../dungeon/scene.css";
 import "../dungeon/room-parchments.css";
+import "./weekly.css";
 
 const storage = () => window.localStorage;
 const range = ([min,max]: [number,number]) => min === max ? String(min) : `${min}–${max}`;
 function lootSummary(loot: PendingLoot) {
   return [loot.gold ? `${loot.gold} gold` : "",loot.potions ? `${loot.potions} potion` : "",loot.weapon ? "weapon +1" : "",loot.armor ? "armor +1" : ""].filter(Boolean).join(" · ");
 }
-export default function DescentGame() {
+export default function DescentGame({ weeklyDefinition, referral = null, onchainNetwork = null, friendScore }: {
+  weeklyDefinition?: WeeklyDescentDefinition;
+  referral?: string | null;
+  friendScore?: number;
+  onchainNetwork?: string | null;
+}) {
+  const weeklyId = weeklyDefinition?.id;
+  const saveKey = weeklyId ? weeklyDescentSaveKey(weeklyId) : DESCENT_SAVE_KEY;
   const sidebarControls = useRoomSidebar();
   const [run,setRun] = useState<Descent | null>(null);
   const current = useRef<Descent | null>(null);
@@ -48,6 +62,7 @@ export default function DescentGame() {
   const [feedback,setFeedback] = useState<PracticeFeedback | null>(null);
   const [runtimeError,setRuntimeError] = useState<Error | null>(null);
   const [confirmRestart,setConfirmRestart] = useState(false);
+  const [legacySaveAvailable,setLegacySaveAvailable] = useState(false);
   const [shopOpen,setShopOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousPhase = useRef<ReturnType<typeof phase> | null>(null), actionFocusPending = useRef(false);
@@ -58,26 +73,31 @@ export default function DescentGame() {
   const audio = useGameAudio({ bossActive: p === "combat" && run?.game.monsterType === 3, encounter: p === "combat" && run ? ENEMY_ART[run.game.monsterType].name : undefined, encounterKey: run ? roomNumber(run) : undefined });
 
   useEffect(() => {
+    const read = () => weeklyId ? loadWeeklyDescent(storage,weeklyId) : loadDescent(storage);
     const restore = () => {
-      const result = loadDescent(storage);
+      const result = read();
       if (result.status === "restored") { current.current = result.run; setRun(result.run); setInvalidSave(false); setSaveBlocked(false); }
       if (result.status === "invalid") { setInvalidSave(true); setSaveNotice("This saved descent cannot be read. It is preserved until you choose to replace it."); }
       if (result.status === "legacy") { setInvalidSave(false); setSaveNotice("Your earlier First Descent save is preserved. Start a new run when you are ready to use the restored rules."); }
       if (result.status === "unavailable") { sessionOnly.current = true; setSaveNotice("Saving is unavailable. You can play, but this run will end when you leave."); }
+      if (weeklyId) {
+        setLegacySaveAvailable(loadDescent(storage).status === "restored");
+        if (result.status === "restored") trackChallenge("challenge_resumed",weeklyId,{rules_version:2});
+      }
       setLoaded(true);
     };
     restore();
     const changed = (event: StorageEvent) => {
-      if (event.key !== DESCENT_SAVE_KEY || sessionOnly.current) return;
+      if ((event.key !== saveKey && event.key !== null) || sessionOnly.current) return;
       if (timer.current) clearTimeout(timer.current);
       lock.current = false; setBusy(false); setCue(null);
-      const result = loadDescent(storage);
+      const result = read();
       if (result.status === "restored") { current.current=result.run; setRun(result.run); setInvalidSave(false); setSaveNotice("Updated to the run saved in your other tab."); setSaveBlocked(false); }
       else { setSaveNotice("The save changed in another tab. Reload before continuing."); setSaveBlocked(true); setBusy(true); lock.current=true; }
     };
     window.addEventListener("storage",changed);
     return () => { if (timer.current) clearTimeout(timer.current); window.removeEventListener("storage",changed); };
-  },[]);
+  },[weeklyId,saveKey]);
 
   useEffect(() => {
     const dialog=shopDialog.current;
@@ -105,19 +125,25 @@ export default function DescentGame() {
     lock.current = true;
     let next: Descent;
     try {
-      const seed=cryptoRandomInt(0x1_0000_0000);
+      const seed=weeklyDefinition?.seed ?? cryptoRandomInt(0x1_0000_0000);
       const id=globalThis.crypto.randomUUID?.() ?? `descent-${seed.toString(36)}-${cryptoRandomInt(0x1_0000_0000).toString(36)}`;
-      next = createDescent(seed,id);
+      next = weeklyDefinition ? createWeeklyDescent(weeklyDefinition,id) : createDescent(seed,id);
     } catch { setSaveNotice("This browser could not create a random run. Try reloading the page."); lock.current=false; return; }
     audio.playAction("click");
-    const write = () => sessionOnly.current ? "unavailable" : saveDescent(storage,next,current.current,replace);
-    const saved = await exclusiveSave(write);
+    const write = () => sessionOnly.current ? "unavailable" : weeklyDefinition
+      ? saveWeeklyDescent(storage,next as WeeklyDescent,current.current as WeeklyDescent | null,replace)
+      : saveDescent(storage,next,current.current,replace);
+    const saved = await exclusiveSave(write,undefined,saveKey);
     if (saved === "busy") { setSaveNotice("Another tab is saving. Try starting again."); setSaveBlocked(false); lock.current=false; return; }
     if (saved === "conflict") { setSaveNotice("A newer run exists. Reload to resume it before starting another."); setSaveBlocked(true); lock.current=false; return; }
     setSaveBlocked(false);
     if (saved === "unavailable") { sessionOnly.current=true; setSaveNotice("Saving is unavailable. This run lasts for this visit only."); }
     else setSaveNotice("");
     current.current = next; setRun(next); setInvalidSave(false); setConfirmRestart(false); setFeedback(null); setCue(null); lock.current=false;
+    if (weeklyId) {
+      recordWeeklyStart(weeklyId);
+      if (replace) trackChallenge("challenge_retry",weeklyId,{rules_version:2});
+    }
     requestAnimationFrame(() => sceneArea.current?.querySelector<SVGSVGElement>("svg[tabindex]")?.focus({preventScroll:true}));
   }
 
@@ -127,7 +153,7 @@ export default function DescentGame() {
     if (timer.current) { clearTimeout(timer.current); timer.current=null; }
     lock.current=true; setBusy(true);
     try {
-    const next = transition(before,action,before.revision);
+    const next = weeklyDefinition ? transitionWeeklyDescent(before as WeeklyDescent,action) : transition(before,action,before.revision);
     if (next === before) { lock.current=false; setBusy(false); return; }
     const combatAction = action === "attack" || action === "storm" || (action === "potion" && phase(before) === "combat");
     const playerAction = combatAction || action === "potion";
@@ -135,8 +161,10 @@ export default function DescentGame() {
     // Door/approach timers already received their gesture at the floor control.
     if (playerAction) audio.playAction(action);
     else if (action !== "engage" && action !== "enter") audio.playAction("click");
-    const write = () => sessionOnly.current ? "unavailable" : saveDescent(storage,next,before);
-    const saved = await exclusiveSave(write);
+    const write = () => sessionOnly.current ? "unavailable" : weeklyDefinition
+      ? saveWeeklyDescent(storage,next as WeeklyDescent,before as WeeklyDescent)
+      : saveDescent(storage,next,before);
+    const saved = await exclusiveSave(write,undefined,saveKey);
     if (saved === "busy") { setSaveNotice("Another tab is saving. Try that action again."); setSaveBlocked(false); lock.current=false; setBusy(false); return; }
     if (saved === "conflict") { setSaveNotice("A newer or unreadable save was found. Reload to continue safely."); setSaveBlocked(true); setBusy(true); return; }
     setSaveBlocked(false);
@@ -180,14 +208,15 @@ export default function DescentGame() {
 
   const soundLabel = !audio.available ? "Sound unavailable" : audio.paused && audio.enabled ? "Resume sound" : audio.enabled ? "Mute sound" : "Enable sound";
   if (runtimeError) throw runtimeError;
-  const header = <header className="descent-header"><DesktopNavigation /><GameLogo /><span className="descent-edition">THE FIRST DESCENT</span><button onClick={audio.toggleSound} disabled={!audio.available} aria-label={soundLabel} aria-pressed={audio.enabled}>{audio.enabled ? "♫" : "♪"} <span>{audio.paused && audio.enabled ? "Resume" : audio.enabled ? "Sound on" : "Sound off"}</span></button></header>;
+  const header = <header className="descent-header"><DesktopNavigation /><GameLogo /><span className={`descent-edition ${weeklyId ? "weekly-edition" : ""}`}>{weeklyId ? "WEEKLY CHALLENGE: THE FIRST DESCENT" : "THE FIRST DESCENT"}</span><button onClick={audio.toggleSound} disabled={!audio.available} aria-label={soundLabel} aria-pressed={audio.enabled}>{audio.enabled ? "♫" : "♪"} <span>{audio.paused && audio.enabled ? "Resume" : audio.enabled ? "Sound on" : "Sound off"}</span></button></header>;
   if (!loaded) return <main className="descent-shell">{header}<p className="descent-loading" role="status">Opening the dungeon…</p></main>;
   if (!run || confirmRestart) return <main className="descent-shell">{header}<section className="descent-entrance">
-    <div className="descent-entrance-intro"><p className="descent-kicker">TEN ROOMS · NO WALLET NEEDED</p><h1>Management<br />is expecting you.</h1><p>Walk into the dungeon. Attack for a reliable hit, risk a Storm, or use a potion when you need it.</p></div>
-    {(saveNotice || confirmRestart) && <p className="descent-notice" role="status">{confirmRestart ? "Starting again replaces your current First Descent. Your other modes are kept." : saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
+    <div className="descent-entrance-intro"><p className="descent-kicker">{weeklyId ? `${weeklyId} · WEEKLY CHALLENGE` : "TEN ROOMS · NO WALLET NEEDED"}</p><h1>Management<br />is expecting you.</h1><p>Walk into the dungeon. Attack for a reliable hit, risk a Storm, or use a potion when you need it.</p></div>
+    {(saveNotice || confirmRestart) && <p className="descent-notice" role="status">{confirmRestart ? "Starting again replaces this run. Your other saves are kept." : saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
     <div className="descent-start-card" data-keyboard-action-scope data-keyboard-actions><div><p className="descent-kicker">YOUR STARTING KIT</p><h2>100 HP · 3 potions · no relic</h2><p>Gold and upgrades stay on the floor until you walk over and pick them up.</p></div><button data-keyboard-default="true" disabled={saveBlocked} onClick={() => void start(invalidSave || confirmRestart)}>{invalidSave ? "Replace saved run & start" : confirmRestart ? "Start a new run" : "Start run"} <span>↗</span></button></div>
+    {weeklyDefinition && <div className="weekly-entry-rules"><p><strong>The First Descent</strong> · Ten rooms, one shared seed. No wallet needed.</p><p>Collect loot by walking to it, or leave it by walking through the door. Finish the boss relic choice to confirm your result.</p><p>New challenge every Monday at 00:00 UTC. This challenge ends {new Date(weeklyDefinition.endsAt).toLocaleDateString("en-GB",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric"})} at 00:00 UTC.</p>{friendScore !== undefined && <p>Friend’s target: <strong>{friendScore.toLocaleString("en-US")} points</strong></p>}<details><summary>How points work</summary><p>Rooms × 10,000; clear bonus 5,000; HP × 20; gold × 5; potions × 100; equipment levels × 250; combat turns −10 each. Walking and reading cost no points. Results are verified by replay.</p></details></div>}
     <p className="descent-subtle">Saved in this browser when available. No payment, account or onchain rewards.</p>
-    <div className="descent-entrance-links">{confirmRestart && <button onClick={() => setConfirmRestart(false)}>Keep playing</button>}<Link href="/practice">Endless Practice</Link><Link href="/">All modes</Link></div>
+    <div className="descent-entrance-links">{confirmRestart && <button onClick={() => setConfirmRestart(false)}>Keep playing</button>}{legacySaveAvailable && <Link href="/play?legacy=1">Continue saved First Descent</Link>}{weeklyId && <Link href={`/challenge/${weeklyId}/leaderboard`}>Weekly leaderboard</Link>}<Link href="/practice">Endless Practice</Link><Link href="/">All modes</Link></div>
   </section></main>;
 
   const g=run.game, room=roomNumber(run), roomInfo=ROOMS[room-1], art=ENEMY_ART[g.monsterType], intent=enemyIntent(g.monsterType,run.roomTurns);
@@ -230,16 +259,16 @@ export default function DescentGame() {
     <ShopVitals hp={g.hp} maxHp={g.maxHp} gold={g.gold} potions={g.potions} weapon={g.weaponLevel} armor={g.armorLevel} /><ShopKeeper camp={room === 9} /><div className="descent-shop-actions" data-keyboard-actions>{shop.map((item,index) => <button key={item.action} data-keyboard-default={index === 0 ? "true" : undefined} disabled={busy || item.disabled || g.gold < item.cost} onClick={() => void act(item.action)}><strong>{item.title}<span>{item.cost} gold</span></strong><small>{item.detail}</small></button>)}</div>
   </section> : null;
   const renderReward=(mobile=false) => rewardRelic?.imageSrc ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} data-keyboard-action-scope aria-label="Boss relic reward"><p className="descent-kicker">MANAGEMENT DEFEATED</p><h2>The org chart has a vacancy.</h2>{mobile && renderSaveRecovery()}<Image src={rewardRelic.imageSrc} alt="" width={105} height={105} /><h3>{rewardRelic.name}</h3><p>{rewardRelic.effect}</p><p className="descent-subtle">The relic is yours. Choose whether to equip it.</p><div className={`descent-result-actions ${mobile ? "descent-mobile-result-actions" : ""}`} data-keyboard-actions><button data-keyboard-default="true" disabled={busy} onClick={() => void act("claim")}>Keep relic</button><button disabled={busy} onClick={() => void act("claim-equip")}>Equip relic & finish</button></div></section> : null;
-  const renderTerminal=(mobile=false) => terminal ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} data-keyboard-action-scope><p className="descent-kicker">{p === "won" ? "DESCENT COMPLETE" : "EXIT INTERVIEW"}</p><h2>{p === "won" ? "You survived management." : "A short career. A useful lesson."}</h2>{mobile && renderSaveRecovery()}{mobile && <div className="descent-result-actions descent-mobile-result-actions" data-keyboard-actions><button data-keyboard-default="true" onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<dl><div><dt>Rooms cleared</dt><dd>{g.roomsCleared} / 10</dd></div><div><dt>Turns</dt><dd>{run.turns}</dd></div><div><dt>Damage dealt</dt><dd>{run.damageDealt}</dd></div><div><dt>Potions used</dt><dd>{run.potionsUsed}</dd></div></dl><p>{p === "lost" ? `Your last reply cost ${g.lastMonsterDamage} HP. Watch your remaining HP and use potions before the next exchange.` : "The next run starts at 100 HP with three potions and no relic."}</p>{!mobile && <div className="descent-result-actions" data-keyboard-actions><button data-keyboard-default="true" onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}</section> : null;
+  const renderTerminal=(mobile=false) => terminal && weeklyId ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} data-keyboard-action-scope>{renderSaveRecovery()}<WeeklyRunResult run={run as WeeklyDescent} onPlay={() => setConfirmRestart(true)} onchainNetwork={onchainNetwork} referral={referral} /></section> : terminal ? <section className={`descent-result ${mobile ? "descent-mobile-sheet-card" : ""}`} data-keyboard-action-scope><p className="descent-kicker">{p === "won" ? "DESCENT COMPLETE" : "EXIT INTERVIEW"}</p><h2>{p === "won" ? "You survived management." : "A short career. A useful lesson."}</h2>{mobile && renderSaveRecovery()}{mobile && <div className="descent-result-actions descent-mobile-result-actions" data-keyboard-actions><button data-keyboard-default="true" onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<dl><div><dt>Rooms cleared</dt><dd>{g.roomsCleared} / 10</dd></div><div><dt>Turns</dt><dd>{run.turns}</dd></div><div><dt>Damage dealt</dt><dd>{run.damageDealt}</dd></div><div><dt>Potions used</dt><dd>{run.potionsUsed}</dd></div></dl><p>{p === "lost" ? `Your last reply cost ${g.lastMonsterDamage} HP. Watch your remaining HP and use potions before the next exchange.` : "The next run starts at 100 HP with three potions and no relic."}</p>{!mobile && <div className="descent-result-actions" data-keyboard-actions><button data-keyboard-default="true" onClick={() => setConfirmRestart(true)}>Start another run</button><Link href="/">Explore other modes</Link></div>}<PracticeContinuation run={run} /></section> : null;
   const recoveryPotion=recovery ? <button disabled={potionDisabled} onClick={() => void act("potion")} aria-label={`Potion, heal 25 HP safely, ${g.potions} remaining`}>Use potion · +25 HP · {g.potions} left</button> : null;
   const mobileTopOverlay=<div className="descent-mobile-top">
     <div className="descent-mobile-topbar">
       <details className="descent-mobile-menu"><summary aria-label="Open game menu">☰ <span>Menu</span></summary><div className="descent-mobile-menu-panel">
-        <p className="descent-kicker">THE FIRST DESCENT</p><h2>Dungeon menu</h2>
+        <p className="descent-kicker">{weeklyId ? `WEEKLY · ${weeklyId}` : "THE FIRST DESCENT"}</p><h2>Dungeon menu</h2>{friendScore !== undefined && <p>Friend’s target: {friendScore.toLocaleString("en-US")} points</p>}
         <details><summary>How to play</summary><p>Tap the floor or use WASD to walk. Use the arrow keys to choose room and combat actions, then press Enter. After a victory, tap the loot or use the door to continue.</p></details>
         {p !== "loot" && <details><summary>Dungeon journal · {run.turns} turns</summary><div className="descent-mobile-journal">{g.log.map((line,i) => <p key={i}>{line}</p>)}</div></details>}
         {recoveryPotion}
-        <button onClick={() => setConfirmRestart(true)} disabled={busy}>Start again</button><Link href="/practice">Endless Practice</Link><Link href="/">All modes</Link>
+        <button onClick={() => setConfirmRestart(true)} disabled={busy}>Start again</button>{weeklyId && <Link href={`/challenge/${weeklyId}/leaderboard`}>Weekly leaderboard</Link>}<Link href="/practice">Endless Practice</Link><Link href="/">All modes</Link>
       </div></details>
       <div className="descent-mobile-room"><strong>Room {room} / 10</strong><span>{roomInfo.title} · {roomStatus}</span></div>
       <button className="descent-mobile-sound" onClick={audio.toggleSound} disabled={!audio.available} aria-label={soundLabel} aria-pressed={audio.enabled}>{audio.enabled ? "♫" : "♪"}<span>{audio.paused && audio.enabled ? "Resume" : audio.enabled ? "On" : "Off"}</span></button>
@@ -249,16 +278,16 @@ export default function DescentGame() {
     {!terminal && p !== "reward" && <DescentEnemyStatus name={art.name} hp={g.monsterHp} maxHp={g.monsterMaxHp} incoming={range(reply)} isBoss={g.monsterType === 3} />}
     {saveNotice && <div className="descent-mobile-notice" role="status"><span>{saveNotice}</span>{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</div>}
     {p === "reward" && <div className="descent-mobile-phase-sheet">{renderReward(true)}</div>}
-    {terminal && <div className="descent-mobile-phase-sheet">{renderTerminal(true)}</div>}
+    {terminal && !sidebarControls && <div className="descent-mobile-phase-sheet">{renderTerminal(true)}</div>}
   </div>;
   const mobileFooter=<div className="descent-mobile-footer">
     {renderReport(true)}
     {safePotionControl && <div className="recovery-heal dungeon-recovery-controls">{safePotionControl}</div>}
   </div>;
-  return <main className="descent-shell" data-descent-phase={p} data-descent-revision={run.revision}>{header}
+  return <main className="descent-shell" data-descent-phase={p} data-descent-revision={run.revision} data-challenge-id={weeklyId} data-rules-version={weeklyId ? 2 : undefined}>{header}
     <div className="dungeon-desktop-status dungeon-original-hud">{actualGameHud}</div>
     {saveNotice && <p className="descent-notice" role="status">{saveNotice}{saveBlocked && <button onClick={() => window.location.reload()}>Resume saved run</button>}</p>}
-    <div className="descent-room-heading"><div><p className="descent-kicker">ROOM {room} / 10 · {roomStatus}</p><h1>{roomInfo.title}</h1></div>
+    <div className="descent-room-heading"><div><p className="descent-kicker">{weeklyId && `${weeklyId} · `}ROOM {room} / 10 · {roomStatus}{friendScore !== undefined && ` · Friend: ${friendScore.toLocaleString("en-US")} points`}</p><h1>{roomInfo.title}</h1></div>
       <ol className="descent-map" aria-label="Dungeon progress">{ROOMS.map((r,i) => <li key={r.title} className={i < g.roomsCleared ? "cleared" : i+1 === room ? "current" : "unseen"} aria-label={`Room ${i+1}: ${i < g.roomsCleared ? "cleared" : i+1 === room ? "current" : "unexplored"}`} aria-current={i+1 === room ? "step" : undefined}><span>{i < g.roomsCleared ? "✓" : i+1 === room ? i+1 : "·"}</span></li>)}</ol>
     </div>
     <div className="descent-layout"><div className="descent-world" ref={sceneArea}>
@@ -281,11 +310,11 @@ export default function DescentGame() {
       {relic && relic.imageSrc && <section className="descent-relic-card" aria-label="Equipped relic"><Image src={relic.imageSrc} alt="" width={86} height={86} /><div><p className="descent-kicker">{relic.rarity} · EQUIPPED</p><h2>{relic.name}</h2><p>{relic.effect}</p><p className="descent-relic-cost">{relic.tradeoff}</p></div><details><summary>How this relic changes your turn</summary><p>{combatRelicSummary(g,false)} on Attack.</p><p>{combatRelicSummary(g,true) ?? "Normal damage"} on Storm. Shown damage ranges include the relic.</p></details></section>}
       {safePotionControl && <div className="recovery-heal dungeon-recovery-controls">{safePotionControl}</div>}
       {renderReward()}
-      {renderTerminal()}
+      {sidebarControls && renderTerminal()}
     </aside></div>
     {hasMerchant && <dialog ref={shopDialog} className="descent-shop-dialog" onClose={() => setShopOpen(false)} onCancel={() => setShopOpen(false)}>{renderMerchant()}</dialog>}
     {p !== "loot" && <details className="descent-journal"><summary>Dungeon journal · {run.turns} turns</summary>{g.log.map((line,i) => <p key={i}>{line}</p>)}</details>}
     <dialog ref={logDialog} className="descent-log-dialog" aria-label="Dungeon log"><header><h2>Dungeon log</h2><button autoFocus onClick={() => logDialog.current?.close()} aria-label="Close dungeon log">Close</button></header><p><strong>{feedbackTitle}</strong><br />{feedbackDetail}</p>{p !== "loot" && g.log.map((line,i) => <p key={i}>{line}</p>)}</dialog>
-    <footer className="descent-footer"><span>Local run · Original combat rules · Progress saved in this browser</span><button onClick={() => setConfirmRestart(true)} disabled={busy}>Start again</button><Link href="/">All modes</Link></footer>
+    <footer className="descent-footer"><span>{weeklyId ? `${weeklyId} · Shared weekly seed · Result verified by replay` : "Local run · Original combat rules · Progress saved in this browser"}</span><button onClick={() => setConfirmRestart(true)} disabled={busy}>Start again</button>{weeklyId && <Link href={`/challenge/${weeklyId}/leaderboard`}>Weekly leaderboard</Link>}<Link href="/">All modes</Link></footer>
   </main>;
 }

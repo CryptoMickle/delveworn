@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { EMPTY_GAME, attack, buy, claimRelic, enterNextRoom, startRun, stormAttack, usePotion, type PracticeGame } from "./engine";
 import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText } from "./feedback";
 import { canRunPracticeLocalAction, collectPracticeLoot, countPracticeTurn, createPracticeGrid, engagePracticeGrid, enterPracticeRoom, holdPracticeLoot, legacyPracticeGrid, passPracticeLootAtDoor, practiceGridPhase, skipPracticeLoot } from "./grid-state";
-import { inspectPracticeRun, isStoredPracticeGame, loadPracticeRun, PRACTICE_RUN_STORAGE_KEY, savePracticeRun } from "./storage";
+import { inspectPracticeRun, isStoredPracticeGame, loadPracticeRun, PRACTICE_RUN_STORAGE_KEY, savePracticeRun, savePracticeRunIfUnchanged } from "./storage";
 
 function memoryStorage(raw: string | null = null) {
   return {
@@ -290,6 +290,24 @@ test("Practice game and held loot share one validated atomic save", () => {
   assert.equal(savePracticeRun(invalid, { ...killed, potions: 5 }, { ...grid, pendingLoot: { gold: 9, potions: 1, weapon: 0, armor: 0 } }), "invalid");
   assert.equal(invalid.raw, "previous save");
   assert.equal(invalid.writes, 0);
+});
+
+test("a stale normal save cannot overwrite Practice progress changed by another tab", () => {
+  const initial = combat();
+  const grid = createPracticeGrid(91);
+  const storage = memoryStorage();
+  assert.equal(savePracticeRun(storage, initial, grid), "saved");
+  const expected = storage.raw;
+
+  const advancedElsewhere = { ...initial, hp: initial.hp - 3 };
+  assert.equal(savePracticeRun(storage, advancedElsewhere, grid), "saved");
+  const writesBeforeStaleSave = storage.writes;
+  const stale = { ...initial, hp: initial.hp - 1 };
+  assert.deepEqual(savePracticeRunIfUnchanged(storage, expected, stale, grid), { status: "conflict" });
+  assert.equal(storage.writes, writesBeforeStaleSave);
+  const restored = inspectPracticeRun(storage);
+  assert.equal(restored.status, "restored");
+  if (restored.status === "restored") assert.equal(restored.game.hp, advancedElsewhere.hp);
 });
 
 test("blocked localStorage getter, reads and writes fail safely", () => {

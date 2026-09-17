@@ -12,7 +12,7 @@ export default defineConfig({
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1365, height: 900 } } },
     { name: "android-chromium", use: { ...devices["Pixel 7"] } },
     { name: "small-iphone-webkit", use: { ...devices["iPhone SE"] } },
-    { name: "iphone-11-pro-webkit", testMatch: /descent\.spec\.ts/, use: { ...devices["iPhone 11 Pro"] } },
+    { name: "iphone-11-pro-webkit", testMatch: /(?:descent|weekly-grid|experience)\.spec\.ts/, use: { ...devices["iPhone 11 Pro"] } },
   ],
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3100",

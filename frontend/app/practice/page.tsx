@@ -41,7 +41,12 @@ import {
   describeRelicEquipImpact,
   getRelicDefinition,
 } from "../relics";
-import { inspectPracticeRun, savePracticeRun } from "./storage";
+import {
+  inspectPracticeRun,
+  PRACTICE_RUN_STORAGE_KEY,
+  savePracticeRunIfUnchanged,
+  type PracticeImportIdentity,
+} from "./storage";
 import { describePracticeAction, practiceLoot, practiceRoom, practiceShareText, type PracticeActionKind, type PracticeFeedback } from "./feedback";
 import { useGameAudio } from "../use-game-audio";
 import { DungeonRecovery } from "../between-rooms";
@@ -67,11 +72,24 @@ import {
 import { EndlessRoom } from "../dungeon/endless-room";
 import { DesktopNavigation } from "../desktop-navigation";
 import type { SceneCue } from "../dungeon/scene";
+import {
+  acceptPracticeHandoff,
+  loadPracticeHandoff,
+  withPracticeContinuationLock,
+  withPracticeRunLock,
+  type PracticeHandoff,
+} from "../descent/practice-handoff";
+import { recordWeeklyPracticeContinuation } from "../descent/weekly-analytics";
+import { loadPracticePersonalBest, recordPracticePersonalBest } from "./personal-best";
 
 const MAX_POTIONS = 5;
 const SHOP_POTION_STOCK = 2;
 const MERCHANT_NAME = "Quartermaster Kevin";
 const MERCHANT_IMAGE = "/characters/merchant-quartermaster-kevin.webp?v=merchant-20260825-v3";
+
+function savedPracticeSnapshot(game: PracticeGame, grid: PracticeGridState, importedFrom: PracticeImportIdentity | null) {
+  return JSON.stringify({ game, grid, ...(importedFrom ? { importedFrom } : {}) });
+}
 
 type MonsterPersona = {
   name: string;
@@ -177,20 +195,34 @@ export default function PracticePage() {
   const [mobileLogOpen, setMobileLogOpen] = useState(false);
   const [cue, setCue] = useState<SceneCue>(null);
   const [cueId, setCueId] = useState(0);
+  const [continuationRequest, setContinuationRequest] = useState<{
+    handoff: PracticeHandoff;
+    expectedPractice: string;
+  } | null>(null);
+  const [continuationNotice, setContinuationNotice] = useState<string | null>(null);
+  const [personalBest, setPersonalBest] = useState<number | null>(null);
   const gameRef = useRef<PracticeGame>(EMPTY_GAME);
   const gridRef = useRef<PracticeGridState>(legacyPracticeGrid(EMPTY_GAME));
+  const importIdentityRef = useRef<PracticeImportIdentity | null>(null);
   const actionBusyRef = useRef(false);
   const canSaveRef = useRef(false);
   const savedGameRef = useRef<string | null>(null);
+  const savedRawRef = useRef<string | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const mountedRef = useRef(true);
   const bossRewardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    return () => { actionBusyRef.current = false; };
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      actionBusyRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
     const changedElsewhere = (event: StorageEvent) => {
-      if (event.key !== null && event.key !== "delveworn_practice_run_v1") return;
+      if (event.key !== null && event.key !== PRACTICE_RUN_STORAGE_KEY) return;
       canSaveRef.current = false;
       setStorageNotice("conflict");
     };
@@ -199,26 +231,112 @@ export default function PracticePage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const restoreTimer = window.setTimeout(() => {
-      const restored = inspectPracticeRun(() => window.localStorage);
-      canSaveRef.current = restored.status === "restored" || restored.status === "empty";
-      if (restored.status === "restored") {
-        savedGameRef.current = JSON.stringify({ game: restored.game, grid: restored.grid });
-        gameRef.current = restored.game;
-        gridRef.current = restored.grid;
-        setGame(restored.game);
-        setGrid(restored.grid);
-        if (restored.game.hasStarted) setStorageNotice("restored");
-      } else if (restored.status !== "empty") {
-        setStorageNotice(restored.status);
-      }
-      setPracticeStorageReady(true);
+      void (async () => {
+        let storage: Storage;
+        try {
+          storage = window.localStorage;
+        } catch {
+          if (active) {
+            canSaveRef.current = false;
+            setStorageNotice("unavailable");
+            setContinuationNotice("Browser storage is unavailable. Existing saves were left unchanged.");
+            setPracticeStorageReady(true);
+          }
+          return;
+        }
+        const storedBest = loadPracticePersonalBest(storage);
+        if (storedBest.status === "restored") setPersonalBest(storedBest.roomsCleared);
+        const restoreCurrentPractice = () => {
+          try {
+            savedRawRef.current = storage.getItem(PRACTICE_RUN_STORAGE_KEY);
+          } catch {
+            savedRawRef.current = null;
+          }
+          const restored = inspectPracticeRun(storage);
+          canSaveRef.current = restored.status === "restored" || restored.status === "empty";
+          if (restored.status === "restored") {
+            importIdentityRef.current = restored.importedFrom ?? null;
+            savedGameRef.current = savedPracticeSnapshot(restored.game, restored.grid, importIdentityRef.current);
+            gameRef.current = restored.game;
+            gridRef.current = restored.grid;
+            setGame(restored.game);
+            setGrid(restored.grid);
+            if (!restored.game.active) {
+              const best = recordPracticePersonalBest(storage, restored.game);
+              if (best.status === "recorded" || best.status === "kept") setPersonalBest(best.roomsCleared);
+            }
+            if (restored.game.hasStarted) setStorageNotice("restored");
+          } else {
+            importIdentityRef.current = null;
+            if (restored.status !== "empty") setStorageNotice(restored.status);
+          }
+          return restored;
+        };
+
+        const continueId = new URLSearchParams(window.location.search).get("continue");
+        if (!continueId) {
+          restoreCurrentPractice();
+          if (active) setPracticeStorageReady(true);
+          return;
+        }
+
+        const loaded = loadPracticeHandoff(storage, continueId);
+        if (loaded.status !== "restored") {
+          restoreCurrentPractice();
+          if (active) {
+            setContinuationNotice(loaded.status === "unavailable"
+              ? "Browser storage is unavailable. The saved First Descent and Practice run were left unchanged."
+              : "That First Descent continuation could not be validated. Your Practice save was left unchanged.");
+            setPracticeStorageReady(true);
+          }
+          return;
+        }
+
+        const result = await withPracticeContinuationLock(() => acceptPracticeHandoff(
+          storage,
+          loaded.handoff,
+          cryptoRandomInt,
+          () => cryptoRandomInt(0x1_0000_0000),
+        ));
+        if (!active) return;
+
+        if (result.status === "imported" || result.status === "resumed") {
+          importIdentityRef.current = result.identity;
+          savedGameRef.current = savedPracticeSnapshot(result.game, result.grid, result.identity);
+          savedRawRef.current = result.practiceRaw;
+          gameRef.current = result.game;
+          gridRef.current = result.grid;
+          setGame(result.game);
+          setGrid(result.grid);
+          canSaveRef.current = true;
+          setStorageNotice(null);
+          if (result.status === "imported" && loaded.handoff.sourceWeekly) {
+            recordWeeklyPracticeContinuation(loaded.handoff.sourceWeekly.challengeId);
+          }
+          setContinuationNotice(result.status === "imported"
+            ? "First Descent continued into Room 11. This is now a local Practice run."
+            : "Your continued Practice run was restored without resetting its progress.");
+        } else if (result.status === "needs-confirmation") {
+          restoreCurrentPractice();
+          setContinuationRequest({ handoff: loaded.handoff, expectedPractice: result.expectedPractice });
+        } else {
+          restoreCurrentPractice();
+          setContinuationNotice(result.status === "busy" || result.status === "conflict"
+            ? "Practice changed in another tab. Nothing was replaced; reload to review the latest save."
+            : result.status === "unavailable"
+              ? "Browser storage is unavailable. Nothing was replaced."
+              : "The First Descent continuation was invalid. Nothing was replaced.");
+        }
+        setPracticeStorageReady(true);
+      })();
     }, 0);
 
-    return () => window.clearTimeout(restoreTimer);
+    return () => { active = false; window.clearTimeout(restoreTimer); };
   }, []);
 
-  const busy = !practiceStorageReady || restartRequested;
+  const busy = !practiceStorageReady || restartRequested || continuationRequest !== null;
   const room = game.roomsCleared + 1;
   const phase = practiceGridPhase(game, grid);
   const roomCleared = game.hasStarted && game.monsterHp === 0;
@@ -316,13 +434,29 @@ export default function PracticePage() {
 
   const persist = (nextGame: PracticeGame, nextGrid: PracticeGridState) => {
     if (!canSaveRef.current) return;
-    const result = savePracticeRun(() => window.localStorage, nextGame, nextGrid);
-    if (result !== "saved") {
+    const importedFrom = importIdentityRef.current;
+    saveQueueRef.current = saveQueueRef.current.then(async () => {
+      if (!canSaveRef.current) return;
+      const locked = await withPracticeRunLock(() => savePracticeRunIfUnchanged(
+        () => window.localStorage,
+        savedRawRef.current,
+        nextGame,
+        nextGrid,
+        importedFrom,
+      ));
+      if (locked.status === "acquired" && locked.value.status === "saved") {
+        savedRawRef.current = locked.value.serialized;
+        savedGameRef.current = savedPracticeSnapshot(nextGame, nextGrid, importedFrom);
+        return;
+      }
       canSaveRef.current = false;
-      setStorageNotice(result === "invalid" ? "invalid" : "unavailable");
-    } else {
-      savedGameRef.current = JSON.stringify({ game: nextGame, grid: nextGrid });
-    }
+      if (!mountedRef.current) return;
+      const status = locked.status === "acquired" ? locked.value.status : locked.status;
+      setStorageNotice(status === "invalid" ? "invalid" : status === "unavailable" ? "unavailable" : "conflict");
+    }).catch(() => {
+      canSaveRef.current = false;
+      if (mountedRef.current) setStorageNotice("unavailable");
+    });
   };
 
   const commit = (nextGame: PracticeGame, nextGrid = gridRef.current) => {
@@ -339,11 +473,20 @@ export default function PracticePage() {
     setRestartRequested(false);
     setShareNotice("");
     setShareFallback(false);
-    if (replaceSave) canSaveRef.current = true;
+    if (replaceSave) {
+      try {
+        savedRawRef.current = window.localStorage.getItem(PRACTICE_RUN_STORAGE_KEY);
+        canSaveRef.current = true;
+      } catch {
+        canSaveRef.current = false;
+        setStorageNotice("unavailable");
+      }
+    }
     if (canSaveRef.current) setStorageNotice(null);
     try {
       const next = startRun();
       const nextGrid = createPracticeGrid(cryptoRandomInt(0x1_0000_0000));
+      importIdentityRef.current = null;
       commit(next, nextGrid);
       setCue(null);
       setCueId(0);
@@ -372,6 +515,14 @@ export default function PracticePage() {
     if (!nextGame.active) nextGrid = { ...nextGrid, engaged: false };
     if (kind === "encounter") nextGrid = enterPracticeRoom(nextGrid);
     commit(nextGame, nextGrid);
+    if (!nextGame.active) {
+      let bestRooms = nextGame.roomsCleared;
+      try {
+        const best = recordPracticePersonalBest(window.localStorage, nextGame);
+        if (best.status === "recorded" || best.status === "kept") bestRooms = best.roomsCleared;
+      } catch { /* The run result remains available even when local storage is blocked. */ }
+      setPersonalBest((current) => Math.max(current ?? 0, bestRooms));
+    }
     setStorageNotice((notice) => notice === "restored" ? null : notice);
     setCue(combatTurn ? (nextGame.relicReviveUsed && !before.relicReviveUsed ? "revive" : nextGame.lastCritical ? "critical" : kind === "storm" ? "storm" : kind === "potion" ? "potion" : "attack") : null);
     setCueId((id) => id + 1);
@@ -495,6 +646,13 @@ export default function PracticePage() {
   };
 
   const retryStorage = () => {
+    let currentRaw: string | null;
+    try {
+      currentRaw = window.localStorage.getItem(PRACTICE_RUN_STORAGE_KEY);
+    } catch {
+      setStorageNotice("unavailable");
+      return;
+    }
     const restored = inspectPracticeRun(() => window.localStorage);
     if (gameRef.current.hasStarted) {
       if (restored.status === "invalid" || restored.status === "unavailable") {
@@ -503,17 +661,20 @@ export default function PracticePage() {
       }
       // A session-only run must not silently replace another saved run.
       if (!canSaveRef.current && restored.status === "restored" && restored.game.hasStarted
-        && JSON.stringify({ game: restored.game, grid: restored.grid }) !== savedGameRef.current) {
+        && savedPracticeSnapshot(restored.game, restored.grid, restored.importedFrom ?? null) !== savedGameRef.current) {
         setStorageNotice("conflict");
         return;
       }
+      savedRawRef.current = currentRaw;
       canSaveRef.current = true;
       setStorageNotice(null);
       persist(gameRef.current, gridRef.current);
     } else if (restored.status === "restored" || restored.status === "empty") {
+      savedRawRef.current = currentRaw;
       canSaveRef.current = true;
       if (restored.status === "restored") {
-        savedGameRef.current = JSON.stringify({ game: restored.game, grid: restored.grid });
+        importIdentityRef.current = restored.importedFrom ?? null;
+        savedGameRef.current = savedPracticeSnapshot(restored.game, restored.grid, importIdentityRef.current);
         gameRef.current = restored.game;
         gridRef.current = restored.grid;
         setGame(restored.game);
@@ -534,6 +695,86 @@ export default function PracticePage() {
       setShareNotice("Select and copy the result below. Clipboard access is unavailable.");
     }
   };
+
+  const cancelContinuation = () => {
+    setContinuationRequest(null);
+    setContinuationNotice("Your existing Practice run was kept. The completed First Descent continuation remains available from its result.");
+    window.history.replaceState(null, "", "/practice");
+  };
+
+  const replaceWithContinuation = async () => {
+    const request = continuationRequest;
+    if (!request || actionBusyRef.current) return;
+    actionBusyRef.current = true;
+    try {
+      const storage = window.localStorage;
+      const result = await withPracticeContinuationLock(() => acceptPracticeHandoff(
+        storage,
+        request.handoff,
+        cryptoRandomInt,
+        () => cryptoRandomInt(0x1_0000_0000),
+        { replace: true, expectedPractice: request.expectedPractice },
+      ));
+      if (result.status === "imported" || result.status === "resumed") {
+        importIdentityRef.current = result.identity;
+        savedGameRef.current = savedPracticeSnapshot(result.game, result.grid, result.identity);
+        savedRawRef.current = result.practiceRaw;
+        gameRef.current = result.game;
+        gridRef.current = result.grid;
+        setGame(result.game);
+        setGrid(result.grid);
+        canSaveRef.current = true;
+        setStorageNotice(null);
+        if (result.status === "imported" && request.handoff.sourceWeekly) {
+          recordWeeklyPracticeContinuation(request.handoff.sourceWeekly.challengeId);
+        }
+        setContinuationRequest(null);
+        setContinuationNotice("First Descent continued into Room 11. The previous Practice save was replaced after your confirmation.");
+        setFeedback({ title: "Enter Room 11", detail: "Walk toward the enemy to begin combat with your earned relic and supplies.", tone: "neutral" });
+        return;
+      }
+      setContinuationRequest(null);
+      canSaveRef.current = false;
+      setStorageNotice(result.status === "unavailable" ? "unavailable" : "conflict");
+      setContinuationNotice(result.status === "busy" || result.status === "conflict"
+        ? "Practice changed in another tab before replacement. Nothing was overwritten. Reload to review the latest save."
+        : "The continuation could not be saved. Both original saves were left unchanged.");
+    } catch {
+      setContinuationRequest(null);
+      canSaveRef.current = false;
+      setStorageNotice("unavailable");
+      setContinuationNotice("Browser storage is unavailable. Both original saves were left unchanged.");
+    } finally {
+      actionBusyRef.current = false;
+    }
+  };
+
+  if (practiceStorageReady && continuationRequest) {
+    return (
+      <main className="practice-shell delveworn-practice-mode min-h-screen bg-[#090909] px-4 py-6 text-white lg:px-8 lg:py-8">
+        <div className="practice-column mx-auto w-full max-w-md">
+          <GameHeader mode="practice" eyebrow="LOCAL PRACTICE" subtitle="Choose which run to keep" meta="BROWSER-ONLY · NO WALLET · NO TRANSACTIONS" />
+          <section className="practice-storage-banner" role="group" aria-label="Replace existing Practice run">
+            <p className="font-bold">A Practice run already exists.</p>
+            <p>
+              {game.hasStarted
+                ? `Keep the existing run at Room ${practiceRoom(game)}, or replace it with the completed First Descent and begin Room 11.`
+                : "The existing Practice save cannot be safely read. Replace it only if you want to continue the completed First Descent into Room 11."}
+            </p>
+            <p>The completed First Descent is preserved either way.</p>
+            <div className="mt-3 grid gap-3" data-keyboard-actions>
+              <button type="button" data-keyboard-default="true" onClick={cancelContinuation} className="min-h-11 rounded-lg border border-zinc-600 px-4">
+                Keep current Practice
+              </button>
+              <button type="button" onClick={() => void replaceWithContinuation()} className="min-h-11 rounded-lg bg-orange-500 px-4 font-bold text-black">
+                Replace & continue to Room 11
+              </button>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   const combatActions = (
 <CombatActionDock
@@ -696,6 +937,14 @@ export default function PracticePage() {
     } : undefined;
     const notices = (
       <>
+        {continuationNotice && (
+          <div className="practice-storage-banner practice-restored-notice" role="status">
+            <div className="flex items-center justify-between gap-2">
+              <p>{continuationNotice}</p>
+              <button type="button" onClick={() => setContinuationNotice(null)} aria-label="Dismiss continuation notice" className="min-h-11 min-w-11 text-lg">×</button>
+            </div>
+          </div>
+        )}
         {storageNotice && (
           <div className={`practice-storage-banner${storageNotice === "restored" ? " practice-restored-notice" : ""}`} role="status">
             {storageNotice === "restored" ? (
@@ -797,7 +1046,7 @@ export default function PracticePage() {
         shop={merchantVisit ? recoveryShop : undefined}
         relics={recoveryActive ? relicPanels : undefined}
         reward={reward}
-        notices={storageNotice || restartRequested ? notices : undefined}
+        notices={continuationNotice || storageNotice || restartRequested ? notices : undefined}
         menu={<button type="button" onClick={() => setRestartRequested(true)} disabled={busy}>Start a new run</button>}
         feedback={feedback ? { title: feedback.title, detail: feedback.detail } : undefined}
         log={game.log}
@@ -820,6 +1069,14 @@ export default function PracticePage() {
           )}
         </GameHeader>
 
+        {continuationNotice && (
+          <div className="practice-storage-banner practice-restored-notice" role="status">
+            <div className="flex items-center justify-between gap-2">
+              <p>{continuationNotice}</p>
+              <button type="button" onClick={() => setContinuationNotice(null)} aria-label="Dismiss continuation notice" className="min-h-11 min-w-11 text-lg">×</button>
+            </div>
+          </div>
+        )}
         {storageNotice && (
           <div className={`practice-storage-banner${storageNotice === "restored" ? " practice-restored-notice" : ""}`} role="status">
             {storageNotice === "restored" ? (
@@ -909,6 +1166,9 @@ export default function PracticePage() {
               }}
               restartAction={<button type="button" data-keyboard-default="true" onClick={() => restart()}>BEGIN NEW RUN</button>}
               copyAction={<div className="run-result-share">
+                <p className="mb-3 text-xs text-zinc-300">
+                  Local personal best: {Math.max(personalBest ?? 0, game.roomsCleared)} rooms · self-reported on this device
+                </p>
                 <button type="button" onClick={() => void copyResult()}>COPY LOCAL RESULT</button>
                 {shareNotice && <p className="mt-2 text-xs text-amber-200" role="status">{shareNotice}</p>}
                 {shareFallback && <textarea aria-label="Local practice result to copy" readOnly value={practiceShareText(game)} onFocus={(event) => event.currentTarget.select()} className="mt-3 min-h-40 w-full rounded-lg border border-zinc-600 bg-black p-3 text-left text-xs" />}
