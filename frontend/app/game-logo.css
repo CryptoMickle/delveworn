@@ -22,13 +22,47 @@
   object-fit: contain;
 }
 
+.delveworn-development-tag {
+  position: absolute;
+  right: -5px;
+  top: 2px;
+  z-index: 1;
+  padding: 4px 7px 3px;
+  border: 1px solid #e79a48;
+  border-radius: 4px;
+  background: #160d08e8;
+  box-shadow: 0 3px 10px #0009;
+  color: #ffd196;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: .1em;
+  line-height: 1;
+  white-space: nowrap;
+  transform: rotate(2deg);
+}
+
 .delveworn-brand-logo:hover img { filter: brightness(1.14); }
 .delveworn-brand-logo:focus-visible { outline: 3px solid #efb56b; outline-offset: 5px; }
 .delveworn-brand-compact { width: 96px; }
+.delveworn-brand-compact .delveworn-development-tag {
+  right: -7px;
+  top: -1px;
+  padding: 3px 4px 2px;
+  font-size: 5px;
+  letter-spacing: .06em;
+}
 
 @media (min-width: 801px) {
   .delveworn-brand-logo:not(.delveworn-brand-compact) { width: min(300px, 100%); }
   .delveworn-brand-compact { width: 168px; }
+  .delveworn-brand-compact .delveworn-development-tag {
+    right: -5px;
+    top: 0;
+    padding: 4px 6px 3px;
+    font-size: 6px;
+    letter-spacing: .08em;
+  }
 }
 
 @media (min-width: 1200px) and (min-height: 800px) {
