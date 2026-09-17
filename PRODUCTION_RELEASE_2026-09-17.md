@@ -39,4 +39,16 @@ The configured Somnia RPC returned chain ID 50312. The production domain is auth
 - [Frontend CI](https://github.com/CryptoMickle/delveworn/actions/runs/35211574891): all four jobs passed, covering Redis, RISE and both Somnia configurations.
 - Vercel production build and promotion succeeded.
 - No contract deployment or address switch, game balance change, Practice-save transfer, or external user testing was performed.
-- Current Onchain remains compatible with the existing contract. Fully authoritative optional loot pickup still requires the separately planned Somnia V4 deployment.
+- The initial public-page checks did not exercise connected player loading. The compatibility bug discovered immediately after release is described below. Fully authoritative optional loot pickup still requires the separately planned Somnia V4 deployment.
+
+## Follow-up: connected Somnia player loading
+
+The user reported `Could not read Delveworn from Somnia Shannon Testnet.` The frontend probed `frontendSnapshotV4` on the existing pre-V4 contract. Somnia correctly returned `{code: 3, message: "execution reverted", data: "0x"}`. viem exposed that generic provider message as `ContractFunctionRevertedError.reason`; the absence classifier only accepted an empty reason, so it stopped before checking bytecode and reading the working V3 snapshot.
+
+Commit `eee40c40dab531511f3d67f6798cfac98748e4f0` recognizes that exact generic empty-revert response. Legacy fallback still requires proof that the deployed bytecode lacks the V4 selector. Specific revert reasons, custom errors, nonempty revert data, transport failures and previously proven V4 support retain their existing failure behavior.
+
+Validation: 278 frontend tests pass, including regressions built with the installed viem error classes; TypeScript passes; lint has zero errors and the same 13 warnings. Read-only live calls with the exact application ABI reproduce the old failure and successfully decode V3 for both a fresh address and an existing active player after the fix. No wallet signature or chain write was required.
+
+Both the production RPC (`https://api.infra.testnet.somnia.network/`) and the repository fallback (`https://dream-rpc.somnia.network/`) returned the same evidence. All four [Frontend CI jobs](https://github.com/CryptoMickle/delveworn/actions/runs/35213015079) passed.
+
+The fix was built as Production deployment `dpl_EC6xBnqcXVfEDTQaTnYp8A7QwRgt` (`https://delveworn-kpfyfo6s7-crypto-mickle.vercel.app`), checked before promotion, and promoted to `delveworn.app`. Post-promotion HTTP checks confirmed the fixed classifier in the public JavaScript bundle, a working Onchain entry page and `ready / redis` leaderboard status. The preceding deployment `dpl_ByMqdwSJxcZRgbW3PwwXyni7Tu8L` is the immediate rollback reference. Signed wallet activation remains outside these read-only checks.
