@@ -220,7 +220,9 @@ export function isMissingSnapshotSelectorError(error: unknown) {
     if (
       nested.name === "ContractFunctionRevertedError" &&
       (nested.raw === undefined || nested.raw === "0x") &&
-      !nested.reason &&
+      // Some RPCs report an empty revert with this generic message. It is
+      // only a candidate: the caller must still prove the selector absent.
+      (!nested.reason || nested.reason === "execution reverted") &&
       !nested.signature
     ) {
       return true;

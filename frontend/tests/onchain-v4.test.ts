@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  encodeErrorResult,
+  parseAbi,
+} from "viem";
+import {
   DUNGEON_CUSTOM_ERROR_ABI,
   PENDING_ROOM_LOOT_ABI_PARAMETER,
   V4_SNAPSHOT_FUNCTION_SIGNATURE,
@@ -145,6 +151,75 @@ test("missing-selector evidence requires the expected execution error and absent
     bytecodeAdvertisesFunction("0x60006000", V4_SNAPSHOT_FUNCTION_SIGNATURE),
     false
   );
+});
+
+const snapshotProbeAbi = parseAbi([
+  "function frontendSnapshotV4(address playerAddress) view returns (uint256)",
+  "error RandomnessPending()",
+]);
+
+function snapshotProbeError(data: `0x${string}`, message?: string) {
+  return new ContractFunctionExecutionError(
+    new ContractFunctionRevertedError({
+      abi: snapshotProbeAbi,
+      data,
+      functionName: "frontendSnapshotV4",
+      message,
+    }),
+    {
+      abi: snapshotProbeAbi,
+      functionName: "frontendSnapshotV4",
+      args: ["0x0000000000000000000000000000000000000001"],
+    }
+  );
+}
+
+test("Somnia's generic empty revert permits legacy fallback only with absent-selector proof", () => {
+  // Exact viem error shape returned by Somnia for the deployed pre-V4 core.
+  const error = snapshotProbeError("0x", "execution reverted");
+  assert.equal((error.cause as ContractFunctionRevertedError).raw, "0x");
+  assert.equal((error.cause as ContractFunctionRevertedError).reason, "execution reverted");
+  assert.equal(isMissingSnapshotSelectorError(error), true);
+
+  const capability: SnapshotCapability = { supported: null, retryAfter: 0 };
+  assert.throws(
+    () => handleSnapshotCapabilityFailure(capability, 100, 5_000, error, false),
+    (caught) => caught === error
+  );
+  assert.equal(capability.supported, null);
+
+  handleSnapshotCapabilityFailure(capability, 100, 5_000, error, true);
+  assert.deepEqual(capability, { supported: false, retryAfter: 5_100 });
+
+  markSnapshotCapabilitySupported(capability);
+  assert.throws(
+    () => handleSnapshotCapabilityFailure(capability, 100, 5_000, error, true),
+    (caught) => caught === error
+  );
+  assert.equal(capability.supported, true);
+});
+
+test("genuine revert reasons, custom errors, nonempty data and transport errors cannot imply a missing selector", () => {
+  const errors = [
+    snapshotProbeError("0x", "request timed out"),
+    snapshotProbeError("0x", "execution reverted: RandomnessPending"),
+    snapshotProbeError(encodeErrorResult({
+      abi: [{ type: "error", name: "Error", inputs: [{ name: "reason", type: "string" }] }],
+      errorName: "Error",
+      args: ["execution reverted"],
+    })),
+    snapshotProbeError(encodeErrorResult({
+      abi: snapshotProbeAbi,
+      errorName: "RandomnessPending",
+    })),
+    snapshotProbeError("0x12345678"),
+    new Error("execution reverted"),
+    new Error("network timeout"),
+  ];
+
+  for (const error of errors) {
+    assert.equal(isMissingSnapshotSelectorError(error), false, error.message);
+  }
 });
 
 test("the V4 ABI keeps the exact nested V3 and pending-loot tuple order", () => {
