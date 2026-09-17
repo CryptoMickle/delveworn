@@ -6,6 +6,11 @@ not configured. Scores have no prizes and are not proof of a unique human.
 
 ## Production readiness
 
+Production was activated on **17 September 2026**. See
+[the release record](./PRODUCTION_RELEASE_2026-09-17.md) for the deployed version,
+namespace isolation and hosted write/read verification. The safeguards below
+still disable the feature on deployments missing their required configuration.
+
 The leaderboard is deliberately disabled in production until all of these
 private server settings exist:
 
