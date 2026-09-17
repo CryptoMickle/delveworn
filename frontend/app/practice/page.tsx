@@ -1044,7 +1044,8 @@ export default function PracticePage() {
         healAction={phase === "loot" || phase === "recovery" ? recoveryHealAction : undefined}
         safePotion={safePotion}
         shop={merchantVisit ? recoveryShop : undefined}
-        relics={recoveryActive ? relicPanels : undefined}
+        relics={!bossRewardActive ? relicPanels : undefined}
+        ownedRelicCount={game.ownedRelics.length}
         reward={reward}
         notices={continuationNotice || storageNotice || restartRequested ? notices : undefined}
         menu={<button type="button" onClick={() => setRestartRequested(true)} disabled={busy}>Start a new run</button>}

@@ -10,10 +10,21 @@
 .endless-room-reward { width:min(96vw,1060px); max-height:92dvh; padding:12px; }
 .endless-room .descent-room-heading > span { color:#cdbdac; font-size:12px; }
 .endless-room .endless-room-status { position:absolute; top:100%; left:8px; min-height:30px; padding:4px 9px; font-size:10px; }
+.endless-room-loadout { display:flex; justify-content:flex-end; margin:6px 0; }
+.endless-room button.endless-room-equipped-relic { display:flex; align-items:center; gap:9px; min-width:0; min-height:44px; padding:4px 10px; border:1px solid #796145; border-radius:8px; background:#18111f; color:#edd7b2; text-align:left; }
+.endless-room-equipped-art { flex:0 0 32px; width:32px; height:32px; }
+.endless-room-equipped-empty { display:grid; place-items:center; width:32px; color:#bda87f; }
+.endless-room-equipped-copy { display:grid; gap:1px; min-width:0; }
+.endless-room-equipped-label { color:#c6b6a5; font-size:9px; line-height:12px; letter-spacing:.07em; text-transform:uppercase; }
+.endless-room-equipped-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:17px; }
+.endless-room-equipped-link { margin-left:auto; padding-left:8px; color:#e3c18c; font-size:11px; white-space:nowrap; }
 @media(min-width:761px) {
   .endless-room .descent-mobile-sound { display:flex; align-items:center; gap:8px; min-height:44px; }
 }
 @media(max-width:760px) {
+  .endless-room .dungeon-scene-wrap:has(.endless-room-loadout) { --dungeon-loadout-track:50px; }
+  .endless-room-loadout { margin:3px 0; }
+  .endless-room button.endless-room-equipped-relic { width:100%; }
   .endless-room .endless-room-menu-button { min-height:44px; padding:6px; }
   .endless-room .endless-room-relic-button { min-height:32px; padding:4px 8px; border-radius:0; font-size:11px; }
   .endless-room .descent-practice-controls > .descent-meter { height:5px; margin-bottom:1px; }

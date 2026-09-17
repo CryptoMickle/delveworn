@@ -12,6 +12,7 @@ import { ShopKeeper, ShopVitals } from "./shop-vitals";
 import { InventoryPotions, type SafePotionAction } from "./inventory-potions";
 import { RoomParchments } from "./room-parchments";
 import { useRoomSidebar } from "./use-room-sidebar";
+import { EquippedRelicStatus } from "./equipped-relic-status";
 import "../descent/game.css";
 import "../descent/combat-panel.css";
 import "../descent/monster-reveal.css";
@@ -36,6 +37,7 @@ export type EndlessRoomProps = {
   safePotion?: SafePotionAction;
   shop?: ReactNode;
   relics?: ReactNode;
+  ownedRelicCount?: number;
   reward?: ReactNode;
   notices?: ReactNode;
   menu?: ReactNode;
@@ -47,7 +49,7 @@ export type EndlessRoomProps = {
 
 /** Only presentation and local walking. Every gameplay action belongs to its caller. */
 export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescription, maxHp, gold, potions, roomTurns,
-  incoming, combatActions, combatPotions, healAction, safePotion, shop, relics, reward, notices, menu, feedback, lootDetail, log, sound }: EndlessRoomProps) {
+  incoming, combatActions, combatPotions, healAction, safePotion, shop, relics, ownedRelicCount = 0, reward, notices, menu, feedback, lootDetail, log, sound }: EndlessRoomProps) {
   const [panel, setPanel] = useState<{ room: number; kind: "menu" | "shop" | "relics" | "log" | "status" } | null>(null);
   const sidebarControls = useRoomSidebar();
   const dialog = useRef<HTMLDialogElement>(null), rewardDialog = useRef<HTMLDialogElement>(null);
@@ -60,8 +62,13 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
     disabledReason={view.pending ? "Finish the current action first." : safePotion.disabledReason ?? (view.hp >= maxHp ? "HP is already full." : null)} /></div> : null;
   const activePanel = panel?.room === view.room && (panel.kind !== "shop" || merchantAvailable) ? panel.kind : null;
   const open = (kind: NonNullable<typeof panel>["kind"]) => setPanel({ room: view.room, kind });
-  const relicButton = recovery && relics
+  const hasRelics = view.relic !== 0 || ownedRelicCount > 0;
+  const relicButton = relics && !hasRelics
     ? <button type="button" className="dungeon-relic-menu" onClick={() => open("relics")} aria-label="Open relic collection">◆ Relics</button>
+    : null;
+  const relicStatus = relics && hasRelics
+    ? <div className="endless-room-loadout"><EquippedRelicStatus equippedRelic={view.relic}
+        ownedRelicCount={ownedRelicCount} onOpen={() => open("relics")} /></div>
     : null;
   const originalHud = <GameHud hp={view.hp} maxHp={maxHp} potions={potions} maxPotions={5} gold={gold}
     weaponLevel={view.weapon} weaponBonus={view.weapon * 2} armorLevel={view.armor}
@@ -114,7 +121,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
   const top = <div className="descent-mobile-top">
     <div className="descent-mobile-topbar"><button className="endless-room-menu-button" onClick={() => open("menu")} aria-label="Open game menu">☰ Menu</button><div className="descent-mobile-room"><strong>Room {view.room}</strong><span>Tier {tier} · {view.phase === "loot" ? "LOOT DROPPED" : view.enemyHp === 0 ? "CLEARED" : view.enemyName}</span></div><div className="dungeon-header-actions">{relicButton}{soundButton}</div></div>
     <div className="descent-mobile-progress" role="progressbar" aria-label={`Progress to boss room ${tier * 10}`} aria-valuemin={0} aria-valuemax={10} aria-valuenow={inTier}><span style={{ width: `${inTier * 10}%` }} /></div>
-    <div className="dungeon-original-hud">{originalHud}</div><DescentEnemyStatus name={view.enemyName} hp={view.enemyHp} maxHp={enemyMaxHp} incoming={incoming} isBoss={view.enemy === 3} />
+    <div className="dungeon-original-hud">{originalHud}</div>{relicStatus}<DescentEnemyStatus name={view.enemyName} hp={view.enemyHp} maxHp={enemyMaxHp} incoming={incoming} isBoss={view.enemy === 3} />
     {notices && <button className="endless-room-status" onClick={() => open("status")}>Run status · view details</button>}
   </div>;
   const footer = <div className="descent-mobile-footer">
@@ -125,7 +132,7 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
 
   return <section className="descent-shell endless-room" data-descent-phase={view.phase} data-game-mode={mode} data-room={view.room}>
     <header className="descent-header"><GameLogo /><span className="descent-edition">{mode === "practice" ? "ENDLESS PRACTICE" : "ONCHAIN DUNGEON"}</span><button onClick={() => open("menu")}>Menu</button>{relicButton}{soundButton}</header>
-    <div className="dungeon-desktop-status dungeon-original-hud">{originalHud}</div>
+    <div className="dungeon-desktop-status dungeon-original-hud">{originalHud}{relicStatus}</div>
     <div className="descent-room-heading"><div><p className="descent-kicker">{mode === "practice" ? "PRACTICE" : "ONCHAIN"} · TIER {tier}</p><h1>Room {view.room} · {view.enemyName}</h1></div><span>Next boss: room {tier * 10}</span></div>
     <div className="descent-layout"><div className="descent-world">
       <DungeonScene key={`${view.seed ?? 0}:${view.room}`} view={view}
@@ -142,11 +149,10 @@ export function EndlessRoom({ mode, view, actions, enemyMaxHp, monsterDescriptio
       {notices && <section className="descent-notice">{notices}</section>}
       {merchantAvailable && <section className="descent-merchant"><h2>Kevin is here.</h2><p>Walk over to his side of the room to trade.</p></section>}
       {recoveryPotion}
-      {!recovery && relics && <button className="endless-room-relic-button" onClick={() => open("relics")}>View relic collection</button>}
     </aside></div>
     <dialog ref={dialog} className="descent-log-dialog endless-room-dialog" aria-label={activePanel ? titleByPanel[activePanel] : "Dungeon panel"} onClose={() => setPanel(null)} onCancel={() => setPanel(null)}>
       <header><h2>{activePanel ? titleByPanel[activePanel] : "Dungeon panel"}</h2><button autoFocus onClick={() => setPanel(null)} aria-label={activePanel ? `Close ${titleByPanel[activePanel]}` : "Close panel"}>Close</button></header>
-      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use WASD to walk. Use the arrow keys to choose room and combat actions, then press Enter. Between rooms, Relics opens your collection.</p>{safeHealing && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
+      {activePanel === "menu" && <div><p>{mode === "practice" ? "Endless Practice" : "Onchain dungeon"} · Room {view.room}</p><p>Tap the floor or use WASD to walk. Use the arrow keys to choose room and combat actions, then press Enter. You can inspect relics at any time and change them between rooms.</p>{relics && <button type="button" className="endless-room-relic-button" onClick={() => open("relics")}>View relic collection</button>}{safeHealing && healAction && <div className="dungeon-menu-heal">{healAction}</div>}{menu}{notices}<Link href="/">All modes</Link></div>}
       {activePanel === "shop" && <div><ShopVitals hp={view.hp} maxHp={maxHp} gold={gold} potions={potions} weapon={view.weapon} armor={view.armor} /><ShopKeeper camp={view.room % 10 === 9} />{notices}{shop}</div>}
       {activePanel === "relics" && <div>{notices}{relics}</div>}
       {activePanel === "status" && notices}

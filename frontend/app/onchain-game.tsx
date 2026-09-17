@@ -10447,6 +10447,7 @@ function DelvewornGame() {
         } : undefined}
         shop={recoveryShop}
         relics={recoveryRelics}
+        ownedRelicCount={player.ownedRelics.length}
         reward={activeRoomReward}
         notices={activeRoomNotices}
         menu={activeRoomMenu}

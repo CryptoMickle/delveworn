@@ -110,6 +110,7 @@ test("an empty Practice save imports Room 11 once and keeps the earned state", (
   assert.equal(result.game.weaponLevel, handoff.game.weaponLevel);
   assert.equal(result.game.armorLevel, handoff.game.armorLevel);
   assert.deepEqual(result.game.ownedRelics, handoff.game.ownedRelics);
+  assert.equal(result.game.equippedRelic, handoff.game.equippedRelic);
   assert.equal(result.grid.engaged, false);
   assert.equal(result.grid.pendingLoot, null);
   assert.ok(encounterDraws > 0);
@@ -121,6 +122,46 @@ test("an empty Practice save imports Room 11 once and keeps the earned state", (
     assert.equal(stored.importedFrom?.sourceRunId, handoff.sourceRunId);
     assert.equal(stored.game.monsterHp, result.game.monsterHp);
   }
+});
+
+test("an equipped Weekly relic stays equipped in Room 11 and after Practice restore", () => {
+  const storage = new MemoryStorage();
+  const relicCounts = Array(16).fill(0);
+  relicCounts[9] = 1;
+  const source = {
+    ...completedDescent({
+      game: {
+        ...completedDescent().game,
+        ownedRelics: [9],
+        relicCounts,
+        equippedRelic: 9,
+        log: ["◆ Tempest Coil acquired and equipped."],
+      },
+    }),
+    weekly: { challengeId: "2026-W38", rulesVersion: 2 as const, actions: [] },
+  };
+  const handoff = createPracticeHandoff(source);
+  assert.ok(handoff);
+  assert.deepEqual(handoff.sourceWeekly, { challengeId: "2026-W38", rulesVersion: 2 });
+  assert.equal(handoff.game.equippedRelic, 9);
+
+  const continued = acceptPracticeHandoff(storage, handoff, () => 0, () => 0x11);
+  assert.equal(continued.status, "imported");
+  if (continued.status !== "imported") return;
+  assert.equal(continued.game.roomsCleared, 10);
+  assert.ok(continued.game.monsterHp > 0, "Room 11 encounter was created");
+  assert.deepEqual(continued.game.ownedRelics, [9]);
+  assert.equal(continued.game.relicCounts[9], 1);
+  assert.equal(continued.game.equippedRelic, 9);
+
+  const restored = inspectPracticeRun(storage);
+  assert.equal(restored.status, "restored");
+  if (restored.status !== "restored") return;
+  assert.equal(restored.game.roomsCleared, 10);
+  assert.deepEqual(restored.game.ownedRelics, [9]);
+  assert.equal(restored.game.relicCounts[9], 1);
+  assert.equal(restored.game.equippedRelic, 9);
+  assert.equal(restored.importedFrom?.sourceRunId, source.runId);
 });
 
 test("a repeated handoff resumes advanced Practice instead of regenerating Room 11", () => {

@@ -57,9 +57,12 @@ export function getEnemyArt(type: MonsterType, room = 1): DungeonEnemyArt {
 
 export const EnemySprite = memo(function EnemySprite({ type, room = 1, className }: { type: MonsterType; room?: number; className?: string }) {
   const id = useId(), art = getEnemyArt(type,room);
+  if (art.sprite) return <svg className={className} viewBox={art.sprite.crop} aria-hidden="true">
+    <image href={art.sprite.src} width={art.sprite.width} height={art.sprite.height} />
+  </svg>;
   return <svg className={className} viewBox={art.crop} aria-hidden="true">
-    <defs><clipPath id={id}>{[art.outline,art.spriteOutline].filter(Boolean).flatMap(outline => outline!.split(/(?=M)/)).map((contour,index) => <path key={index} d={contour} />)}</clipPath></defs>
-    <image href={art.spriteSrc ?? art.src} width={art.width} height={art.height} clipPath={`url(#${id})`} />
+    <defs><clipPath id={id}>{art.outline.split(/(?=M)/).map((contour,index) => <path key={index} d={contour} />)}</clipPath></defs>
+    <image href={art.src} width={art.width} height={art.height} clipPath={`url(#${id})`} />
   </svg>;
 });
 
@@ -145,7 +148,7 @@ export function roomFloorLootPoint(seed: number, room: number,
 export function roomFloorTarget(point: Point, cleared: boolean, enemy: MonsterType, lootPoint?: Point, merchantPoint?: Point, room = 1, merchantBounds?: RoomMerchantBounds): { point: Point; destination?: "enemy" | "door" | "loot" | "merchant" } {
   const door = inDoorLane(point) && point.y <= 130;
   const art=getEnemyArt(enemy,room), enemyScale=roomEnemyScale(art.roomHeight,merchantBounds);
-  const [, , cropWidth,cropHeight]=art.crop.split(" ").map(Number);
+  const [, , cropWidth,cropHeight]=(art.sprite?.crop ?? art.crop).split(" ").map(Number);
   const guard = Math.abs(point.x - GUARD.x) < Math.max(90,art.roomHeight*cropWidth/cropHeight*enemyScale/2)
     && point.y >= GUARD.y - art.roomHeight*enemyScale - 15 && point.y <= GUARD.y + 25;
   if (!cleared && (door || guard)) return { point: STAGING, destination: "enemy" };
@@ -236,7 +239,7 @@ export function DungeonScene({ view, actions, children, topOverlay, footer, pres
   const art = getEnemyArt(view.enemy,view.room), spriteHeight = art.roomHeight;
   const characterScale=camera.characterScale ?? camera.actorScale;
   const enemyScale=roomEnemyScale(spriteHeight,camera);
-  const [, , cropWidth, cropHeight] = art.crop.split(" ").map(Number);
+  const [, , cropWidth, cropHeight] = (art.sprite?.crop ?? art.crop).split(" ").map(Number);
   const spriteWidth = spriteHeight * cropWidth / cropHeight;
   const impact = { x: GUARD.x, y: GUARD.y - spriteHeight * enemyScale * .55 };
   const damageLabelY=Math.max(camera.characterScale === undefined ? -Infinity : 42,GUARD.y-spriteHeight*enemyScale-12);

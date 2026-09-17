@@ -62,7 +62,7 @@
   .dungeon-floor-controls { bottom:27px; }
   .dungeon-controls-help { font-size:9px; bottom:6px; }
   .dungeon-scene-wrap.has-room-hud {
-    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 141px);
+    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 141px + var(--dungeon-loadout-track,0px));
     --dungeon-controls-track:calc(200px + env(safe-area-inset-bottom));
     display:grid;
     grid-template-rows:var(--dungeon-hud-track) minmax(0,1fr) var(--dungeon-controls-track);
@@ -73,7 +73,7 @@
     background-size:cover;
   }
   .dungeon-scene-wrap.has-room-hud:has(.descent-mobile-notice) {
-    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 195px);
+    --dungeon-hud-track:calc(max(4px,env(safe-area-inset-top)) + 195px + var(--dungeon-loadout-track,0px));
   }
   .has-room-hud > .dungeon-scene-presentation { inset:var(--dungeon-hud-track) 0 var(--dungeon-controls-track); height:auto; aspect-ratio:auto; }
   .has-room-hud > .dungeon-scene-top-overlay { display:block; position:relative; min-width:0; min-height:0; z-index:5; }

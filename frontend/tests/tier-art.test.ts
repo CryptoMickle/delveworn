@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
 import { HIGHER_TIER_ART, type DungeonEnemyArt } from "../app/dungeon/tier-art";
-import { getEnemyArt } from "../app/dungeon/scene";
+import { EnemySprite, getEnemyArt } from "../app/dungeon/scene";
 import type { MonsterType } from "../app/practice/engine";
 
 const expected = {
@@ -82,19 +84,40 @@ test("manual crops and outlines stay inside each source without falling back to 
   }
 });
 
-test("Gary's Supervisor keeps the repaired crown inside a transparent room sprite", async () => {
-  const supervisor=HIGHER_TIER_ART[1][2];
-  assert.equal(supervisor.spriteSrc,"/monsters/goblin-4-garys-supervisor-crown-fixed.webp");
-  const sprite=sharp(`public${supervisor.spriteSrc}`);
-  const metadata=await sprite.metadata(), stats=await sprite.stats();
-  assert.deepEqual([metadata.width,metadata.height],[supervisor.width,supervisor.height]);
-  assert.equal(metadata.hasAlpha,true);
-  assert.equal(stats.isOpaque,false,"the repaired crown cannot reveal a painted background around the cutout");
-  assert.match(supervisor.spriteOutline ?? "",/^M/);
-  const values=[...(supervisor.spriteOutline ?? "").matchAll(/-?\d+(?:\.\d+)?/g)].map(match=>Number(match[0]));
-  const points=Array.from({length:values.length/2},(_,index)=>({x:values[index*2],y:values[index*2+1]}));
-  assert.ok(Math.min(...points.map(point=>point.y)) === 0,"the completed crown reaches its natural top without a flat cutoff");
-  assert.ok(Math.min(...points.map(point=>point.x)) >= 17 && Math.max(...points.map(point=>point.x)) <= 757);
+test("Gary's Supervisor has transparent space around the complete room sprite", async () => {
+  const sprite = HIGHER_TIER_ART[1][2].sprite;
+  assert.ok(sprite);
+  assert.equal(sprite.src, "/monsters/goblin-4-garys-supervisor-sprite-v2.webp");
+  const image = sharp(`public${sprite.src}`);
+  const metadata = await image.metadata();
+  assert.deepEqual([metadata.width, metadata.height], [sprite.width, sprite.height]);
+  assert.equal(metadata.hasAlpha, true);
+
+  const [left, top, width, height] = sprite.crop.split(" ").map(Number);
+  const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let visiblePixels = 0;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      const alpha = data[(y * info.width + x) * info.channels + info.channels - 1];
+      // Decoded WebP can retain a single alpha quantum in otherwise empty pixels.
+      if (alpha <= 1) continue;
+      visiblePixels++;
+      assert.ok(x >= left + 6 && x < left + width - 6 && y >= top + 6 && y < top + height - 6,
+        "the complete figure, including the crown, must fit inside the crop with a transparent margin");
+    }
+  }
+  assert.ok(visiblePixels > 0, "the sprite cannot be empty");
+});
+
+test("the repaired Supervisor uses its own frame without the old crown mask", () => {
+  const markup = renderToStaticMarkup(createElement(EnemySprite, { type: 1, room: 31 }));
+  assert.match(markup, /viewBox="240 80 1226 746"/);
+  assert.match(markup, /href="\/monsters\/goblin-4-garys-supervisor-sprite-v2.webp" width="1672" height="941"/);
+  assert.doesNotMatch(markup, /clipPath|clip-path|crown-fixed/);
+
+  const original = renderToStaticMarkup(createElement(EnemySprite, { type: 1, room: 1 }));
+  assert.match(original, /href="\/monsters\/goblin-1-gary.webp"/);
+  assert.match(original, /clip-path="url\(/);
 });
 
 // These are perceived progression guarantees, independent of individual art sizes.
