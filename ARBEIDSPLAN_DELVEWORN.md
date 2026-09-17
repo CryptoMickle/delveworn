@@ -4,8 +4,10 @@ Dato: 17. september 2026. Opprinnelig utgangspunkt: lokal revisjon `8b8b3f2`.
 
 **Seneste oppfølging:** 270 frontendtester, 152 kontrakttester og 5 tester
 mot ekte Redis består. Somnia V4 pending loot er implementert lokalt med
-frontend-støtte; live-adressen er uendret. Upstash via Vercel er valgt for
-preview. Se [oppfølgingsrapporten](./LEVERANSE_OPPFOLGING_2026-09-17.md) for
+frontend-støtte; live-adressen er uendret. Upstash via Vercel er aktiv på
+gratisplan i preview, og faktisk innsending/gjenlesing er kontrollert.
+Frontend CI, Redis-integrasjon og Contracts CI er grønne.
+Se [oppfølgingsrapporten](./LEVERANSE_OPPFOLGING_2026-09-17.md) for
 aktiveringsstatus, lesende Somnia-kontroll og gjenstående produksjonsgrenser.
 Testantall og leveransestatus under beskriver det opprinnelige `cfff2eb`-
 kontrollpunktet med mindre annet er oppgitt.

@@ -68,10 +68,33 @@ Se [preflight med blokknummer og nøyaktige funn](./SOMNIA_READONLY_PREFLIGHT_20
 
 ## Aktivering og begrensninger
 
-Databaseløsningen er valgt og godkjent av brukeren: Upstash Redis via Vercel,
-gratisplan, IAD1, kun Preview, uten automatisk betalt oppgradering. Vercels
-separate vilkårsgodkjenning må fullføres før ressursen kan opprettes.
-Faktisk hosted aktivering og remote CI rapporteres etter gjennomføring.
+Upstash Redis er nå opprettet via Vercel etter uttrykkelig godkjenning, også
+av Marketplace-vilkårene. `delveworn-weekly-preview` bruker gratisplan i IAD1,
+med bare `delveworn-app (preview)` tilkoblet. Opprettelsen slo av automatisk
+oppgradering, Prod Pack og eviction. Privat cookie-secret og REST-tilkobling
+er konfigurert på serveren. Produksjonsinnstillingene er uendret.
+
+Hosted kontroll mot faktisk Redis/Vercel bestod alle disse sjekkene:
+
+- tom uke og arkiv kan leses;
+- første verifiserte innsending lagres, gjentakelse beholder samme oppføring;
+- bedre score erstatter den gamle og kan leses i en senere forespørsel;
+- bevis og hemmelig gjeste-ID utleveres ikke i offentlig svar;
+- historisk innsending, ugyldig bevis og feil Origin avvises.
+
+Testoppføringen **Preview QA** ble forbedret fra **50 840** til **107 190**
+poeng. Nettleseren viser én rad på førsteplass, 10/10 rom. Dette er en merket,
+intern automatisk test, ikke et resultat fra en ekstern spiller.
+
+Kode `b9820dd` har bestått [alle fire Frontend CI-jobber](https://github.com/CryptoMickle/delveworn/actions/runs/35204628725)
+og [Contracts CI](https://github.com/CryptoMickle/delveworn/actions/runs/35204628841).
+Alle tre tilknyttede Vercel-previewbygg var grønne. Databasetesten og den siste
+nettleserkontrollen brukte `delveworn-app`, deploy
+`dpl_BUPBBDSNbr9Yw7FWwUREWA8buLqN`, med samme kode og ny databasekonfigurasjon.
+
+[Åpne preview](https://delveworn-app-git-feat-phase-1-dungeon-slice-crypto-mickle.vercel.app)
+eller [topplisten for uke 38](https://delveworn-app-git-feat-phase-1-dungeon-slice-crypto-mickle.vercel.app/challenge/2026-W38/leaderboard).
+En senere dokumentasjonsoppdatering endrer ikke den testede spillkoden.
 
 Full V4-paritet på Somnia krever senere uttrykkelig godkjent deploy av både
 ny core og ny adapter, avklaring av gamle forespørsler/aktive runs og en

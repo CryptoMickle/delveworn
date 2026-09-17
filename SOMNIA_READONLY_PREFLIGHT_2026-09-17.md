@@ -1,7 +1,9 @@
 # Somnia Shannon read-only readiness preflight
 
-Date: 2026-09-17  
-Scope: existing public Somnia Shannon deployment only  
+Date: 2026-09-17
+
+Scope: existing public Somnia Shannon deployment only
+
 Result: **topology and static configuration pass; historical pending-request state remains unproven**
 
 ## Safety boundary

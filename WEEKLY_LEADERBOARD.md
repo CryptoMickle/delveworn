@@ -112,11 +112,20 @@ The provider currently lists a $0 plan with 256 MB and 500,000
 commands/month; paid tiers must not be selected automatically.
 [Provider pricing](https://upstash.com/pricing/redis).
 
-The reviewed creation request explicitly sets `autoUpgrade=false`,
-`prodPack=false`, and `eviction=false`. Vercel requires separate Marketplace
-terms acceptance before creation; that step is pending. No integration or
-database has yet been created. Once accepted, retry that same creation request,
-connect only Preview, then redeploy and check empty/current/archive reads,
-first submission, retries and best-score updates against the hosted service.
+The creation request explicitly set `autoUpgrade=false`, `prodPack=false`, and
+`eviction=false`. The user explicitly approved the Marketplace terms and
+Vercel confirmed acceptance. Resource `store_g9zwhkHsqaGyrwEK` is now available,
+with plan `free` and only `delveworn-app (preview)` connected. Vercel's resource
+page also confirms IAD1 and eviction disabled. REST credentials were installed
+by the integration as server environment variables; none are public variables.
+
+Hosted verification passed on deployment `dpl_BUPBBDSNbr9Yw7FWwUREWA8buLqN`
+(code `b9820dd`): empty/current/archive reads, a verified first submission,
+retention on retry, replacement by a better result, durable re-read, private
+proof/guest-ID omission, rejected archive writes, invalid proofs and wrong
+origins. The labelled `Preview QA` row improved from 50,840 to 107,190 and is
+visible in the preview browser. It is an automated internal test result, not an
+external player or a user-test outcome.
+
 Production remains a separate activation. Do not put credentials in public
 variables, Git, reports, logs or chat.
