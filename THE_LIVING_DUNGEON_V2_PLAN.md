@@ -1,5 +1,8 @@
 # The Living Dungeon V2 — Oaths & Echoes
 
+This is the immediate delivery roadmap. The broader product direction is in
+[The Living Dungeon — Master Plan](THE_LIVING_DUNGEON_MASTER_PLAN.md).
+
 ## Product decision
 
 The next version should evolve The Living Dungeon from a pact prototype into a
