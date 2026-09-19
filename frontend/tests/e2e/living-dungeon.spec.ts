@@ -9,10 +9,21 @@ import { LIVING_DUNGEON_SAVE_KEY, isLivingDungeon } from "../../app/living-dunge
 
 const initialRun = () => createLivingDungeon(12_345, "living-e2e", "ai");
 
+const PROTECTION_SUGGESTION = "Protect me from the boss's first hit; I won't use Storm.";
+
 function apply(run: LivingDungeon, command: LivingDungeonCommand): LivingDungeon {
   const next = transitionLivingDungeon(run, command, run.revision);
   if (next === run) throw new Error(`Living Dungeon fixture rejected ${command.type} during ${run.roomId}/${run.phase}`);
   return next;
+}
+
+function pactRoomFixture(): LivingDungeon {
+  let run = initialRun();
+  run = apply(run, { type: "engage" });
+  while (run.phase === "combat") run = apply(run, { type: "attack" });
+  run = apply(run, { type: "continue" });
+  if (run.roomId !== "pact-room" || run.phase !== "pact") throw new Error("Pact fixture did not reach the Pact Room");
+  return run;
 }
 
 function bossFixture(): LivingDungeon {
@@ -93,10 +104,66 @@ test("home introduces the experiment and opens its separate local run", async ({
   const mode = page.getByRole("button", { name: "The Living Dungeon · Experimental", exact: true });
   await mode.click();
   await expect(mode).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "Make a promise. See who remembers." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tell the dungeon your plan. Survive what it understands." })).toBeVisible();
   await page.getByRole("button", { name: "ENTER THE LIVING DUNGEON", exact: true }).click();
-  await expect(page).toHaveURL(/\/living-dungeon$/);
+  await expect(page).toHaveURL(/\/living-dungeon\?entry=home$/);
   await expect(page.getByRole("button", { name: /Approach Grave Attendant/ })).toBeVisible();
+});
+
+test("the Pact Keeper turns a natural-language request into a reviewable exact rule", async ({ page }) => {
+  await page.route("**/api/living-dungeon/interpret", async route => {
+    const request = route.request().postDataJSON() as { runRevision: number; stateDigest: string; offerSeed: number };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "interpreted",
+        source: "ai",
+        intent: {
+          desiredBoon: "DEFENSE",
+          offeredSacrifice: "NO_STORM",
+          durationPreference: "UNTIL_BOSS",
+          breachTolerance: "HIGH",
+          needsClarification: false,
+        },
+        binding: {
+          runRevision: request.runRevision,
+          stateDigest: request.stateDigest,
+          offerSeed: request.offerSeed,
+        },
+      }),
+    });
+  });
+  await seed(page, pactRoomFixture());
+
+  await expect(page.getByRole("heading", { name: "Speak your bargain. Check the rule." })).toBeVisible();
+  await expect(page.getByText("I can change one rule until the boss falls.")).toBeVisible();
+
+  const composer = page.getByRole("textbox", { name: "What do you want to try?" });
+  await page.getByRole("button", { name: PROTECTION_SUGGESTION }).click();
+  await expect(composer).toHaveValue(PROTECTION_SUGGESTION);
+  await expect(composer).toBeFocused();
+
+  await composer.press("Shift+Enter");
+  await expect(composer).toHaveValue(`${PROTECTION_SUGGESTION}\n`);
+  await composer.press("Enter");
+
+  const rule = page.locator(".living-exact-rule");
+  await expect(rule).toBeVisible();
+  await expect(rule).toContainText("PACT OFFER · EXACT GAME RULE");
+  await expect(rule).toContainText("Do not use Storm");
+  await expect(page.getByRole("list", { name: "Conversation with the Pact Keeper" }).getByText(PROTECTION_SUGGESTION, { exact: true })).toBeVisible();
+
+  await rule.getByRole("button", { name: "CHANGE MY REQUEST" }).click();
+  await expect(composer).toBeFocused();
+  await expect(composer).toHaveValue(`${PROTECTION_SUGGESTION}\n`);
+
+  await rule.getByRole("button", { name: "SEE EVERY POSSIBLE PACT" }).click();
+  const readyMade = page.getByRole("region", { name: "Build the pact yourself" });
+  await expect(readyMade).toBeVisible();
+  await expect(readyMade.getByRole("button", { name: /A ward for a silent storm/ })).toBeVisible();
+  await expect(readyMade.getByRole("button", { name: /Power carried through pain/ })).toBeVisible();
+  await expect(readyMade.getByRole("button", { name: /Mercy beyond the empty stall/ })).toBeVisible();
 });
 
 test("arrow selection and Enter use the same guarded room and combat actions", async ({ page, isMobile }) => {
@@ -140,15 +207,14 @@ test("menu fallback completes all six scenes and a forbidden action warns before
   await enterThrough(page, /Approach Grave Attendant/, /^⚡ STORM/);
   await resolveCombat(page);
   await page.getByRole("button", { name: /Enter room 2/ }).click();
-  await expect(page.getByRole("heading", { name: "Shape the rule you must survive" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Speak your bargain. Check the rule." })).toBeVisible();
 
-  await page.getByRole("button", { name: "More protection" }).click();
-  await page.getByRole("button", { name: "PROPOSE PACT" }).click();
-  await expect(page.getByText("Interpretation is unavailable, so every legal written option is ready below.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Choose clear terms" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: PROTECTION_SUGGESTION }).click();
+  await page.getByRole("textbox", { name: "What do you want to try?" }).press("Enter");
+  await expect(page.getByText("The Keeper could not shape that request right now. Your words are still here, and every legal pact is available below.")).toBeVisible();
   await page.getByRole("button", { name: /A ward for a silent storm/ }).click();
-  await expect(page.getByRole("region", { name: "Pact terms preview" })).toContainText("Do not use Storm");
-  await page.getByRole("button", { name: "ACCEPT THESE TERMS" }).click();
+  await expect(page.locator(".living-exact-rule")).toContainText("Do not use Storm");
+  await page.getByRole("button", { name: "ACCEPT PACT" }).click();
 
   await enterThrough(page, /Approach Oath Hound/, /^⚡ STORM/);
   const enemyBeforeWarning = await page.locator(".living-enemy-status [role='progressbar']").getAttribute("aria-valuenow");
@@ -175,7 +241,18 @@ test("menu fallback completes all six scenes and a forbidden action warns before
   await enterThrough(page, /Approach Keeper of Conclusions/, /^⚡ STORM/);
   await resolveCombat(page);
   await expect(page.getByRole("heading", { name: "The dungeon heard you." })).toBeVisible();
-  await expect(page.getByText("You reached the end without breaking the promise you chose.")).toBeVisible();
+  await expect(page.getByText("You kept the promise through the final fight.")).toBeVisible();
+});
+
+test("the pact composer remains usable without horizontal overflow on a phone", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "This assertion targets the compact phone conversation shell.");
+  await seed(page, pactRoomFixture());
+
+  const composer = page.getByRole("textbox", { name: "What do you want to try?" });
+  await expect(composer).toBeVisible();
+  const fontSize = await composer.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
+  expect(fontSize).toBeGreaterThanOrEqual(16);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
 
 test("the boss preparation clue remains readable on a phone without covering the room", async ({ page, isMobile }) => {

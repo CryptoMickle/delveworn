@@ -138,6 +138,7 @@ test("the OpenAI request is stateless, tool-free, and constrained to eligible en
   assert.deepEqual(text.format.schema.properties.desiredBoon.enum, ["DEFENSE", "DAMAGE"]);
   assert.deepEqual(text.format.schema.properties.offeredSacrifice.enum, ["NO_STORM", "NO_CAMP_PURCHASE"]);
   assert.match(livingDungeonAiInternals.instructions, /untrusted game data/);
+  assert.match(livingDungeonAiInternals.instructions, /Norwegian and English equally/);
 });
 
 test("disabled or unconfigured AI returns the deterministic menu fallback without calling a provider", async () => {

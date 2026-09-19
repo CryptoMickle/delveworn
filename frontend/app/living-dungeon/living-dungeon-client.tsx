@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DesktopNavigation, KeyboardHint } from "../desktop-navigation";
 import { exclusiveSave } from "../descent/save-lock";
 import { DungeonScene, type RoomView, type SceneCue } from "../dungeon/scene";
@@ -9,29 +9,24 @@ import { MonsterFieldNotes } from "../dungeon/room-parchments";
 import { GameLogo } from "../game-logo";
 import { CombatActionDock, GameHud } from "../game-ui";
 import { useGameAudio } from "../use-game-audio";
+import { trackLivingDungeon, type LivingDungeonPactOutcome } from "./analytics";
 import {
   availableLivingDungeonActions,
   bossPreparationClue,
   createLivingDungeon,
   LIVING_DUNGEON_MAX_POTIONS,
   livingDungeonCombatPreview,
-  livingDungeonPactEligibility,
   transitionLivingDungeon,
 } from "./engine";
+import { PactRoom } from "./components/pact-room";
+import { explainPact } from "./pact-engine";
 import {
-  LIVING_DUNGEON_PROPOSAL_MAX_CHARACTERS,
-  type InterpretPactIntentReply,
-  type InterpretPactIntentRequest,
-} from "./ai-contract";
-import { PACT_RESTRICTIONS } from "./pact-catalogue";
-import { eligibleSacrifices } from "./pact-catalogue";
-import { explainPact, pactEligibilityDigest } from "./pact-engine";
-import {
-  PACT_DESIRED_BOONS,
-  type PactDesiredBoon,
-  type PactIntent,
-  type PactSacrifice,
-} from "./pact-schema";
+  activePromiseSummary,
+  bossPreparationExplanation,
+  bossPreparationLabel,
+  pactActionWarning,
+  witnessBeliefSummary,
+} from "./presentation";
 import {
   LIVING_DUNGEON_ROOMS,
   currentLivingDungeonRoom,
@@ -72,30 +67,6 @@ const ENEMY_PRESENTATION: Record<LivingDungeonEnemyId, {
   },
 };
 
-const BOON_LABELS: Record<PactDesiredBoon, string> = {
-  DEFENSE: "Protection from the boss's first reply",
-  DAMAGE: "More damage at the start of the boss fight",
-  ENTRY_HEAL: "Healing when the boss room opens",
-};
-
-const STANDARD_INTENTS: readonly { title: string; detail: string; intent: PactIntent }[] = [
-  {
-    title: "A ward for a silent storm",
-    detail: "Give up Storm until the boss in exchange for protection from its first retaliation.",
-    intent: { desiredBoon: "DEFENSE", offeredSacrifice: "NO_STORM", durationPreference: "UNTIL_BOSS", breachTolerance: "HIGH", needsClarification: false },
-  },
-  {
-    title: "Power carried through pain",
-    detail: "Give up voluntary healing in exchange for a stronger opening against the boss.",
-    intent: { desiredBoon: "DAMAGE", offeredSacrifice: "NO_VOLUNTARY_HEALING", durationPreference: "UNTIL_BOSS", breachTolerance: "HIGH", needsClarification: false },
-  },
-  {
-    title: "Mercy beyond the empty stall",
-    detail: "Buy nothing at camp in exchange for healing when you enter the boss room.",
-    intent: { desiredBoon: "ENTRY_HEAL", offeredSacrifice: "NO_CAMP_PURCHASE", durationPreference: "UNTIL_BOSS", breachTolerance: "HIGH", needsClarification: false },
-  },
-];
-
 type StorageNotice = "restored" | "session" | "invalid" | "unavailable" | "busy" | "conflict" | null;
 type LastExchange = { dealt: number; taken: number; critical: boolean };
 
@@ -116,8 +87,11 @@ function newRunIdentity(): { seed: number; runId: string } {
   return { seed, runId };
 }
 
-function offerSeed(run: LivingDungeon, offset = 0): number {
-  return (run.seed ^ Math.imul(run.revision + 1 + offset, 0x45d9f3b)) >>> 0;
+function pactOutcome(run: LivingDungeon): LivingDungeonPactOutcome {
+  if (!run.pact) return run.facts.some(fact => fact.type === "PACT_DECLINED") ? "declined" : "none";
+  if (run.pact.status === "BREACHED") return "broken";
+  if (run.pact.status === "COMPLETED") return "kept";
+  return "none";
 }
 
 function actionCopy(run: LivingDungeon): { title: string; detail: string } {
@@ -169,12 +143,7 @@ function MobileHud({ run, sound, onLog }: {
   onLog: () => void;
 }) {
   const room = currentLivingDungeonRoom(run);
-  const pact = run.pact ? explainPact(run.pact) : null;
-  const pactStatusLabel = run.pact?.status === "BREACHED"
-    ? "Broken pact"
-    : run.pact?.status === "COMPLETED"
-      ? "Fulfilled pact"
-      : "Active pact";
+  const promise = activePromiseSummary(run.pact);
   const soundLabel = !sound.available ? "Sound unavailable" : sound.enabled ? "Mute sound" : "Enable sound";
   return <div className="living-mobile-hud">
     <div className="living-mobile-top">
@@ -188,8 +157,8 @@ function MobileHud({ run, sound, onLog }: {
       <span>GOLD<strong>● {run.player.gold}</strong></span>
       <span>SCENE<strong>{run.stageIndex + 1}/6</strong></span>
     </div>
-    <div className="living-mobile-pact">{pact ? `${pactStatusLabel}: ${pact.restriction}` : "No active pact"}</div>
-    {run.roomId === "boss" && <div className="living-mobile-clue"><strong>CLUE</strong> {bossPreparationClue(run.bossPreparation)}</div>}
+    <div className="living-mobile-pact">{promise ?? "NO PACT"}</div>
+    {run.roomId === "boss" && <details className="living-mobile-clue"><summary><strong>WHY THE BOSS PREPARED</strong> {bossPreparationLabel(run.bossPreparation)}</summary><p>{bossPreparationClue(run.bossPreparation)}</p><p>{bossPreparationExplanation(run)}</p></details>}
   </div>;
 }
 
@@ -206,168 +175,24 @@ function EnemyStatus({ run, retaliation }: { run: LivingDungeon; retaliation: re
 }
 
 function PactStatus({ run }: { run: LivingDungeon }) {
-  if (!run.pact) return <section className="living-card living-pact-status"><p className="living-card-kicker">PACT</p><h3>No terms accepted</h3><p className="living-card-copy">The dungeon currently has only the usual ways to disappoint you.</p></section>;
+  if (!run.pact) return <section className="living-card living-pact-status"><p className="living-card-kicker">YOUR PROMISE</p><h3>No pact accepted</h3><p className="living-card-copy">No action is restricted, and no pact boon is active.</p></section>;
   const card = explainPact(run.pact);
   return <section className="living-card living-pact-status" data-state={run.pact.status.toLocaleLowerCase("en")}>
-    <p className="living-card-kicker">{run.pact.status === "ACTIVE" ? "ACTIVE PACT" : run.pact.status === "BREACHED" ? "BROKEN PACT" : "PACT FULFILLED"}</p>
+    <p className="living-card-kicker">{run.pact.status === "ACTIVE" ? "YOUR ACTIVE PROMISE" : run.pact.status === "BREACHED" ? "PROMISE BROKEN" : "PROMISE KEPT"}</p>
     <h3>{card.title}</h3>
-    <dl><dt>Promise</dt><dd>{card.restriction}</dd><dt>Boon</dt><dd>{run.pact.status === "BREACHED" ? "Forfeited." : card.benefit}</dd>{run.pact.status === "BREACHED" && <><dt>Debt</dt><dd>The boss gained 20 current and maximum HP.</dd></>}</dl>
-  </section>;
-}
-
-function RuleCard({ run, children }: { run: LivingDungeon; children?: ReactNode }) {
-  const offer = run.pendingOffer;
-  if (!offer) return <section className="living-offer-card" aria-label="Pact terms preview">
-    <p className="living-card-kicker">RULE CARD</p><h3>No offer drafted yet</h3>
-    <div className="living-rule-list"><div><span>Authority</span><p>Your words can request an exchange. The rules engine writes the actual terms.</p></div><div><span>Before acceptance</span><p>You will see the exact benefit, restriction, duration and breach consequence here.</p></div></div>
-  </section>;
-  const card = explainPact(offer);
-  return <section className="living-offer-card" aria-label="Pact terms preview">
-    <p className="living-card-kicker">PROPOSED TERMS</p><h3>{card.title}</h3>
-    <div className="living-rule-list">
-      <div><span>Benefit</span><p>{card.benefit}</p></div>
-      <div><span>Restriction</span><p>{card.restriction}</p></div>
-      <div><span>Duration</span><p>{card.duration}</p></div>
-      <div><span>If you break it</span><p>{card.breach}</p></div>
-      <div><span>Example</span><p>{card.example}</p></div>
-    </div>
-    {children}
-  </section>;
-}
-
-function PactRoom({ run, onCommand }: { run: LivingDungeon; onCommand: (command: LivingDungeonCommand) => Promise<boolean> }) {
-  const [method, setMethod] = useState<"ai" | "menu">(run.pactInterpretationAttempts >= 2 ? "menu" : "ai");
-  const [proposal, setProposal] = useState("");
-  const [boon, setBoon] = useState<PactDesiredBoon>("DEFENSE");
-  const [sacrifice, setSacrifice] = useState<PactSacrifice>("NO_STORM");
-  const [interpreting, setInterpreting] = useState(false);
-  const [notice, setNotice] = useState<{ text: string; tone: "neutral" | "danger" } | null>(null);
-  const latestRun = useRef(run);
-  useEffect(() => { latestRun.current = run; }, [run]);
-  const snapshot = livingDungeonPactEligibility(run);
-  const sacrifices = eligibleSacrifices(snapshot);
-  const canPrepare = run.pactOfferAttempts < 2;
-  const aiAvailable = canPrepare && run.pactInterpretationAttempts < 2;
-
-  const prepare = async (intent: PactIntent, seed = offerSeed(run)) => {
-    if (!canPrepare) { setNotice({ text: "You have already revised these terms once. Accept them or leave the room.", tone: "danger" }); return; }
-    const changed = await onCommand({ type: "prepare-pact", intent, offerSeed: seed });
-    setNotice(changed
-      ? { text: run.pendingOffer ? "The revised terms are shown on the rule card." : "The dungeon has translated your request into exact terms.", tone: "neutral" }
-      : { text: "Those terms could not be formed from the current rules. Choose another exchange.", tone: "danger" });
-  };
-
-  const interpret = async () => {
-    const text = proposal.trim();
-    if (!text || interpreting || !aiAvailable) return;
-    if (sacrifices.length === 0) { setMethod("menu"); setNotice({ text: "No meaningful sacrifice is currently available.", tone: "danger" }); return; }
-    setInterpreting(true);
-    const beforeAttempt = latestRun.current;
-    const attemptCommand = { type: "record-pact-interpretation" } as const;
-    const captured = transitionLivingDungeon(beforeAttempt, attemptCommand, beforeAttempt.revision);
-    const attemptRecorded = captured !== beforeAttempt && await onCommand(attemptCommand);
-    if (!attemptRecorded) {
-      setMethod("menu");
-      setNotice({ text: "The interpretation limit has been reached. Choose the exact terms below.", tone: "neutral" });
-      setInterpreting(false);
-      return;
-    }
-    latestRun.current = captured;
-    const capturedSnapshot = livingDungeonPactEligibility(captured);
-    const seed = offerSeed(captured, captured.pactOfferAttempts);
-    const body: InterpretPactIntentRequest = {
-      proposal: text,
-      eligibility: { desiredBoons: PACT_DESIRED_BOONS, sacrifices },
-      runRevision: captured.revision,
-      stateDigest: pactEligibilityDigest(capturedSnapshot),
-      offerSeed: seed,
-    };
-    setNotice({ text: "The dungeon is considering what you meant…", tone: "neutral" });
-    try {
-      const response = await fetch("/api/living-dungeon/interpret", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) throw new Error("interpretation rejected");
-      const reply = await response.json() as InterpretPactIntentReply;
-      const current = latestRun.current;
-      if (current.revision !== reply.binding.runRevision
-        || pactEligibilityDigest(livingDungeonPactEligibility(current)) !== reply.binding.stateDigest) {
-        setNotice({ text: "The room changed before the answer returned. Try once more with the current state.", tone: "danger" });
-        return;
-      }
-      if (reply.status === "fallback") {
-        setMethod("menu");
-        setNotice({ text: "Interpretation is unavailable, so every legal written option is ready below.", tone: "neutral" });
-        return;
-      }
-      if (reply.intent.needsClarification) {
-        if (current.pactClarificationAttempts >= 1) {
-          setMethod("menu");
-          setNotice({ text: "The request is still ambiguous. Choose the exact terms below.", tone: "neutral" });
-        } else {
-          const recorded = await onCommand({ type: "record-pact-clarification" });
-          setNotice(recorded
-            ? { text: "Name both the power you want and what you are willing to give up. You may clarify once.", tone: "neutral" }
-            : { text: "The room could not record that clarification. Choose the exact terms below.", tone: "danger" });
-          if (!recorded) setMethod("menu");
-        }
-        return;
-      }
-      await prepare(reply.intent, reply.binding.offerSeed);
-    } catch {
-      setMethod("menu");
-      setNotice({ text: "Interpretation could not finish. The complete written terms remain available.", tone: "neutral" });
-    } finally {
-      setInterpreting(false);
-    }
-  };
-
-  return <section className="living-scene-panel" aria-labelledby="living-pact-title">
-    <header><div><p>SCENE 2 · THE PACT ROOM</p><h2 id="living-pact-title">Shape the rule you must survive</h2></div><span>The language can be yours. The numbers and consequences remain fixed, visible rules.</span></header>
-    <div className="living-pact-workbench">
-      <div className="living-pact-input">
-        <div className="living-pact-tabs" role="group" aria-label="Choose how to form the pact">
-          <button type="button" aria-pressed={method === "ai"} disabled={!aiAvailable} onClick={() => setMethod("ai")}>Describe a bargain</button>
-          <button type="button" aria-pressed={method === "menu"} onClick={() => setMethod("menu")}>Choose clear terms</button>
-        </div>
-        {method === "ai" ? <>
-          <label htmlFor="living-pact-proposal">What power do you want, and what will you give up?</label>
-          <textarea id="living-pact-proposal" maxLength={LIVING_DUNGEON_PROPOSAL_MAX_CHARACTERS} value={proposal} disabled={interpreting || !aiAvailable} onChange={event => setProposal(event.target.value)} placeholder="I will leave Storm untouched if you protect me from the boss's first blow." />
-          <p className="living-character-count"><span>One or two short sentences</span><span>{Array.from(proposal).length}/{LIVING_DUNGEON_PROPOSAL_MAX_CHARACTERS}</span></p>
-          <div className="living-suggestions" aria-label="Suggested intentions">
-            <button type="button" disabled={!aiAvailable} onClick={() => setProposal("I will give up Storm if you protect me from the boss's first retaliation.")}>More protection</button>
-            <button type="button" disabled={!aiAvailable} onClick={() => setProposal("I will carry my wounds without healing if I can strike the boss harder at the start.")}>More damage</button>
-            <button type="button" disabled={!aiAvailable} onClick={() => setProposal("I will buy nothing at camp if you restore me when I enter the boss room.")}>Protect my potions</button>
-          </div>
-          <div className="living-actions" data-keyboard-actions><button type="button" className="living-primary" data-keyboard-default="true" onClick={() => void interpret()} disabled={interpreting || !proposal.trim() || !aiAvailable}>{interpreting ? "INTERPRETING…" : run.pendingOffer ? "REVISE TERMS" : "PROPOSE PACT"}</button></div>
-        </> : <>
-          <p className="living-card-copy">Choose an authored offer, or combine any currently legal benefit and promise.</p>
-          <div className="living-standard-offers" data-keyboard-actions>{STANDARD_INTENTS.map(entry => <button key={entry.title} type="button" onClick={() => void prepare(entry.intent)} disabled={!canPrepare || !sacrifices.includes(entry.intent.offeredSacrifice)}><strong>{entry.title}</strong><span>{entry.detail}</span></button>)}</div>
-          <div className="living-menu-grid" style={{ marginTop: 12 }}>
-            <label>Benefit<select value={boon} onChange={event => setBoon(event.target.value as PactDesiredBoon)}>{PACT_DESIRED_BOONS.map(id => <option key={id} value={id}>{BOON_LABELS[id]}</option>)}</select></label>
-            <label>Promise<select value={sacrifice} onChange={event => setSacrifice(event.target.value as PactSacrifice)}>{sacrifices.map(id => <option key={id} value={id}>{PACT_RESTRICTIONS[id].rule}</option>)}</select></label>
-          </div>
-          <div className="living-actions" data-keyboard-actions><button type="button" className="living-secondary" data-keyboard-default="true" disabled={!canPrepare || sacrifices.length === 0} onClick={() => void prepare({ desiredBoon: boon, offeredSacrifice: sacrifice, durationPreference: "UNTIL_BOSS", breachTolerance: "HIGH", needsClarification: false })}>{run.pendingOffer ? "REVISE CUSTOM TERMS" : "PREVIEW CUSTOM TERMS"}</button></div>
-        </>}
-        {notice && <p className="living-ai-status" role="status" data-tone={notice.tone}>{notice.text}</p>}
-        <div className="living-actions" data-keyboard-actions><button type="button" className="living-secondary" onClick={() => onCommand({ type: "decline-pact" })}>LEAVE WITHOUT A PACT</button></div>
-      </div>
-      <RuleCard run={run}>{run.pendingOffer && <div className="living-actions" data-keyboard-actions>
-        <button type="button" className="living-primary" data-keyboard-default="true" onClick={() => onCommand({ type: "accept-pact", pactId: run.pendingOffer!.terms.pactId })}>ACCEPT THESE TERMS</button>
-      </div>}</RuleCard>
-    </div>
+    <dl><dt>You promised</dt><dd>{card.restriction}</dd><dt>You receive</dt><dd>{run.pact.status === "BREACHED" ? "The boon was lost." : card.benefit}</dd>{run.pact.status === "ACTIVE" && <><dt>If you break it</dt><dd>{card.breach}</dd></>}{run.pact.status === "BREACHED" && <><dt>What changed</dt><dd>The boss gained 20 current and maximum HP.</dd></>}</dl>
   </section>;
 }
 
 function CampRoom({ run, onCommand }: { run: LivingDungeon; onCommand: (command: LivingDungeonCommand) => void }) {
   const purchased = run.facts.some(fact => fact.type === "CAMP_PURCHASED");
+  const purchaseWarning = pactActionWarning(run.pact, "purchase");
+  const bandageWarning = purchaseWarning ?? pactActionWarning(run.pact, "potion");
   return <section className="living-scene-panel" aria-labelledby="living-camp-title">
     <header><div><p>SCENE 5 · A CONVENIENT TEMPTATION</p><h2 id="living-camp-title">The stall is open. So is the loophole.</h2></div><span>Purchases are ordinary actions. If your pact forbids one, the exact consequence appears before anything is spent.</span></header>
     <div className="living-camp-grid" data-keyboard-actions>
-      <article className="living-camp-card"><p className="living-card-kicker">BANDAGE · 20 GOLD</p><h3>Recover up to 25 HP</h3><p>One purchase at this camp. It counts as voluntary healing and a purchase.</p><button type="button" className="living-primary" disabled={purchased || run.player.gold < 20 || run.player.hp >= run.player.maxHp} onClick={() => onCommand({ type: "camp-buy", item: "BANDAGE" })}>BUY BANDAGE</button></article>
-      <article className="living-camp-card"><p className="living-card-kicker">POTION · 25 GOLD</p><h3>Add one potion</h3><p>One purchase at this camp. The potion itself can still be used in a later fight.</p><button type="button" className="living-primary" disabled={purchased || run.player.gold < 25 || run.player.potions >= LIVING_DUNGEON_MAX_POTIONS} onClick={() => onCommand({ type: "camp-buy", item: "POTION" })}>BUY POTION</button></article>
+      <article className="living-camp-card"><p className="living-card-kicker">BANDAGE · 20 GOLD</p><h3>Recover up to 25 HP</h3><p>One purchase at this camp. It counts as voluntary healing and a purchase.</p>{bandageWarning && <strong className="living-action-warning">{bandageWarning}</strong>}<button type="button" className="living-primary" disabled={purchased || run.player.gold < 20 || run.player.hp >= run.player.maxHp} aria-label={`Buy bandage${bandageWarning ? `. ${bandageWarning}` : ""}`} onClick={() => onCommand({ type: "camp-buy", item: "BANDAGE" })}>BUY BANDAGE</button></article>
+      <article className="living-camp-card"><p className="living-card-kicker">POTION · 25 GOLD</p><h3>Add one potion</h3><p>One purchase at this camp. The potion itself can still be used in a later fight.</p>{purchaseWarning && <strong className="living-action-warning">{purchaseWarning}</strong>}<button type="button" className="living-primary" disabled={purchased || run.player.gold < 25 || run.player.potions >= LIVING_DUNGEON_MAX_POTIONS} aria-label={`Buy potion${purchaseWarning ? `. ${purchaseWarning}` : ""}`} onClick={() => onCommand({ type: "camp-buy", item: "POTION" })}>BUY POTION</button></article>
     </div>
     <div className="living-actions" data-keyboard-actions><button type="button" className="living-secondary" data-keyboard-default="true" onClick={() => onCommand({ type: "camp-skip" })}>{purchased ? "LEAVE CAMP" : "BUY NOTHING · CONTINUE"}</button></div>
   </section>;
@@ -395,13 +220,16 @@ function BreachDialog({ run, onCommand }: { run: LivingDungeon; onCommand: (comm
 }
 
 function RunEnd({ run, onRestart }: { run: LivingDungeon; onRestart: () => void }) {
-  const kept = run.pact?.status === "COMPLETED";
   const belief = run.beliefs[0];
+  const pactCard = run.pact ? explainPact(run.pact) : null;
   return <section className="living-scene-panel living-run-end" aria-labelledby="living-run-end-title">
     <p className="living-card-kicker">EXPERIMENTAL EXPEDITION COMPLETE</p>
     <h2 id="living-run-end-title">{run.phase === "won" ? "The dungeon heard you." : "The dungeon keeps the record."}</h2>
-    <p>{run.phase === "won" ? kept ? "You reached the end without breaking the promise you chose." : run.pact?.status === "BREACHED" ? "You broke your promise knowingly and survived the consequence you saw in advance." : "You refused the pact and survived on your own terms." : "Your choices remain clear, even though the Keeper had the final word."}</p>
-    <p>{belief ? `The surviving witness convinced the boss that you ${belief.claimId === "PLAYER_RELIES_ON_STORM" ? "relied on Storm" : belief.claimId === "PLAYER_GUARDS_LIFE" ? "would protect your life" : "avoided Storm"}.` : "No surviving witness carried a useful belief to the boss."}</p>
+    <div className="living-run-summary">
+      <article><span>YOU PROMISED</span><p>{pactCard?.restriction ?? "You left the Pact Room without making a promise."}</p></article>
+      <article><span>YOU DID</span><p>{run.pact?.status === "COMPLETED" ? "You kept the promise through the final fight." : run.pact?.status === "BREACHED" ? "You broke it knowingly and accepted the stated consequence." : run.pact?.status === "ACTIVE" ? "The expedition ended before your promise could be resolved." : "You faced the expedition without a pact."}</p></article>
+      <article><span>THE DUNGEON REACTED</span><p>{belief ? witnessBeliefSummary(belief.claimId) : "No witness reached the boss with an opinion about you."} {bossPreparationExplanation(run)}</p></article>
+    </div>
     <div className="living-actions" data-keyboard-actions><button type="button" className="living-primary" data-keyboard-default="true" onClick={onRestart}>START A NEW EXPEDITION</button><Link className="living-secondary" href="/">ALL MODES</Link></div>
   </section>;
 }
@@ -411,7 +239,7 @@ function ExpeditionRecord({ run, storageNotice, onClose, onRestart }: { run: Liv
   return <>
     <header><h2>Expedition record</h2><button type="button" autoFocus onClick={onClose}>Close</button></header>
     <section><p><strong>The Living Dungeon · scene {run.stageIndex + 1}/6</strong></p><ol>{readableFacts.map((fact, index) => <li key={`${index}:${fact}`}>{fact}</li>)}</ol>
-      {run.beliefs.length > 0 && <p className="living-card-copy">The witness holds {run.beliefs.length} bounded belief{run.beliefs.length === 1 ? "" : "s"}. Beliefs can influence preparation; they cannot rewrite the record above.</p>}
+      {run.beliefs.length > 0 && <section className="living-record-beliefs"><h3>What the dungeon thinks</h3>{run.beliefs.map((belief, index) => <p className="living-card-copy" key={`${belief.claimId}:${index}`}>{witnessBeliefSummary(belief.claimId)}</p>)}<p className="living-card-copy">An opinion can change how the boss prepares. It cannot change what actually happened above.</p></section>}
       <div className="living-actions" data-keyboard-actions><button type="button" className="living-danger" onClick={onRestart}>NEW EXPEDITION</button><Link className="living-secondary" href="/">ALL MODES</Link></div>
       <p className="living-storage-note">{storageNoticeCopy(storageNotice)}</p>
     </section>
@@ -428,6 +256,7 @@ export default function LivingDungeonClient() {
   const canSaveRef = useRef(false);
   const saveBlockedRef = useRef(false);
   const saveInFlightRef = useRef(false);
+  const initialRunTrackedRef = useRef(false);
   const logDialog = useRef<HTMLDialogElement>(null);
   const audio = useGameAudio({ bossActive: run?.roomId === "boss" && run.phase === "combat", encounter: run?.encounter?.name, encounterKey: run?.roomId });
 
@@ -468,10 +297,19 @@ export default function LivingDungeonClient() {
 
   const createNew = useCallback(async (replace = true) => {
     try {
+      const previous = runRef.current;
       const identity = newRunIdentity();
       const next = createLivingDungeon(identity.seed, identity.runId, "ai");
-      const committed = await commit(next, runRef.current, replace);
+      const committed = await commit(next, previous, replace);
       if (!committed) return;
+      if (previous) {
+        const previousOutcome = previous.phase === "won" ? "victory" : previous.phase === "lost" ? "defeat" : "abandoned";
+        if (previousOutcome === "abandoned") {
+          trackLivingDungeon("living_run_abandoned", { room: previous.roomId, pact_outcome: pactOutcome(previous) });
+        }
+        trackLivingDungeon("living_retry_started", { previous_outcome: previousOutcome });
+      }
+      trackLivingDungeon("living_run_started", { entry_point: "direct", variant: next.variant, returning: false });
       setCue(null); setCueId(0); setExchange(undefined);
       logDialog.current?.close();
       audio.playAction("click");
@@ -484,12 +322,22 @@ export default function LivingDungeonClient() {
     const timer = window.setTimeout(() => { void (async () => {
       const loaded = loadLivingDungeon(() => window.localStorage);
       if (loaded.status === "restored") {
-        runRef.current = loaded.run; setRun(loaded.run); canSaveRef.current = true; setStorageNotice("restored"); return;
+        runRef.current = loaded.run; setRun(loaded.run); canSaveRef.current = true; setStorageNotice("restored");
+        if (!initialRunTrackedRef.current && loaded.run.phase !== "won" && loaded.run.phase !== "lost") {
+          initialRunTrackedRef.current = true;
+          trackLivingDungeon("living_run_started", { entry_point: "resume", variant: loaded.run.variant, returning: true });
+        }
+        return;
       }
       let next: LivingDungeon;
       try { const identity = newRunIdentity(); next = createLivingDungeon(identity.seed, identity.runId, "ai"); }
       catch { setStorageNotice("unavailable"); return; }
       runRef.current = next; setRun(next);
+      if (!initialRunTrackedRef.current) {
+        initialRunTrackedRef.current = true;
+        const entryPoint = new URLSearchParams(window.location.search).get("entry") === "home" ? "home" : "direct";
+        trackLivingDungeon("living_run_started", { entry_point: entryPoint, variant: next.variant, returning: false });
+      }
       if (loaded.status === "empty") {
         const saved = await exclusiveSave(
           () => saveLivingDungeon(() => window.localStorage, next, null, false),
@@ -526,6 +374,24 @@ export default function LivingDungeonClient() {
     if (next === before) return false;
     const committed = await commit(next, before);
     if (!committed) return false;
+    if (nextCommand.type === "confirm-breach" && before.pact?.status === "ACTIVE" && next.pact?.status === "BREACHED") {
+      const action = breachAction === "storm" ? "storm" : breachAction === "potion" ? "potion" : "camp_purchase";
+      trackLivingDungeon("promise_broken", { restriction_id: before.pact.terms.restrictionId, action });
+    }
+    if (before.roomId !== "boss" && next.roomId === "boss") {
+      trackLivingDungeon("boss_clue_seen", { preparation_id: next.bossPreparation, source: next.beliefs.length > 0 ? "witness" : "no_witness" });
+    }
+    if (before.phase !== next.phase && (next.phase === "won" || next.phase === "lost")) {
+      if (next.pact?.status === "COMPLETED") {
+        trackLivingDungeon("promise_kept", { restriction_id: next.pact.terms.restrictionId });
+      }
+      trackLivingDungeon("living_run_completed", {
+        outcome: next.phase === "won" ? "victory" : "defeat",
+        pact_outcome: pactOutcome(next),
+        variant: next.variant,
+        used_ai_interpretation: next.pactInterpretationAttempts > 0,
+      });
+    }
     const combatKind = breachAction ?? nextCommand.type;
     if ((combatKind === "attack" || combatKind === "storm" || combatKind === "potion")
       && next.stats.combatTurns > before.stats.combatTurns && next.lastCombatOutcome) {
@@ -584,6 +450,7 @@ export default function LivingDungeonClient() {
       potionRetaliationMode={preview.flags.potionRetaliationMode === "FULL" ? "full" : "half"}
       potionUsage={<>{run.stats.potionsUsed}<span className="block text-[9px] font-normal opacity-70">used this run</span></>}
       potionDisabled={!actions.includes("potion")} potionDisabledReason={run.player.potions === 0 ? "No potions left" : run.player.hp >= run.player.maxHp ? "HP is full" : null}
+      stormWarning={pactActionWarning(run.pact, "storm")} potionWarning={pactActionWarning(run.pact, "potion")}
       onStorm={() => command({ type: "storm" })} onPotion={() => command({ type: "potion" })} onAttack={() => command({ type: "attack" })} />
     {actions.includes("spare-witness") && <div className="living-actions" data-keyboard-actions><button type="button" className="living-secondary" onClick={() => command({ type: "spare-witness" })}>LET THE SCRIVENER LEAVE · IT MAY REPORT WHAT IT SAW</button></div>}
   </div> : undefined;
@@ -608,8 +475,8 @@ export default function LivingDungeonClient() {
       {run.phase === "camp" && <CampRoom run={run} onCommand={command} />}
       {(run.phase === "won" || run.phase === "lost") && <RunEnd run={run} onRestart={() => createNew(true)} />}
     </div><aside className="descent-sidebar living-dungeon-sidebar"><EnemyStatus run={run} retaliation={preview.retaliation} /><PactStatus run={run} />
-      {run.roomId === "boss" && <section className="living-card living-clue"><p className="living-card-kicker">WHAT YOU NOTICE</p><h3>The preparation has a source</h3><blockquote>{bossPreparationClue(run.bossPreparation)}</blockquote></section>}
-      <section className="living-card"><p className="living-card-kicker">THE RECORD</p><h3>Facts remain facts</h3><p className="living-card-copy">{run.facts.length} canonical events · {run.beliefs.length} bounded belief{run.beliefs.length === 1 ? "" : "s"}</p><div className="living-actions"><button type="button" className="living-secondary" onClick={() => logDialog.current?.showModal()}>VIEW EXPEDITION RECORD</button></div><KeyboardHint /></section>
+      {run.roomId === "boss" && <section className="living-card living-clue"><p className="living-card-kicker">WHY THE BOSS PREPARED</p><h3>{bossPreparationLabel(run.bossPreparation)}</h3><blockquote>{bossPreparationClue(run.bossPreparation)}</blockquote><p className="living-card-copy">{bossPreparationExplanation(run)}</p></section>}
+      <section className="living-card"><p className="living-card-kicker">THE RECORD</p><h3>What happened stays true</h3><p className="living-card-copy">{run.facts.length} recorded event{run.facts.length === 1 ? "" : "s"} · {run.beliefs.length} opinion{run.beliefs.length === 1 ? "" : "s"} held by the dungeon</p><div className="living-actions"><button type="button" className="living-secondary" onClick={() => logDialog.current?.showModal()}>VIEW EXPEDITION RECORD</button></div><KeyboardHint /></section>
     </aside></div>
     <dialog ref={logDialog} className="living-log-dialog" aria-label="Expedition record" onCancel={() => logDialog.current?.close()}><ExpeditionRecord run={run} storageNotice={storageNotice} onClose={() => logDialog.current?.close()} onRestart={() => createNew(true)} /></dialog>
     <BreachDialog run={run} onCommand={command} />

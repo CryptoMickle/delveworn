@@ -733,6 +733,9 @@ export function CombatActionDock({
   relicName,
   stormRelicSummary,
   attackRelicSummary,
+  stormWarning,
+  attackWarning,
+  potionWarning,
   hp,
   maxHp,
   retaliation,
@@ -760,6 +763,10 @@ export function CombatActionDock({
   relicName?: string;
   stormRelicSummary?: string | null;
   attackRelicSummary?: string | null;
+  /** Short consequence shown before an action, for example "BREAKS YOUR PROMISE". */
+  stormWarning?: string | null;
+  attackWarning?: string | null;
+  potionWarning?: string | null;
   hp?: number;
   maxHp?: number;
   retaliation?: string;
@@ -803,10 +810,11 @@ export function CombatActionDock({
         <span data-critical={lastExchange?.critical || undefined}>{lastExchange?.critical ? "🔥 CRITICAL!" : "DEALT"} <b>{lastExchange ? `${lastExchange.dealt} HP` : "—"}</b></span>
       </div>
       <div className="practice-combat-actions grid grid-cols-2 gap-2" data-keyboard-actions>
-        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM · DAMAGE ${stormDamage} · unpredictable, no critical`} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
+        <button type="button" onClick={onStorm} disabled={busy} aria-label={`⚡ STORM · DAMAGE ${stormDamage} · unpredictable, no critical${stormWarning ? ` · ${stormWarning}` : ""}`} className="practice-storm-action order-1 rounded-xl bg-violet-700 p-3 text-white transition hover:bg-violet-600 disabled:opacity-40">
           <p className="font-black">⚡ STORM</p>
           <p className="mt-1 text-sm font-black">DAMAGE {stormDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] text-violet-200">Unpredictable · no critical</p>
+          {stormWarning && <p className="practice-action-warning mt-2 rounded-md border border-red-200/60 bg-red-950/70 px-2 py-1 text-[10px] font-black text-red-100">⚠ {stormWarning}</p>}
           {stormLethalRisk && <p className="mt-2 text-xs font-black text-red-200">☠ LETHAL REPLY POSSIBLE</p>}
           {stormRelicSummary && (
             <p className="practice-action-relic mt-2 rounded-md border border-violet-300/30 bg-black/20 px-2 py-1 text-[9px] font-black leading-tight text-violet-100">
@@ -814,10 +822,11 @@ export function CombatActionDock({
             </p>
           )}
         </button>
-        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical`} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
+        <button type="button" onClick={onAttack} disabled={busy} aria-label={`⚔️ ATTACK · DAMAGE ${attackDamage} · reliable, ${criticalChance}% critical${attackWarning ? ` · ${attackWarning}` : ""}`} data-keyboard-default="true" className="practice-attack-action order-2 rounded-xl bg-orange-500 p-3 text-black transition hover:bg-orange-400 disabled:opacity-40">
           <p className="font-black">⚔️ ATTACK</p>
           <p className="mt-1 text-sm font-black">DAMAGE {attackDamage}</p>
           <p className="practice-action-description mt-1 text-[10px] opacity-70">Reliable · {criticalChance}% critical</p>
+          {attackWarning && <p className="practice-action-warning mt-2 rounded-md border border-red-950/40 bg-red-950/20 px-2 py-1 text-[10px] font-black text-red-950">⚠ {attackWarning}</p>}
           {attackLethalRisk && <p className="mt-2 text-xs font-black text-red-950">☠ LETHAL REPLY POSSIBLE</p>}
           {attackRelicSummary && (
             <p className="practice-action-relic mt-2 rounded-md border border-black/20 bg-black/20 px-2 py-1 text-[9px] font-black leading-tight">
@@ -830,6 +839,7 @@ export function CombatActionDock({
           type="button"
           onClick={onPotion}
           disabled={busy || potionDisabled}
+          aria-label={`${potionLabel}${potionWarning ? ` · ${potionWarning}` : ""}`}
           className={busy || potionDisabled
             ? "practice-potion-action order-3 col-span-2 w-full cursor-not-allowed rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-zinc-400 opacity-70 lg:order-3 lg:col-span-1 lg:p-5"
             : "practice-potion-action order-3 col-span-2 w-full rounded-xl border border-emerald-200/70 bg-gradient-to-br from-white via-emerald-50 to-emerald-200 p-3 text-emerald-950 shadow-[0_8px_24px_rgba(52,211,153,0.12)] transition hover:from-white hover:to-emerald-100 lg:order-3 lg:col-span-1 lg:p-5"}
@@ -840,6 +850,7 @@ export function CombatActionDock({
               {potionUnavailable ?? potionOutcome ?? potionDetail}
             </p>
             <p className="practice-potion-compact" aria-hidden="true">{potionUnavailable ?? potionOutcome ?? `Heal ${potionHeal} HP · ${retaliationCopy}`}</p>
+            {potionWarning && <p className="practice-action-warning mt-2 rounded-md border border-red-700/40 bg-red-100 px-2 py-1 text-[10px] font-black text-red-800">⚠ {potionWarning}</p>}
             {!potionUnavailable && potionLethalRisk && <p className="mt-2 text-xs font-black text-red-700">☠ LETHAL REPLY POSSIBLE</p>}
             <div className="mt-2 text-center text-xs font-bold">{potionUsage}</div>
           </div>

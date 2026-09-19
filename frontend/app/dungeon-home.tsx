@@ -46,9 +46,9 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
     note: "Local simulation. Progress is saved in this browser when available. No transactions or onchain rewards.",
   } : mode === "living-dungeon" ? {
     eyebrow: "THE LIVING DUNGEON · EXPERIMENTAL",
-    title: "Make a promise. See who remembers.",
-    intro: "Forge a pact, leave witnesses and face a boss that prepares for what the dungeon thinks it knows about you.",
-    points: ["Describe the bargain you want, or choose clear written terms.", "Break your word if you must. The dungeon will remember what actually happened."],
+    title: "Tell the dungeon your plan. Survive what it understands.",
+    intro: "Write naturally, as you would in ChatGPT. The dungeon turns your request into an exact rule that you can review before anything changes.",
+    points: ["Make a promise, then see its benefit, duration and breach cost before you accept.", "Leave witnesses behind and face a boss that prepares for what it believes about you."],
     facts: ["Local story", "About 15 minutes", "No wallet"],
     resume: "Your experimental expedition is saved separately in this browser.",
     cta: "ENTER THE LIVING DUNGEON",
@@ -72,7 +72,7 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
       router.push(`/challenge/${challengeId}?v=2`);
       return;
     }
-    router.push(`/${mode}`);
+    router.push(mode === "living-dungeon" ? "/living-dungeon?entry=home" : `/${mode}`);
   };
 
   return (
