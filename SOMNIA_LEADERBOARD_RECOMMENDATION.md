@@ -2,8 +2,8 @@
 
 Date: 17 September 2026
 
-Status: first version implemented on 19 September 2026; production publication
-pending final release verification. No contract change is required.
+Status: first version implemented and published to `delveworn.app` on
+19 September 2026. No contract change is required.
 
 ## Implemented first version
 
