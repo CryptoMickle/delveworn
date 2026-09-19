@@ -1,5 +1,8 @@
 # The Living Dungeon
 
+The proposed next evolution is documented in
+[The Living Dungeon V2 — Oaths & Echoes](THE_LIVING_DUNGEON_V2_PLAN.md).
+
 The Living Dungeon is an experimental, wallet-free Delveworn story run at
 `/living-dungeon`. It tests one idea: the player can shape a rule in natural
 language, while the game remains the sole authority over legal mechanics and
