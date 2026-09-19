@@ -1,0 +1,42 @@
+.onchain-leaderboard-page { min-height:100svh; }
+.onchain-leaderboard-page-main { width:min(920px,100%); margin:0 auto; padding:48px 0 64px; }
+.onchain-leaderboard-edition { max-width:260px; color:#c4b5fd; font-size:10px; font-weight:800; line-height:1.5; letter-spacing:.2em; text-align:right; }
+.onchain-leaderboard-intro { text-align:center; }
+.onchain-leaderboard-intro h1 { margin:8px 0 12px; color:#f4e7cf; font-size:clamp(38px,7vw,64px); line-height:1; }
+.onchain-leaderboard-intro > p:not(.descent-kicker) { max-width:650px; margin:0 auto; color:#c9b9c9; font-size:14px; line-height:1.75; }
+.onchain-leaderboard-page-nav { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; margin:24px 0 32px; }
+.onchain-leaderboard-page-nav a { display:inline-flex; min-height:44px; padding:10px 16px; align-items:center; justify-content:center; border:1px solid #70577f; border-radius:8px; background:#221827; color:#eadff0; font-size:12px; font-weight:800; text-decoration:none; }
+.onchain-leaderboard-page-nav a:first-child { border-color:#f2c66f; background:#f59e0b; color:#180e03; }
+.onchain-leaderboard-page-nav a:hover { border-color:#c4b5fd; }
+.onchain-leaderboard-page-card { padding:24px; border:1px solid #6d4b79; border-radius:14px; background:linear-gradient(145deg,#19121d,#0a090c); box-shadow:0 28px 80px #0007; }
+.onchain-leaderboard-heading { display:flex; align-items:end; justify-content:space-between; gap:20px; padding-bottom:18px; border-bottom:1px solid #49384f; }
+.onchain-leaderboard-heading h2 { margin:3px 0 0; color:#f4e7cf; font-size:30px; }
+.onchain-leaderboard-heading button { min-height:44px; padding:9px 14px; border:1px solid #6e557b; border-radius:8px; background:#281d2f; color:#eadff0; font-size:11px; font-weight:800; }
+.onchain-leaderboard-heading button:hover:not(:disabled) { border-color:#c4b5fd; background:#392744; }
+.onchain-leaderboard-rule { margin:18px 0; color:#d7c8d7; font-size:13px; line-height:1.65; }
+.onchain-leaderboard-message { margin:16px 0; padding:12px 14px; border-left:3px solid #a78bfa; background:#211827; color:#dfd4e2; font-size:13px; line-height:1.55; }
+.onchain-leaderboard-proofbar { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 18px; margin:14px 0; color:#a99daf; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.onchain-leaderboard-table-wrap { overflow-x:auto; border:1px solid #433549; border-radius:10px; }
+.onchain-leaderboard table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+.onchain-leaderboard th,.onchain-leaderboard td { padding:14px 12px; border-bottom:1px solid #342b39; text-align:left; white-space:nowrap; }
+.onchain-leaderboard thead th { color:#a99daf; background:#171119; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
+.onchain-leaderboard tbody tr:last-child > * { border-bottom:0; }
+.onchain-leaderboard tbody tr[data-own] { background:linear-gradient(90deg,#3a234c,#261a2d); color:#fff0c4; }
+.onchain-leaderboard tbody th { font-family:var(--font-geist-mono),monospace; font-size:12px; }
+.onchain-leaderboard tbody th span { margin-left:8px; padding:3px 6px; border:1px solid #f2c66f; border-radius:99px; color:#f6d992; font-family:var(--font-geist-sans),sans-serif; font-size:8px; letter-spacing:.12em; }
+.onchain-leaderboard a { color:#d8c6f4; text-underline-offset:3px; }
+.onchain-leaderboard a:hover { color:#fff; }
+.onchain-leaderboard td strong { color:#f6d992; font-size:17px; }
+.onchain-leaderboard-details { margin-top:20px; border-top:1px solid #49384f; color:#b9acbd; font-size:12px; line-height:1.65; }
+.onchain-leaderboard-details summary { min-height:44px; padding:14px 0 8px; color:#ddcfea; cursor:pointer; font-weight:800; }
+.onchain-leaderboard-details p { margin:8px 0; }
+.onchain-leaderboard-footer { width:min(920px,100%); margin:0 auto; }
+@media(max-width:760px) {
+  .onchain-leaderboard-page-main { padding:30px 4px 46px; }
+  .onchain-leaderboard-page-card { padding:16px 10px; border-radius:10px; }
+  .onchain-leaderboard-edition { max-width:120px; font-size:8px; }
+  .onchain-leaderboard-heading { align-items:center; }
+  .onchain-leaderboard-heading h2 { font-size:24px; }
+  .onchain-leaderboard th,.onchain-leaderboard td { padding:12px 9px; }
+  .onchain-leaderboard thead th:nth-child(4),.onchain-leaderboard tbody td:nth-child(4) { display:none; }
+}

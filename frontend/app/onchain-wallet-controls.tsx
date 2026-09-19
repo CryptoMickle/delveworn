@@ -4,6 +4,7 @@ export type OnchainWalletControlsProps = {
   mode: "standard" | "somnia-session" | "rise-session";
   supportsSomniaSession: boolean;
   busy: boolean;
+  leaderboardHref?: string;
   onEnableSomniaSession: () => void;
   onDisconnect: () => void;
   onRevoke: () => void;
@@ -13,6 +14,7 @@ export function OnchainWalletControls({
   mode,
   supportsSomniaSession,
   busy,
+  leaderboardHref,
   onEnableSomniaSession,
   onDisconnect,
   onRevoke,
@@ -56,6 +58,7 @@ export function OnchainWalletControls({
         <button type="button" disabled={busy} onClick={() => whenReady(onDisconnect)}>
           Disconnect
         </button>
+        {leaderboardHref && <a href={leaderboardHref}>Your rank</a>}
       </div>
       <p className="onchain-wallet-note">
         {canEnableSomnia

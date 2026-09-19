@@ -218,9 +218,9 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
 .onchain-wallet-status { margin: 0; color: #dacbdf; font-size: 10px; font-weight: 800; line-height: 1.4; letter-spacing: .06em; }
 .onchain-wallet-controls[data-mode$='session'] .onchain-wallet-status { color: #a7f3d0; }
 .onchain-wallet-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-wrap: wrap; gap: 6px; }
-.onchain-wallet-actions button { min-height: 44px; padding: 8px 12px; border: 1px solid #53465d; border-radius: 9px; color: #e4dfea; background: #251f2c; font-size: 11px; font-weight: 750; line-height: 1.25; cursor: pointer; }
+.onchain-wallet-actions :is(button,a) { display:inline-flex; min-height:44px; padding:8px 12px; align-items:center; justify-content:center; border:1px solid #53465d; border-radius:9px; color:#e4dfea; background:#251f2c; font-size:11px; font-weight:750; line-height:1.25; text-decoration:none; cursor:pointer; }
 .onchain-wallet-actions .onchain-wallet-enable { border-color: #8963a2; color: #f3e8ff; background: #3a234c; }
-.onchain-wallet-actions button:hover:not(:disabled) { background: #493451; border-color: #a080b2; }
+.onchain-wallet-actions :is(button:hover:not(:disabled),a:hover) { background:#493451; border-color:#a080b2; }
 .onchain-wallet-actions button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 3px; }
 .onchain-wallet-actions button:disabled { opacity: .55; cursor: wait; }
 .onchain-wallet-note, .onchain-wallet-waiting { margin: 0; color: #b9adc9; font-size: 11px; line-height: 1.45; }
@@ -360,6 +360,7 @@ html, body { background: #090909; color: #fafafa; color-scheme: dark; }
   .delveworn-navigation > .delveworn-home { grid-area: home; justify-self: start; }
   .delveworn-navigation > .delveworn-sound { grid-area: sound; justify-self: end; }
   .delveworn-navigation > .delveworn-modes { grid-area: modes; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); justify-self: stretch; width: 100%; }
+  .delveworn-onchain-mode .delveworn-navigation > .delveworn-modes { grid-template-columns:repeat(4,minmax(0,1fr)); }
   .delveworn-navigation .delveworn-modes a { display: grid; min-height: 40px; padding: 0 5px; font-size: 10px; }
   .delveworn-sound { min-height: 44px; max-width: 88px; padding: 6px 8px; font-size: 10px; }
   .onchain-wallet-controls { grid-template-columns: minmax(0,1fr); gap: 5px; margin-bottom: 8px; padding-bottom: 8px; }

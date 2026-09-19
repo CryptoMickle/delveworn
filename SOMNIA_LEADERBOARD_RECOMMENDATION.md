@@ -2,7 +2,28 @@
 
 Date: 17 September 2026
 
-Status: assessment only; no leaderboard, indexer or contract change deployed.
+Status: first version implemented on 19 September 2026; production publication
+pending final release verification. No contract change is required.
+
+## Implemented first version
+
+- `/onchain/leaderboard` shows **Somnia — Deepest Descent** standings and
+  links every row to its gameplay account and record-setting transaction.
+- `/api/onchain-leaderboard` reconstructs records from the active contract's
+  canonical `MonsterSpawned` and `CombatResolved` events. Browsers have no
+  score-write endpoint.
+- The verified deployment begins at block `476477529`. The event signatures
+  and representative live history were checked against Somnia Shannon before
+  implementation.
+- The source replays complete deployment history on each cache refresh. This
+  avoids cursor and rollback state while the event set is small, handles run
+  restarts without losing the previous best, and re-reads reorganized history.
+  A 64-block safety buffer excludes the chain tip.
+- The existing Redis service stores only short-lived and fallback snapshots in
+  a separate onchain namespace. Weekly guest identities, nicknames and proof
+  submissions are not reused.
+- The connected gameplay account can open **Your rank** from the wallet
+  controls. Standard MetaMask and popup-free smart accounts remain separate.
 
 ## Recommendation
 

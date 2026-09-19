@@ -29,7 +29,7 @@ function controls(overrides: Partial<OnchainWalletControlsProps> = {}) {
 }
 
 test("a connected standard player can choose popup-free play with explicit progress-preservation copy", () => {
-  const ui = controls();
+  const ui = controls({ leaderboardHref: "/onchain/leaderboard?player=0x1234" });
   assert.match(ui.markup, /data-wallet-controls="true"/);
   assert.match(ui.markup, /aria-label="Wallet and play mode"/);
   assert.match(ui.markup, /METAMASK · STANDARD PLAY/);
@@ -41,6 +41,7 @@ test("a connected standard player can choose popup-free play with explicit progr
   ui.buttons[1].props.onClick();
   assert.deepEqual(ui.called, ["session", "disconnect"]);
   assert.doesNotMatch(ui.markup, /RESET|BEGIN NEW RUN|START GAME/);
+  assert.match(ui.markup, /href="\/onchain\/leaderboard\?player=0x1234"[^>]*>Your rank/);
 });
 
 test("disabled Somnia sessions and active session modes expose only their applicable wallet actions", () => {

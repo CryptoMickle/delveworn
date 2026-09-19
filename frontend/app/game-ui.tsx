@@ -456,6 +456,7 @@ export function GameHeader({
           <Link href="/practice" aria-current={mode === "practice" ? "page" : undefined}>Practice</Link>
           <Link href="/challenge" aria-current={mode === "challenge" ? "page" : undefined}>Weekly</Link>
           <Link href="/onchain" aria-current={mode === "onchain" ? "page" : undefined}>Onchain</Link>
+          {mode === "onchain" && <Link href="/onchain/leaderboard">Standings</Link>}
         </nav>
         <GameLogo compact />
         <button type="button" className="delveworn-sound" onClick={audio.toggleSound} aria-pressed={audio.enabled} aria-label={soundLabel} disabled={!audio.available}>

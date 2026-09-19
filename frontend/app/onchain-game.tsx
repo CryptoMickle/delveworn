@@ -10326,6 +10326,7 @@ function DelvewornGame() {
         mode={hasSomniaSession ? "somnia-session" : isRiseWallet ? "rise-session" : "standard"}
         supportsSomniaSession={isMetaMask && supportsThirdwebSessionKeys()}
         busy={walletControlsBusy}
+        leaderboardHref={`/onchain/leaderboard?player=${encodeURIComponent(connectedAddress)}`}
         onEnableSomniaSession={() => void connectWallet("somnia-session")}
         onDisconnect={() => void resetWalletConnection()}
         onRevoke={() => void revokeSession()}
@@ -10507,6 +10508,7 @@ function DelvewornGame() {
             mode={hasSomniaSession ? "somnia-session" : isRiseWallet ? "rise-session" : "standard"}
             supportsSomniaSession={isMetaMask && supportsThirdwebSessionKeys()}
             busy={walletControlsBusy}
+            leaderboardHref={`/onchain/leaderboard?player=${encodeURIComponent(connectedAddress)}`}
             onEnableSomniaSession={() => void connectWallet("somnia-session")}
             onDisconnect={() => void resetWalletConnection()}
             onRevoke={() => void revokeSession()}
