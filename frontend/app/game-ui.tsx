@@ -723,6 +723,9 @@ export function CombatActionDock({
   criticalChance,
   potionLabel,
   potionDetail,
+  potionHeal = 25,
+  potionRetaliation,
+  potionRetaliationMode = "half",
   potionUsage,
   potionDisabled,
   potionDisabledReason,
@@ -746,6 +749,10 @@ export function CombatActionDock({
   criticalChance: number;
   potionLabel: string;
   potionDetail: ReactNode;
+  potionHeal?: number;
+  /** The already-adjusted damage taken after using a potion. */
+  potionRetaliation?: string;
+  potionRetaliationMode?: "half" | "full";
   potionUsage: ReactNode;
   potionDisabled: boolean;
   potionDisabledReason?: string | null;
@@ -765,12 +772,19 @@ export function CombatActionDock({
 }) {
   const potionUnavailable = potionLimitReached ? "Combat limit reached" : potionDisabledReason ?? (hp !== undefined && maxHp !== undefined && hp >= maxHp ? "HP is full · save it for later" : null);
   const incomingRange = retaliation ? parseCombatRange(retaliation) : null;
+  const adjustedPotionRange = potionRetaliation ? parseCombatRange(potionRetaliation) : null;
   const stormRange = parseCombatRange(stormDamage);
   const attackRange = parseCombatRange(attackDamage);
-  const potionHp = hp !== undefined && maxHp !== undefined && incomingRange
-    ? potionResultingHpRange({ hp, maxHp, incoming: incomingRange })
-    : null;
-  const potionOutcome = potionHp ? `HP AFTER POTION ${formatCombatRange(potionHp)} · half retaliation` : null;
+  const potionHp = hp !== undefined && maxHp !== undefined && adjustedPotionRange
+    ? ([
+      Math.max(0, Math.min(maxHp, hp + potionHeal) - adjustedPotionRange[1]),
+      Math.max(0, Math.min(maxHp, hp + potionHeal) - adjustedPotionRange[0]),
+    ] as const)
+    : hp !== undefined && maxHp !== undefined && incomingRange
+      ? potionResultingHpRange({ hp, maxHp, incoming: incomingRange, heal: potionHeal })
+      : null;
+  const retaliationCopy = `${potionRetaliationMode} retaliation`;
+  const potionOutcome = potionHp ? `HP AFTER POTION ${formatCombatRange(potionHp)} · ${retaliationCopy}` : null;
   const stormLethalRisk = hp !== undefined && enemyHp !== undefined && incomingRange && stormRange
     ? lethalRetaliationIsPossible({ hp, enemyHp, actionDamage: stormRange, incoming: incomingRange })
     : false;
@@ -825,14 +839,14 @@ export function CombatActionDock({
             <p className={potionLimitReached ? "practice-potion-description mt-1 text-[10px] text-red-300" : potionDisabled ? "practice-potion-description mt-1 text-[10px] text-zinc-400" : "practice-potion-description mt-1 text-[10px] text-emerald-800"}>
               {potionUnavailable ?? potionOutcome ?? potionDetail}
             </p>
-            <p className="practice-potion-compact" aria-hidden="true">{potionUnavailable ?? potionOutcome ?? "Heal 25 HP · half retaliation"}</p>
+            <p className="practice-potion-compact" aria-hidden="true">{potionUnavailable ?? potionOutcome ?? `Heal ${potionHeal} HP · ${retaliationCopy}`}</p>
             {!potionUnavailable && potionLethalRisk && <p className="mt-2 text-xs font-black text-red-700">☠ LETHAL REPLY POSSIBLE</p>}
             <div className="mt-2 text-center text-xs font-bold">{potionUsage}</div>
           </div>
         </button>
 
       </div>
-      <p className="practice-potion-consequence">Potion uses your turn: heal, then take half retaliation.</p>
+      <p className="practice-potion-consequence">Potion uses your turn: heal, then take {retaliationCopy}.</p>
       <KeyboardHint />
     </div>
   );

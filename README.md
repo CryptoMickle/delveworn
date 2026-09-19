@@ -18,6 +18,7 @@ for controls, recovery, test commands and the blind-test gate.
 | --- | --- | --- |
 | Weekly Verified Challenge | [Play the current weekly seed](https://delveworn.app/challenge) | A wallet-free 10-room sprint with deterministic replay verification and challenge links. |
 | Practice Mode | [Play without a wallet](https://delveworn.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
+| The Living Dungeon | `/living-dungeon` (local working branch) | An experimental six-scene story run with player-shaped pacts, bounded enemy beliefs and deterministic consequences. |
 | Onchain beta | [Open the Somnia Testnet game](https://delveworn.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
 | Previous version | [Open the original frontend](https://delveworn.vercel.app) | Preserved separately from the upgraded experience. |
 | Somnia Verified Run | [Open the canonical Somnia game](https://delveworn-somnia.vercel.app/onchain) | Contract-backed state, popup-free sponsored actions and Somnia-native verifiable randomness. |
@@ -48,7 +49,7 @@ For a concise presentation sequence, use the [Somnia Verified Run 90-second demo
 
 The Foundry project remains at the repository root. All frontend commands run from `frontend/`.
 
-The frontend source now serves a neutral mode-selection home at `/`, the current wallet-free challenge at `/challenge`, local Practice at `/practice`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home, challenge or Practice route does not initialize the wallet bridge.
+The frontend source now serves a neutral mode-selection home at `/`, the current wallet-free challenge at `/challenge`, local Practice at `/practice`, the experimental Living Dungeon at `/living-dungeon`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home, challenge, Practice or Living Dungeon route does not initialize the wallet bridge. See [The Living Dungeon](THE_LIVING_DUNGEON.md) for its Pact V0 rules and AI boundary.
 
 For local frontend checks, run `npm test`, `npm run lint`, and `npm run build`. `npm run test:e2e` runs the interaction suite on desktop Chromium, Android-sized Chromium and small iPhone-sized WebKit; install its browsers with `npx playwright install chromium webkit`. The browser suite seeds explicitly local Practice states and does not submit onchain actions. Emulation is not a physical-device or live-wallet test.
 
@@ -65,6 +66,10 @@ Local saves are validated before restoration. Unavailable storage leaves the run
 ### Weekly Verified Challenge
 
 Weekly Challenge runs the same local game rules with a controlled seed derived from an ISO week ID. The 10-room run requires no wallet. Shared URLs contain a compact action trace and integrity digest; the recipient sees a score only after the trace is validated and replayed against the same seed. Combat and between-room screens reuse the same Delveworn components as Practice and Onchain Mode. A completed result offers Somnia Onchain Mode only when the frontend is configured for Somnia. See [Weekly Verified Challenge V1](WEEKLY_VERIFIED_CHALLENGE.md) for the schedule, score, proof format, analytics events and limits.
+
+### The Living Dungeon
+
+The Living Dungeon is a separate local experiment in player-shaped rules and visible consequences. A bounded AI interpreter can map a short bargain into approved semantic slots, while the deterministic engine constructs, validates and executes every pact. The same complete flow works through authored menu choices when AI is disabled or unavailable. A surviving witness may form a sourced belief from what it observed, and the boss can prepare from that belief without rewriting the factual run record. The mode has no wallet, RPC, VRF, leaderboard or onchain reward.
 
 ### Onchain Mode
 

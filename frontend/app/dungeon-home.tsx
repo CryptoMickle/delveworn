@@ -11,7 +11,7 @@ import { GameLogo } from "./game-logo";
 import { useGameAudio } from "./use-game-audio";
 import styles from "./home.module.css";
 
-type DungeonMode = "weekly" | "practice" | "onchain";
+type DungeonMode = "weekly" | "practice" | "living-dungeon" | "onchain";
 
 export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string }) {
   const [mode, setMode] = useState<DungeonMode>("weekly");
@@ -44,6 +44,15 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
     resume: "A saved local run will resume when you enter Endless Practice.",
     cta: "PLAY / RESUME LOCAL",
     note: "Local simulation. Progress is saved in this browser when available. No transactions or onchain rewards.",
+  } : mode === "living-dungeon" ? {
+    eyebrow: "THE LIVING DUNGEON · EXPERIMENTAL",
+    title: "Make a promise. See who remembers.",
+    intro: "Forge a pact, leave witnesses and face a boss that prepares for what the dungeon thinks it knows about you.",
+    points: ["Describe the bargain you want, or choose clear written terms.", "Break your word if you must. The dungeon will remember what actually happened."],
+    facts: ["Local story", "About 15 minutes", "No wallet"],
+    resume: "Your experimental expedition is saved separately in this browser.",
+    cta: "ENTER THE LIVING DUNGEON",
+    note: "Experimental local story. No competitive score, transaction or onchain reward.",
   } : {
     eyebrow: `WALLET · ${onchainNetwork.toUpperCase()}`,
     title: "Enter the dungeon onchain.",
@@ -81,9 +90,9 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
         </header>
         <div data-keyboard-actions>
           <div className={styles.modes} role="group" aria-label="Choose your dungeon">
-            {(["weekly", "practice", "onchain"] as const).map(value => (
+            {(["weekly", "practice", "living-dungeon", "onchain"] as const).map(value => (
               <button key={value} type="button" className={styles.mode} aria-pressed={mode === value} aria-controls="dungeon-details" data-keyboard-default={value === "weekly" ? "true" : undefined} onClick={() => setMode(value)}>
-                {value === "weekly" ? "Weekly Challenge: The First Descent" : value === "practice" ? "Endless Practice" : `${networkBrand} Onchain`}
+                {value === "weekly" ? "Weekly Challenge: The First Descent" : value === "practice" ? "Endless Practice" : value === "living-dungeon" ? "The Living Dungeon · Experimental" : `${networkBrand} Onchain`}
               </button>
             ))}
           </div>
@@ -112,7 +121,7 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
             </div>
           </section>
         </div>
-        <footer className={styles.footer}><span>DELVEWORN · WEEKLY · PRACTICE · {onchainNetwork.toUpperCase()}</span><span>Dungeon management accepts no responsibility.</span></footer>
+        <footer className={styles.footer}><span>DELVEWORN · WEEKLY · PRACTICE · LIVING DUNGEON · {onchainNetwork.toUpperCase()}</span><span>Dungeon management accepts no responsibility.</span></footer>
       </div>
     </main>
   );

@@ -1,8 +1,10 @@
 # Delveworn: plan for AI, pacts and verifiable consequences
 
 Date: 19 September 2026  
-Status: design and implementation plan only. No AI integration, API call,
-contract change or deployment has been made.
+Status: Pact V0 is implemented locally as the separate `/living-dungeon`
+experiment. No contract change or deployment has been made. See
+[The Living Dungeon](THE_LIVING_DUNGEON.md) for the current playable scope,
+configuration and validation commands.
 
 ## Product decision
 
@@ -231,8 +233,9 @@ Initial reward candidates, subject to simulation before the player test:
 - 15% more damage on the first two damaging boss actions;
 - restore 20 HP when entering the boss room.
 
-In Pact V0, a breach remains possible after an explicit warning and simply
-forfeits the promised reward. There is no hidden or additional punishment. A
+In Pact V0, a breach remains possible after an explicit warning, forfeits the
+promised reward and gives the boss 20 current and maximum HP. This disclosed
+debt keeps a late breach meaningful after an opening boon has already fired. A
 curated compatibility table defines which combinations are legal. Balance values
 belong to the versioned catalogue, not the prompt or model response. The wider
 6–8 by 6–8 catalogue is considered only after V0 establishes that the mechanic

@@ -56,3 +56,33 @@ test("the shared action dock shows resulting HP and suppresses false lethal warn
   const attackMarkup = markup.slice(markup.indexOf("practice-attack-action"), markup.indexOf("practice-potion-action"));
   assert.doesNotMatch(attackMarkup, /LETHAL REPLY POSSIBLE/);
 });
+
+test("the shared action dock can show a rules-engine supplied full potion retaliation", () => {
+  const markup = renderToStaticMarkup(
+    <CombatActionDock
+      busy={false}
+      hp={60}
+      maxHp={100}
+      enemyHp={80}
+      enemyMaxHp={82}
+      retaliation="9–12"
+      potionRetaliation="9–12"
+      potionRetaliationMode="full"
+      potionHeal={25}
+      stormDamage="0–20"
+      attackDamage="6–9"
+      criticalChance={15}
+      potionLabel="POTION"
+      potionDetail="rules-engine estimate"
+      potionUsage="0 used"
+      potionDisabled={false}
+      onStorm={() => {}}
+      onPotion={() => {}}
+      onAttack={() => {}}
+    />,
+  );
+
+  assert.match(markup, /HP AFTER POTION 73–76 · full retaliation/);
+  assert.match(markup, /heal, then take full retaliation/);
+  assert.doesNotMatch(markup, /half retaliation/);
+});

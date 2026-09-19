@@ -20,7 +20,7 @@
 .sound span { font-size: 19px; line-height: 1; }
 .sound:hover { background: #30203d; }
 .sound:disabled { cursor: default; color: #b9adc7; }
-.modes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 0 0 16px; padding: 0; min-width: 0; }
+.modes { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0 0 16px; padding: 0; min-width: 0; }
 .mode {
   position: relative; display: flex; align-items: center; min-height: 64px; padding: 16px 18px;
   border: 1px solid #493653; border-radius: 12px; background: #141019; color: #fafafa;
@@ -65,8 +65,8 @@
   .header > a { width: min(190px,calc(100vw - 172px)); }
   .header h1 { font-size: 23px; margin-top: 10px; }
   .header p { font-size: 11px; }
-  .modes { gap: 6px; margin-bottom: 12px; }
-  .mode { min-height: 66px; padding: 9px 7px; text-align: center; justify-content: center; font-size: 11px; line-height: 1.3; }
+  .modes { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin-bottom: 12px; }
+  .mode { min-height: 58px; padding: 9px 7px; text-align: center; justify-content: center; font-size: 11px; line-height: 1.3; }
   .details { display: flex; flex-direction: column; }
   .art { height: 124px; flex-shrink: 0; }
   .art img { object-position: center 38%; }
