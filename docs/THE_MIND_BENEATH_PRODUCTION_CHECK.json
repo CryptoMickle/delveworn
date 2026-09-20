@@ -1,0 +1,107 @@
+[
+  {
+    "path": "/living-dungeon",
+    "status": 200,
+    "bytes": 11807
+  },
+  {
+    "path": "/practice",
+    "status": 200,
+    "bytes": 22682
+  },
+  {
+    "path": "/challenge",
+    "status": 200,
+    "bytes": 19856
+  },
+  {
+    "path": "/onchain",
+    "status": 200,
+    "bytes": 23644
+  },
+  {
+    "task": "teach",
+    "language": "nb",
+    "status": 200,
+    "source": "ai",
+    "reason": null,
+    "latencyMs": 3160,
+    "usage": {
+      "model": "gpt-5.6-terra",
+      "input": 1020,
+      "output": 66
+    },
+    "teaching": {
+      "principle": "protect",
+      "scope": "innocent-at-risk"
+    },
+    "validBinding": true
+  },
+  {
+    "task": "plan",
+    "language": "nb",
+    "status": 200,
+    "source": "ai",
+    "reason": null,
+    "latencyMs": 3408,
+    "usage": {
+      "model": "gpt-5.6-terra",
+      "input": 1034,
+      "output": 192
+    },
+    "teaching": null,
+    "operations": [
+      {
+        "verb": "EXTINGUISH_LIGHT",
+        "target": "light",
+        "signature": "mercy"
+      },
+      {
+        "verb": "CREATE_NOISE",
+        "target": "distraction",
+        "signature": "cunning"
+      },
+      {
+        "verb": "RELEASE",
+        "target": "captive",
+        "signature": "mercy"
+      }
+    ],
+    "validBinding": true
+  },
+  {
+    "task": "plan",
+    "language": "en",
+    "status": 200,
+    "source": "ai",
+    "reason": null,
+    "latencyMs": 3164,
+    "usage": {
+      "model": "gpt-5.6-terra",
+      "input": 1028,
+      "output": 211
+    },
+    "teaching": null,
+    "operations": [
+      {
+        "verb": "EXTINGUISH_LIGHT",
+        "target": "light",
+        "signature": "cunning"
+      },
+      {
+        "verb": "CREATE_NOISE",
+        "target": "distraction",
+        "signature": "cunning"
+      },
+      {
+        "verb": "RELEASE",
+        "target": "captive",
+        "signature": "mercy"
+      }
+    ],
+    "validBinding": true
+  },
+  {
+    "equivalentIntents": "identical mechanical outcomes"
+  }
+]

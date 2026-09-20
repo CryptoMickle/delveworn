@@ -5,6 +5,7 @@ import { bind } from "../app/living-dungeon/mind/protocol";
 import { envelope } from "../app/living-dungeon/mind/storage";
 import { validReply, type MindReply, type MindRequest } from "../app/living-dungeon/mind/ai-contract";
 
+async function main() {
 const origin = process.env.MIND_CHECK_ORIGIN ?? "https://delveworn.app";
 const out = process.env.MIND_CHECK_OUTPUT ?? "/private/tmp/mind-production-check.json";
 const run = transition(createRun(20260920, "mind-production-verification"), { type: "teach", principle: "protect", scope: "innocent-at-risk" });
@@ -46,3 +47,5 @@ assert.deepEqual(mechanics[0], mechanics[1], "Equivalent Norwegian and English i
 results.push({ equivalentIntents: "identical mechanical outcomes" });
 await writeFile(out, JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results, null, 2));
+}
+void main().catch(error => { console.error(error); process.exitCode = 1; });

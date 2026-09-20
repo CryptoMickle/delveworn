@@ -23,7 +23,7 @@ The server uses the existing OpenAI credential and model configuration. All prov
 
 Limits are explicit: 400 input characters, 12 proposed operations, 48 compiled steps, 900 provider output tokens, a provider deadline of at most six seconds, 40 AI requests per page session, and the existing distributed request limiter. Cache hits do not invoke the provider. The normalized-text/context cache does not claim universal semantic equivalence; production checks compare a Norwegian and English expression of the same plan.
 
-Production request measurements and final verification results are recorded below after deployment.
+The production checks used **3,082 input tokens and 469 output tokens** across three real `gpt-5.6-terra` calls. At the published standard rates of $2 / million input tokens and $12 / million output tokens, that is **$0.011792 (about 1.18 US cents)** before any cache discount. This is a token-based estimate, not an invoice or account-wide spend reading. [Official model pricing](https://developers.openai.com/api/docs/models/gpt-5.6-terra).
 
 ## Actual limits
 
@@ -56,3 +56,19 @@ The unit suites map to the requested gates as follows:
 | Directed chapter and mechanical chills | `mind-expedition.test.ts`: full chapter, autonomous resonator action, sourced defense disruption, public/quiet Echo comparison |
 | Persistence and continuation | 24 chambers / three Echoes, anti-repeat grammar, exact replay, corruption handling, cross-tab conflict, mobile reload |
 | AI reliability | `mind-ai.test.ts`: strict provider contract, bounded output, timeout, provider failure, cache rebinding, malformed requests, stale responses |
+
+## Production verification — 20 September 2026
+
+Production deployment: `dpl_5G2FVSy5EzJa2NPvzQx27d6rWaZw`, code commit `17064fe`.
+
+- Canonical route: [delveworn.app/living-dungeon](https://delveworn.app/living-dungeon).
+- Immutable deployment: [delveworn-drb63p3gy-crypto-mickle.vercel.app](https://delveworn-drb63p3gy-crypto-mickle.vercel.app).
+- Vercel production build passed and assigned `delveworn.app` to this deployment.
+- `/living-dungeon`, `/practice`, `/challenge` and `/onchain`: HTTP 200.
+- Real teaching request: correct protection principle and applicability, valid state binding, 3,160 ms, 1,020 input / 66 output tokens.
+- Real Norwegian plan: certified extinguish → noise → release composition, valid state binding, 3,408 ms, 1,034 input / 192 output tokens.
+- Equivalent English plan: valid state binding, 3,164 ms, 1,028 input / 211 output tokens.
+- Both returned plans executed through the deterministic engine, completed the rescue and produced identical room, health, inventory and energy states. The provider's decorative signature choices differed; the engine correctly retained authority over actual action signatures.
+- The production browser displayed the new game, preserved notice of its previous V0 save, accepted a private lesson and rendered a legal ghost-plan preview.
+
+Reproduce the endpoint check with `node --import tsx scripts/check-mind-production.ts` from `frontend/`. It writes only response metadata and certified operations, never credentials or raw provider context. The evidence from this run is retained in `docs/THE_MIND_BENEATH_PRODUCTION_CHECK.json`.
