@@ -210,7 +210,7 @@
   .acts b { font-size: 8px !important; } .acts { margin-bottom: 23px; }
   .layout { grid-template-columns: 1fr; gap: 24px; max-width: 660px; }
   .sideColumn { display: grid; grid-template-columns: 1fr; }
-  .onboarding .sideColumn { order: -1; }
+
   .relicCard { margin-bottom: 9px; }
   .relicCard blockquote { font-size: 24px; }
   .footer { flex-wrap: wrap; justify-content: flex-start; gap: 10px 20px; }
@@ -243,3 +243,48 @@
   .footer { font-size: 8px; margin-top: 25px; }
 }
 @media (prefers-reduced-motion: reduce) { .root *, .root *::before, .root *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* The first loop stays beside the board, with one concrete next action. */
+.playGuide { padding: 19px 21px; margin-bottom: 12px; border: 1px solid #8fbd9670; border-left: 3px solid #afd1ad; background: #21352a; }
+.playGuide > .eyebrow { color: #b6d0a9; margin-bottom: 7px; }
+.playGuide > h3 { font-size: 26px; margin-bottom: 9px; }
+.playGuide > p:not(.eyebrow) { color: #c4d0bb; font-size: 14px; line-height: 1.65; max-width: 65ch; }
+.playGuide > button { margin-top: 14px; }
+.playGuide > small { display: block; margin-top: 13px; color: #a9bea0; font-size: 11px; line-height: 1.6; }
+.playGuide .teaching { border: 0; background: transparent; padding: 0; margin-top: 20px; }
+.playGuide .teaching > .eyebrow, .playGuide .teaching > h3, .playGuide .teaching > p { display: none; }
+.playHelp { max-width: 1340px; margin: -10px auto 23px; scroll-margin-top: 18px; border-bottom: 1px solid var(--line); }
+.playHelp > summary, .intentInput > summary { cursor: pointer; color: #c8d9b7; padding: 12px 2px; min-height: 44px; font-size: 13px; }
+.playHelp > summary:focus-visible, .intentInput > summary:focus-visible { outline: 2px solid #c3dfb2; outline-offset: 2px; }
+.playHelp > div { max-width: 780px; padding: 14px 0 23px; font-size: 14px; color: #b9c8b0; line-height: 1.7; }
+.playHelp ol { padding-left: 22px; margin: 15px 0; }
+.playHelp li { padding-left: 4px; margin-bottom: 9px; }
+.playHelp b { color: #e0e4cc; font-weight: 500; }
+.playHelp p { margin-top: 14px; }
+.helpIdentities { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-block: 1px solid var(--line); padding: 0 0 16px; margin: 18px 0; }
+.helpIdentities b { display: block; color: #b9dfc5; }
+.helpIdentities p + p b { color: #ddc290; }
+.intentInput > summary > span { font-size: 10px; color: #8f9f87; margin-left: 8px; }
+.intentInput[open] > summary { margin-bottom: 8px; }
+.boardLegend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 12px; background: #18261f; border-top: 1px solid var(--line); font-size: 11px; color: #c0c9b4; }
+.boardLegend > span { display: flex; gap: 8px; align-items: center; }
+.boardLegend i { display: inline-block; width: 16px; flex-shrink: 0; }
+.sightKey { height: 11px; background: #cb8d6366; border: 1px solid #c49d73; }
+.pathKey { border-top: 2px dashed #9deac9; }.reportKey { border-top: 2px dashed #c48dbd; }
+@media (max-width: 850px) {
+  .playGuide { padding: 17px; }.playGuide > h3 { font-size: 25px; }
+  .playGuide > button { width: 100%; min-height: 48px; }
+  .sideColumn { border-top: 1px solid var(--line); padding-top: 16px; }
+}
+@media (max-width: 480px) {
+  .headerActions { flex-wrap: wrap; justify-content: flex-end; gap: 0 10px; max-width: 55%; }
+  .headerActions button { min-height: 44px; font-size: 10px; }
+  .playGuide > p:not(.eyebrow), .playHelp > div { font-size: 13px; }
+  .playGuide > small { font-size: 11px; }
+  .helpIdentities { grid-template-columns: 1fr; gap: 0; }
+  .boardPlan { flex-wrap: wrap; }.boardPlan > button { width: 100%; min-height: 46px; }
+  .boardLegend { font-size: 10px; gap: 5px 12px; padding: 9px; }
+}
+
+.playGuide > .guideWitness { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; font-size: 12px; color: #d2bd91; }
+.onboarding .resources, .onboarding .acts, .onboarding .roomLore { display: none; }

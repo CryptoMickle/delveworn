@@ -9,8 +9,8 @@ async function begin(page: Page) {
   await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", "1");
 }
 async function commit(page: Page) {
-  await expect(page.getByRole("button", { name: "Forplikt deg →", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Forplikt deg →", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Utfør planen →", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Utfør planen →", exact: true }).click();
   await expect(page.getByText("PLANEN SKJER", { exact: true })).toBeVisible();
   await expect(page.getByText("PLANEN SKJER", { exact: true })).not.toBeVisible({ timeout: 25000 });
 }
@@ -69,6 +69,7 @@ test("keyboard, mouse or touch target, mobile layout and reduced motion", async 
 test("AI timeout/failure leaves immediate movement and authored plans available", async ({ page }) => {
   await page.route("**/api/living-dungeon/mind", route => route.fulfill({ status: 503, body: "unavailable" }));
   await begin(page);
+  await page.locator("summary").filter({ hasText: "Beskriv en egen plan" }).click();
   await page.getByLabel("Hva prøver du å få til?").fill("Bruk klokken til å hjelpe fangen uten at vokteren skades.");
   await page.getByRole("button", { name: "Vis en mulig framtid ↗", exact: true }).click();
   await expect(page.getByText(/Ordene når ikke fram akkurat nå/)).toBeVisible();
@@ -85,6 +86,7 @@ test("stale AI reply cannot replace a plan after the player moves", async ({ pag
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ source: "ai", binding: request.binding, plan: null, teaching: null, family: null, line: "En gammel framtid.", reason: null, usage: null }) });
   });
   await begin(page);
+  await page.locator("summary").filter({ hasText: "Beskriv en egen plan" }).click();
   await page.getByLabel("Hva prøver du å få til?").fill("Lag en avledning.");
   await page.getByRole("button", { name: "Vis en mulig framtid ↗", exact: true }).click();
   await expect.poll(() => received).toBe(true);
@@ -108,7 +110,7 @@ test("full expedition: public Storm, private maneuver, corrected learning, Echo 
       for (let i = 0; i < 2; i++) {
         const before = Number(await page.getByTestId("mind-game").getAttribute("data-revision"));
         await page.getByRole("button", { name: "ϟ Storm 4 energi", exact: true }).click();
-        const approve = page.getByRole("button", { name: "Forplikt deg →", exact: true });
+        const approve = page.getByRole("button", { name: "Utfør planen →", exact: true });
         await expect.poll(async () => Number(await page.getByTestId("mind-game").getAttribute("data-revision")) > before || await approve.isVisible()).toBe(true);
         if (await approve.isVisible()) await commit(page);
       }
@@ -130,7 +132,7 @@ test("full expedition: public Storm, private maneuver, corrected learning, Echo 
       for (let i = 0; i < 10 && !await page.getByRole("heading", { name: "Den var sikker. Du var ikke ferdig.", exact: true }).isVisible(); i++) {
         await page.getByRole("button", { name: "◐ Skjul 1 tur", exact: true }).click();
         await page.getByRole("button", { name: "╱ Attack 1 tur", exact: true }).click();
-        const approve = page.getByRole("button", { name: "Forplikt deg →", exact: true });
+        const approve = page.getByRole("button", { name: "Utfør planen →", exact: true });
         if (await approve.isVisible()) await commit(page);
       }
       await expect(page.getByRole("heading", { name: "Den var sikker. Du var ikke ferdig.", exact: true })).toBeVisible();
@@ -143,13 +145,13 @@ test("full expedition: public Storm, private maneuver, corrected learning, Echo 
   }
   await expect(page.getByTestId("mind-game")).toHaveAttribute("data-room", "12");
   await rescue(page, true);
-  if (!await page.getByRole("button", { name: "Gå til trappen →", exact: true }).isVisible()) {
-    await page.getByRole("tab", { name: "Muligheter", exact: true }).click();
-    for (const name of [/01 Hent det utelatte minnet/, /01 Stans historien/, /03 Følg personen ut/]) {
-      const action = page.getByRole("button", { name });
-      if (await action.isVisible()) { await action.click(); await commit(page); break; }
-    }
+  const guide = page.getByRole("region", { name: "Neste steg", exact: true });
+  for (let turn = 0; turn < 16; turn++) {
+    if (await guide.getByRole("heading", { name: "Rommet er løst", exact: true }).isVisible()) break;
+    await guide.getByRole("button", { name: /^(Vis et planforslag|Vis veien til trappen|Se én tur ved trappen) →$/ }).click();
+    await commit(page);
   }
+  await expect(guide.getByRole("heading", { name: "Rommet er løst", exact: true })).toBeVisible();
   await descend(page, 12);
   await page.reload();
   await expect(page.getByTestId("mind-game")).toHaveAttribute("data-room", "13");
@@ -161,4 +163,38 @@ test("home and other mode links remain available", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Teach the relic. Deceive the dungeon.", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "ENTER THE LIVING DUNGEON", exact: true }).click();
   await expect(page.getByRole("heading", { name: "The Mind Beneath.", exact: true })).toBeVisible();
+});
+
+
+test("next-step guide carries a new player through rescue, memory, exit and correction", async ({ page }) => {
+  test.setTimeout(90000);
+  await begin(page);
+  const guide = page.getByRole("region", { name: "Neste steg", exact: true });
+  await expect(guide.getByRole("heading", { name: "Se en redningsplan", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Hva prøver du å få til?")).not.toBeVisible();
+  await guide.getByRole("button", { name: "Vis en redningsplan →", exact: true }).click();
+  await expect(guide.getByText("Dette er bare en forhåndsvisning", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("mind-board")).toHaveAttribute("data-turn", "0");
+  await expect(page.getByLabel("Tegnforklaring")).toContainText("Ravfarget: noen kan se deg");
+  await commit(page);
+  await expect(guide).toContainText("Redningen kan bli din egen evne");
+  await page.reload();
+  await guide.getByRole("button", { name: "Bevar «Stille nåde» →", exact: true }).click();
+  await expect(guide).toContainText("Første rom er løst");
+  await guide.getByRole("button", { name: "Vis veien til trappen →", exact: true }).click();
+  await commit(page);
+  await guide.getByRole("button", { name: "Fortsett til neste rom →", exact: true }).click();
+  await expect(page.getByTestId("mind-game")).toHaveAttribute("data-room", "1");
+  await guide.getByRole("button", { name: "Prøv manøveren her →", exact: true }).click();
+  await commit(page);
+  await descend(page, 1);
+  await expect(guide).toContainText("Relikvien har misforstått");
+  await guide.getByRole("button", { name: "Korriger lærdommen →", exact: true }).click();
+  await expect(guide).toContainText("Finn en vei gjennom rommet");
+  await page.getByRole("button", { name: "Slik spiller du", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Et rom. En plan. Hvem så det?", exact: true })).toBeVisible();
+  const revision = await page.getByTestId("mind-game").getAttribute("data-revision");
+  await page.locator("#mind-how-to > summary").press("ArrowDown");
+  await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", revision!);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

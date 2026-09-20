@@ -32,3 +32,9 @@ Production is gated on typecheck, lint, unit/integration tests, browser expediti
 ## Future boundaries
 
 Pactcraft can add certified operation preconditions, not arbitrary executable rules. Semantic debt/memory/authority are additional fact and belief predicates. Recurring agents consume their own observation projections. Shared Echoes export only certified component recipes and redacted provenance. Counterfactuals branch a replay without committing it. Machine-verified rules must pass the same budget, operation validator and reproducibility suites.
+
+## Teaching the player the loop
+
+The board has a persistent “Neste steg” guide derived from the current saved state. The first rescue introduces one action at a time: a private rule, a preview, execution, preserving a maneuver and reaching the stairs. Later guidance handles reuse, correction, an interrupted or paused plan, escorts, retreat after a failed rescue and finishing an Echo. It never commits a world action until the player presses its button.
+
+The preview control says “Utfør planen”; the map labels the player and explains sight fields, planned movement and report paths. Custom written intentions are behind an optional disclosure. “Slik spiller du” explains controls and the two kinds of learning, pauses automatic execution and preserves native keyboard navigation while focused. Teaching and subsequent guide transitions scroll back to the board. Existing journals, rules and saved runs are unchanged.

@@ -72,3 +72,13 @@ Production deployment: `dpl_5G2FVSy5EzJa2NPvzQx27d6rWaZw`, code commit `17064fe`
 - The production browser displayed the new game, preserved notice of its previous V0 save, accepted a private lesson and rendered a legal ghost-plan preview.
 
 Reproduce the endpoint check with `node --import tsx scripts/check-mind-production.ts` from `frontend/`. It writes only response metadata and certified operations, never credentials or raw provider context. The evidence from this run is retained in `docs/THE_MIND_BENEATH_PRODUCTION_CHECK.json`.
+
+## Follow-up: knowing what to do next — 20 September 2026
+
+Player feedback identified the immediate next action as the main obstacle. A guide above the board now derives a concrete action from the saved room: teach, preview, execute, preserve, escort, correct, continue or recover from an interruption. The first rescue has five visible steps. Later guidance handles the Echo and continuing scenario families, including waiting at the stairs for an escorted person. This is presentation over the existing commands; it introduces no engine, journal or save-version change.
+
+The first lesson sits beside the room, the player is labelled DU, the lens explains its colors and paths, and the commit button says Utfør planen. Optional written intentions are collapsed. Slik spiller du pauses execution while open; reading its keyboard controls does not move the player. The guidance itself requires no provider call. The prior real-AI verification remains applicable to the unchanged API; it was not repeated for this UI update.
+
+Verification: all 366 unit/integration tests passed; all 14 Desktop Chromium/iPhone 11 Pro WebKit browser tests passed, including both complete expeditions and a new guided rescue → reload → preserve → reuse → correction path. TypeScript and the production build passed. Lint has zero errors and the same 13 pre-existing warnings. Mobile visual inspection confirmed all three initial choices fit at 375 × 812, and the next action and board remain separate. The first browser run exposed a test that chose report interruption when an escort was needed after the boss; the test now follows the actual room guide and verifies completion.
+
+Published deployment: `dpl_ENWmbhBbmdR9oNbHvM9YUfy5Z3CP`, [immutable build](https://delveworn-9a1ibdosd-crypto-mickle.vercel.app/living-dungeon), promoted to [delveworn.app/living-dungeon](https://delveworn.app/living-dungeon). No other mode's implementation changed.
