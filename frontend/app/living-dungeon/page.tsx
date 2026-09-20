@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import LivingDungeonClient from "./living-dungeon-client";
-import "../descent/game.css";
-import "../descent/combat-panel.css";
-import "../dungeon/scene.css";
-import "../dungeon/room-parchments.css";
-import "./living-dungeon.css";
+import MindBeneathClient from "./mind/client";
 
 const description =
-  "Forge a pact, leave witnesses and face what the dungeon thinks it knows in this experimental Delveworn story run.";
+  "Teach the relic who you are. Convince the dungeon you are someone else. A persistent, tactical expedition beneath Delveworn.";
 
 export const metadata: Metadata = {
-  title: "The Living Dungeon · Delveworn",
+  title: "The Mind Beneath · The Living Dungeon · Delveworn",
   description,
   alternates: { canonical: "/living-dungeon" },
   openGraph: {
@@ -24,5 +19,5 @@ export const metadata: Metadata = {
 };
 
 export default function LivingDungeonPage() {
-  return <LivingDungeonClient />;
+  return <MindBeneathClient />;
 }
