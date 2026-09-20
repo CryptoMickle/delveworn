@@ -1,0 +1,117 @@
+{
+  "deployment": "dpl_6P1ADWEZR6QGAx6hTwUTzfj8UEmT",
+  "url": "https://delveworn.app/living-dungeon",
+  "codeCommit": "1a46cb3",
+  "inputTokens": 3121,
+  "outputTokens": 365,
+  "results": [
+    {
+      "path": "/living-dungeon",
+      "status": 200,
+      "bytes": 12093
+    },
+    {
+      "path": "/practice",
+      "status": 200,
+      "bytes": 22963
+    },
+    {
+      "path": "/challenge",
+      "status": 200,
+      "bytes": 20150
+    },
+    {
+      "path": "/onchain",
+      "status": 200,
+      "bytes": 23991
+    },
+    {
+      "task": "teach",
+      "language": "nb",
+      "status": 200,
+      "source": "ai",
+      "reason": null,
+      "latencyMs": 2926,
+      "usage": {
+        "model": "gpt-5.6-terra",
+        "input": 1033,
+        "output": 51
+      },
+      "line": "Protect the endangered innocent before yourself.",
+      "teaching": {
+        "principle": "protect",
+        "scope": "innocent-at-risk"
+      },
+      "validBinding": true
+    },
+    {
+      "task": "plan",
+      "language": "nb",
+      "status": 200,
+      "source": "ai",
+      "reason": null,
+      "latencyMs": 2062,
+      "usage": {
+        "model": "gpt-5.6-terra",
+        "input": 1047,
+        "output": 140
+      },
+      "line": "The lantern dies, the bell draws him, and the captive goes free.",
+      "teaching": null,
+      "operations": [
+        {
+          "verb": "EXTINGUISH_LIGHT",
+          "target": "light",
+          "signature": "cunning"
+        },
+        {
+          "verb": "CREATE_NOISE",
+          "target": "distraction",
+          "signature": "cunning"
+        },
+        {
+          "verb": "RELEASE",
+          "target": "captive",
+          "signature": "mercy"
+        }
+      ],
+      "validBinding": true
+    },
+    {
+      "task": "plan",
+      "language": "en",
+      "status": 200,
+      "source": "ai",
+      "reason": null,
+      "latencyMs": 2463,
+      "usage": {
+        "model": "gpt-5.6-terra",
+        "input": 1041,
+        "output": 174
+      },
+      "line": "Darkness, a bell, then the captive; the warden need not bleed.",
+      "teaching": null,
+      "operations": [
+        {
+          "verb": "EXTINGUISH_LIGHT",
+          "target": "light",
+          "signature": "mercy"
+        },
+        {
+          "verb": "CREATE_NOISE",
+          "target": "distraction",
+          "signature": "cunning"
+        },
+        {
+          "verb": "RELEASE",
+          "target": "captive",
+          "signature": "mercy"
+        }
+      ],
+      "validBinding": true
+    },
+    {
+      "equivalentIntents": "identical mechanical outcomes"
+    }
+  ]
+}

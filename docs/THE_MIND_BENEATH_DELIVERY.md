@@ -6,7 +6,7 @@ The replacement lives at `/living-dungeon`; Practice, Weekly Challenge and Oncha
 
 The game contains a deterministic grid, sealed multi-turn plans, physical enemy reactions and interrupted plans; line-of-sight, darkness and distraction; individual observations and beliefs; moving reports and interceptable relays; competing, decaying dungeon hypotheses; six teachable principles with applicability, priorities, examples and corrections; compositions saved as personal maneuvers; moral choices and paid overrides; relationships with spendable favors; scars; twelve directed first-chapter chambers; eight room families; five budgeted boss components; and continuing rescue, escort, evidence and report-control scenarios with later Echoes.
 
-The interface exposes the same actions through visible suggestions, object connections, editable steps, a short intention field, mouse, touch and keyboard. Ghost paths and numbered actions show the preview in the room. The board keeps a fixed aspect ratio. The private-learning and suspected-theory summaries stay brief; provenance is behind “Hvorfor?”. Event-driven sound distinguishes the dungeon learning from the relic understanding. Reduced motion disables transitions, and hidden tabs pause automatic execution.
+The interface exposes the same actions through visible suggestions, object connections, editable steps, a short intention field, mouse, touch and keyboard. Ghost paths and numbered actions show the preview in the room. The board keeps a fixed aspect ratio. The private-learning and suspected-theory summaries stay brief; provenance is behind “Why?”. Event-driven sound distinguishes the dungeon learning from the relic understanding. Reduced motion disables transitions, and hidden tabs pause automatic execution.
 
 ## Causal chains verified in the engine
 
@@ -29,7 +29,7 @@ The production checks used **3,082 input tokens and 469 output tokens** across t
 
 - **Pacing:** twelve authored chambers form the first chapter. The 45–60 minute target has not been validated with a timed human playtest. Automated playthrough speed is not evidence of human pacing or emotional impact.
 - **Device thermals:** responsive layout, touch, WebKit, reduced motion and absence of continuous idle animation are checked. No physical iPhone temperature, battery or sustained thermal-throttling measurement is available from this environment.
-- **Persistence:** local browser storage, not account/cloud sync. Version 2 uses deterministic replay and an integrity checksum, not cryptographic anti-cheat. Cross-tab writes are protected. V0 saves are preserved separately, because their missing observations cannot truthfully be invented during migration. Unsupported saves remain untouched.
+- **Persistence:** local browser storage, not account/cloud sync. Version 3 uses deterministic replay, validated v2 migration and an integrity checksum, not cryptographic anti-cheat. Cross-tab writes are protected. V0 saves are preserved separately, because their missing observations cannot truthfully be invented during migration. Unsupported saves remain untouched.
 - **Long-run bounds:** local journal storage currently has a 12,000-command / 4 MB ceiling; beyond it play continues in memory with a visible warning. AI requests accept at most 2,000 journal commands / 750 KB; longer runs retain immediate actions and authored fallback. An archival checkpoint migration is a future persistence extension.
 - **Content bounds:** AI composes a certified operation language and chooses among approved scenario families. It does not invent executable rules, unrestricted moral predicates, new art or arbitrary NPC behaviors. Six principles and five boss components are curated. Saved maneuvers are player-created compositions, not a catalogue of four fixed abilities.
 - **Presentation:** custom vector room art and short synthesized motifs; no recorded voice performance, continuous music score or generative character art. Typed intention and platform dictation are available; there is no dedicated microphone recorder.
@@ -82,3 +82,28 @@ The first lesson sits beside the room, the player is labelled DU, the lens expla
 Verification: all 366 unit/integration tests passed; all 14 Desktop Chromium/iPhone 11 Pro WebKit browser tests passed, including both complete expeditions and a new guided rescue → reload → preserve → reuse → correction path. TypeScript and the production build passed. Lint has zero errors and the same 13 pre-existing warnings. Mobile visual inspection confirmed all three initial choices fit at 375 × 812, and the next action and board remain separate. The first browser run exposed a test that chose report interruption when an escort was needed after the boss; the test now follows the actual room guide and verifies completion.
 
 Published deployment: `dpl_ENWmbhBbmdR9oNbHvM9YUfy5Z3CP`, [immutable build](https://delveworn-9a1ibdosd-crypto-mickle.vercel.app/living-dungeon), promoted to [delveworn.app/living-dungeon](https://delveworn.app/living-dungeon). No other mode's implementation changed.
+
+
+## Painted world and English release — 20 September 2026
+
+The active game is now English throughout, including UI and accessibility names, the next-action guide, chapter and room text, principles and corrections, event descriptions, the relic's directed voice, theories, causal explanations, errors and fallback. The provider is instructed to answer in English even when the player writes another language. Custom maneuver names remain the player's text.
+
+The board now uses the original Delveworn adventurer, existing orc/zombie cutouts, eight original room paintings, the logo and item/relic artwork. A new 281,332-byte atlas adds the masked warden, cartographer, scribe, bell, brazier, conduit, alcove and stairs. Physical walls, shadows, chains, shields, health, reported routes and plan paths stay attached to actual world state. Short impact effects finish in 650 ms and respect reduced motion. Fixed interaction rectangles prevent decorative SVG bounds from moving click/touch targets. Shared art and other modes were not edited.
+
+Source paths, the two exact generation prompts, selected generator outputs and black-key rendering are documented in [`frontend/public/living-dungeon/README.md`](../frontend/public/living-dungeon/README.md). Generation used the built-in ImageGen tool. It does not expose a billed dollar amount. The graphics themselves introduce no OpenAI request and no continuous animation or particle loop. Physical-device thermal measurements remain unavailable.
+
+Save v3 / `mind-beneath-2` can resume valid Norwegian v2 memories, including a partly executed plan. The frozen original rules verify the entire old journal and its bindings before the same choices are replayed under English rules. Only verified plans are rebound. Facts, observations, reports, resources, random state, learning, personal names, relationships and boss outcomes are preserved. Existing storage is not overwritten merely by loading it.
+
+Verification for this release:
+
+- 372 unit tests passed, including full old-expedition migration through the Echo to an exactly identical English replay, partial-plan migration, preserved custom names, invalid bindings and cross-tab writes.
+- TypeScript passed. Lint has zero errors and the same 13 pre-existing warnings outside Living Dungeon.
+- Vercel production build passed (24 seconds).
+- English preview and painted art inspected at desktop, 375 px and 320 px; no horizontal overflow at 320 px.
+- Browser checks cover the complete chapter and post-boss continuation, keyboard, mouse, touch, reduced motion, asset loading, hit targets, interrupted/stale AI, onboarding, normal resume and old-memory migration.
+
+Canonical production is `dpl_6P1ADWEZR6QGAx6hTwUTzfj8UEmT`, promoted from [delveworn-cf4fjxfa9-crypto-mickle.vercel.app](https://delveworn-cf4fjxfa9-crypto-mickle.vercel.app). Application source corresponds to code commit `1a46cb3`.
+
+All 18 browser checks passed across desktop Chromium and iPhone 11 Pro WebKit: 14 short checks, two complete expeditions after correcting an English selector typo, and two old-save migration checks. The production browser confirms `lang=en`, `painted-1` artwork and the English guided introduction. There is one English game, with no Norwegian locale, alternate route or language selector. The frozen Norwegian modules are only a historical journal validator; they are never rendered.
+
+The canonical production check returned HTTP 200 for Living Dungeon, Practice, Challenge and Onchain. Three real provider calls returned English lines, valid bindings and executable plans. The two equivalent plan intentions produced identical room, health, inventory and energy outcomes after engine execution. Latencies were 2,062–2,926 ms. Usage was **3,121 input and 365 output tokens** on `gpt-5.6-terra`. Applying the same $2 / million input and $12 / million output rates recorded in the earlier check gives **$0.010622**, about 1.06 US cents; this is a conditional token estimate, not an invoice. Built-in ImageGen billing is not exposed. Exact response metadata and English lines are retained in [`THE_MIND_BENEATH_ENGLISH_PRODUCTION_CHECK.json`](THE_MIND_BENEATH_ENGLISH_PRODUCTION_CHECK.json).
