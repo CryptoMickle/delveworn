@@ -45,6 +45,26 @@
 .living-dungeon-report strong { color:#efd6a7; font:400 16px/1.2 Georgia,serif; }
 .living-dungeon-report p { grid-column:1; margin:0; color:#b9aabb; font-size:11px; line-height:1.45; }
 .living-dungeon-report button { grid-column:2; grid-row:1/3; min-height:42px; padding:8px 13px; border:1px solid #624274; border-radius:8px; background:#24172d; color:#dcc5ea; }
+.living-intent-stage { display:grid; justify-items:center; width:100%; margin-top:12px; }
+.living-dungeon[data-living-intent="true"] .dungeon-scene-presentation {
+  inset:0; width:100%; height:100%; aspect-ratio:auto;
+}
+.living-world-overlay {
+  inset:0!important; width:100%!important; height:100%!important; min-height:0!important; aspect-ratio:auto!important;
+  margin:0!important; border:0!important; border-radius:0!important;
+  background:transparent!important; box-shadow:none!important;
+}
+.living-world-overlay button { pointer-events:auto; }
+.living-dungeon[data-living-intent="true"] .dungeon-floor-controls { display:none; }
+.living-intent-fallback {
+  width:min(720px,100%); margin-top:10px; padding:13px; border:1px solid #574560; border-radius:12px;
+  background:#120e15; color:#d8c8dd;
+}
+.living-intent-fallback > strong { display:block; color:#efc983; font:800 9px/1.2 var(--font-geist-mono),monospace; letter-spacing:.14em; text-transform:uppercase; }
+.living-intent-fallback > div { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.living-intent-fallback button { min-height:44px; padding:9px; border:1px solid #654d70; border-radius:8px; background:#25172c; color:#eadbed; font-weight:800; }
+.living-intent-direct-combat { display:flex; justify-content:center; width:min(720px,100%); margin-top:9px; }
+.living-intent-direct-combat button { min-width:min(280px,100%); }
 .living-dungeon-sidebar { display:grid; gap:12px; }
 .living-card { padding:15px; border:1px solid #47384c; background:linear-gradient(145deg,#1b1420,#100d12); }
 .living-card h2,.living-card h3 { margin:0; color:#f2ddba; font-size:17px; }
@@ -254,6 +274,20 @@
   .living-mobile-vitals span:last-child { border:0; }
   .living-mobile-vitals strong { display:block; margin-top:2px; color:#f2e6f3; font-size:10px; }
   .living-mobile-pact { margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#d8bded; font-size:8px; text-align:center; }
+  .living-mobile-improvisation-outcome {
+    display:grid;
+    gap:2px;
+    margin-top:6px;
+    padding:6px 9px;
+    border:1px solid #76592f;
+    border-radius:7px;
+    background:rgba(31,21,17,.94);
+    color:#d5c9bc;
+    font-size:8px;
+    line-height:1.35;
+    text-align:center;
+  }
+  .living-mobile-improvisation-outcome strong { color:#f2d29a; font:700 10px/1.2 Georgia,serif; }
   .living-mobile-clue { margin:5px -2px -2px; padding:5px 7px; border-top:1px solid #6b5438; color:#e6cfab; font:400 8px/1.35 var(--font-parchment),Georgia,serif; }
   .living-mobile-clue summary { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
   .living-mobile-clue p { margin:6px 0 1px; color:#cdbfa9; font-size:9px; line-height:1.4; }
@@ -281,6 +315,8 @@
   .living-dungeon[data-living-special="true"] .dungeon-scene { height:300px; }
   .living-dungeon[data-living-special="true"] .dungeon-door-open text { display:none; }
   .living-dungeon[data-living-special="true"] .dungeon-controls-help { display:none; }
+  .living-intent-stage { margin-top:8px; }
+  .living-intent-fallback > div { grid-template-columns:1fr; }
   .living-scene-panel { margin-top:8px; padding:13px; border-radius:10px; }
   .living-scene-panel header { display:block; padding-bottom:9px; }
   .living-scene-panel header h2 { font-size:21px; }

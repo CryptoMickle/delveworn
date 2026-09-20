@@ -9,6 +9,21 @@ import {
 } from "./beliefs";
 import { appendDungeonFact, createDungeonFact, type DungeonFactDraft } from "./facts";
 import {
+  WITNESS_GATE_BELIEF_SIGNAL_IDS,
+  WITNESS_GATE_EFFECT_IDS,
+  WITNESS_GATE_MANOEUVRES,
+  WITNESS_GATE_PREMISES,
+  compileWitnessGatePlan,
+  createWitnessGateState,
+  isImprovisationSemanticSelection,
+  resolveWitnessGatePlan,
+  type ImprovisationSemanticSelection,
+  type WitnessGateBeliefSignalId,
+  type WitnessGateEffectId,
+  type WitnessGateResolution,
+  type WitnessGateState,
+} from "./improvisation";
+import {
   acceptPactOffer,
   applyBossDamageBoon,
   applyBossEntryBoon,
@@ -65,6 +80,212 @@ function empowerBossForBreach(enemy: LivingDungeonEnemy): LivingDungeonEnemy {
 
 function addFact(run: LivingDungeon, draft: DungeonFactDraft): LivingDungeon["facts"] {
   return appendDungeonFact(run.facts, createDungeonFact(run.runId, draft));
+}
+
+const INTENT_VALUE_SEPARATOR = "~";
+const IMPROVISATION_VALUE_SEPARATOR = "~";
+
+function encodeIntentSelection(selection: ImprovisationSemanticSelection): string {
+  return [
+    selection.premiseId,
+    selection.goalId,
+    selection.methodId,
+    selection.targetId,
+    selection.objectId,
+    selection.boundaryId,
+  ].join(INTENT_VALUE_SEPARATOR);
+}
+
+function decodeIntentSelection(value: string | null): ImprovisationSemanticSelection | null {
+  if (!value) return null;
+  const [premiseId, goalId, methodId, targetId, objectId, boundaryId, ...rest] = value.split(INTENT_VALUE_SEPARATOR);
+  if (rest.length > 0) return null;
+  const selection = {
+    premiseId,
+    goalId,
+    methodId,
+    targetId,
+    objectId,
+    boundaryId,
+    needsClarification: false,
+  };
+  return isImprovisationSemanticSelection(selection) ? selection : null;
+}
+
+type RecordedImprovisation = Readonly<{
+  outcome: WitnessGateResolution["outcome"];
+  effectId: WitnessGateEffectId;
+  signalId: WitnessGateBeliefSignalId;
+  alarm: number;
+  beliefStrength: 1 | 2 | 3;
+}>;
+
+function encodeImprovisationResolution(resolution: WitnessGateResolution): string {
+  return [
+    resolution.outcome,
+    resolution.effectId,
+    resolution.observedBelief.signalId,
+    resolution.nextState.alarm,
+    resolution.observedBelief.strength,
+  ].join(IMPROVISATION_VALUE_SEPARATOR);
+}
+
+function decodeImprovisationResolution(value: string | null): RecordedImprovisation | null {
+  if (!value) return null;
+  const [outcome, effectId, signalId, alarmText, strengthText, ...rest] = value.split(IMPROVISATION_VALUE_SEPARATOR);
+  const alarm = Number(alarmText);
+  const beliefStrength = Number(strengthText);
+  if (rest.length > 0 || (outcome !== "SUCCESS" && outcome !== "SETBACK")
+    || !WITNESS_GATE_EFFECT_IDS.includes(effectId as WitnessGateEffectId)
+    || !WITNESS_GATE_BELIEF_SIGNAL_IDS.includes(signalId as WitnessGateBeliefSignalId)
+    || !Number.isSafeInteger(alarm) || alarm < 0 || alarm > 3
+    || ![1, 2, 3].includes(beliefStrength)) return null;
+  return {
+    outcome,
+    effectId: effectId as WitnessGateEffectId,
+    signalId: signalId as WitnessGateBeliefSignalId,
+    alarm,
+    beliefStrength: beliefStrength as 1 | 2 | 3,
+  };
+}
+
+/** The world-shaping choice is an append-only fact, so existing save envelopes need no new field. */
+export function livingDungeonIntentSelection(run: Pick<LivingDungeon, "facts">): ImprovisationSemanticSelection | null {
+  const declared = run.facts.find((fact) => fact.type === "PLAYER_INTENT_DECLARED");
+  return declared ? decodeIntentSelection(declared.valueId) : null;
+}
+
+/** Canonical adapter between the expedition and the bounded Witness Gate rules engine. */
+export function livingDungeonWitnessGateState(run: LivingDungeon): WitnessGateState {
+  const execution = run.facts.find((fact) => fact.type === "IMPROVISATION_EXECUTED");
+  const recorded = execution ? decodeImprovisationResolution(execution.valueId) : null;
+  const manoeuvre = execution && WITNESS_GATE_MANOEUVRES[execution.subjectId as keyof typeof WITNESS_GATE_MANOEUVRES];
+  const resolvedPremiseIds = recorded?.outcome === "SUCCESS" && manoeuvre ? [manoeuvre.premiseId] : [];
+  const beliefs = recorded ? [{
+    observerId: "MASKED_WARDEN" as const,
+    signalId: recorded.signalId,
+    strength: recorded.beliefStrength,
+  }] : [];
+  return createWitnessGateState({
+    runId: run.runId,
+    revision: run.revision,
+    sceneSeed: run.seed,
+    player: {
+      hp: run.player.hp,
+      maxHp: run.player.maxHp,
+      gold: run.player.gold,
+      potions: run.player.potions,
+      stormCharges: 0,
+      aptitudes: { CUNNING: 1, MERCY: 1, FORCE: 1, RISK: 1 },
+    },
+    alarm: recorded?.alarm ?? 0,
+    resolvedPremiseIds,
+    beliefs,
+  });
+}
+
+/** Cross-check the compact fact representation against the authored compiler and resolver. */
+export function livingDungeonImprovisationTimelineMatches(run: LivingDungeon): boolean {
+  const intentFacts = run.facts.filter((fact) => fact.type === "PLAYER_INTENT_DECLARED");
+  const executionFacts = run.facts.filter((fact) => fact.type === "IMPROVISATION_EXECUTED");
+  const bypassFacts = run.facts.filter((fact) => fact.type === "ENCOUNTER_BYPASSED");
+  const relayFacts = run.facts.filter((fact) => fact.type === "REPORT_RELAYED");
+  if (intentFacts.length > 1 || executionFacts.length > 1 || bypassFacts.length > 1 || relayFacts.length > 1) return false;
+  if (intentFacts.length === 0) return executionFacts.length === 0 && bypassFacts.length === 0 && relayFacts.length === 0;
+
+  const intentFact = intentFacts[0];
+  const intent = decodeIntentSelection(intentFact.valueId);
+  if (!intent || intentFact.revision !== 1 || intentFact.roomId !== "warmup"
+    || intentFact.subjectId !== "PLAYER" || intentFact.actionTag !== "INTERACTION"
+    || intentFact.actionId !== `${run.runId}:1:declare-intent`
+    || intentFact.sourceFactIds.length !== 0
+    || WITNESS_GATE_PREMISES[intent.premiseId].goalId !== intent.goalId) return false;
+  const declaredManoeuvre = Object.values(WITNESS_GATE_MANOEUVRES).find((manoeuvre) => (
+    manoeuvre.premiseId === intent.premiseId
+    && manoeuvre.goalId === intent.goalId
+    && manoeuvre.methodId === intent.methodId
+    && manoeuvre.targetId === intent.targetId
+    && manoeuvre.objectId === intent.objectId
+  ));
+  if (!declaredManoeuvre) return false;
+  if (executionFacts.length === 0) return bypassFacts.length === 0 && relayFacts.length === 0;
+
+  const execution = executionFacts[0];
+  const recorded = decodeImprovisationResolution(execution.valueId);
+  const manoeuvre = WITNESS_GATE_MANOEUVRES[execution.subjectId as keyof typeof WITNESS_GATE_MANOEUVRES];
+  if (!recorded || !manoeuvre || execution.revision !== intentFact.revision + 1
+    || execution.roomId !== "warmup" || execution.actionId === null
+    || !execution.actionId.startsWith(`${run.runId}:${execution.revision}:improvisation-wgplan-`)
+    || execution.actionTag !== actionTagForBeliefSignal(recorded.signalId)
+    || manoeuvre.premiseId !== intent.premiseId || manoeuvre.goalId !== intent.goalId
+    || manoeuvre.beliefSignalId !== recorded.signalId
+    || (recorded.outcome === "SUCCESS" && recorded.effectId !== manoeuvre.successEffectId)
+    || (recorded.outcome === "SETBACK" && recorded.effectId !== "WARDEN_ALERTED")) return false;
+
+  const planId = execution.actionId.slice(`${run.runId}:${execution.revision}:improvisation-`.length);
+  const initialState = createWitnessGateState({
+    runId: run.runId,
+    revision: intentFact.revision,
+    sceneSeed: run.seed,
+    player: {
+      hp: 100,
+      maxHp: 100,
+      gold: 30,
+      potions: 3,
+      stormCharges: 0,
+      aptitudes: { CUNNING: 1, MERCY: 1, FORCE: 1, RISK: 1 },
+    },
+  });
+  const compiled = compileWitnessGatePlan({
+    premiseId: manoeuvre.premiseId,
+    goalId: manoeuvre.goalId,
+    methodId: manoeuvre.methodId,
+    targetId: manoeuvre.targetId,
+    objectId: manoeuvre.objectId,
+    boundaryId: intent.boundaryId,
+    needsClarification: false,
+  }, initialState);
+  if (compiled.status !== "compiled" || compiled.plan.planId !== planId) return false;
+  const canonicalResolution = resolveWitnessGatePlan(compiled.plan, initialState);
+  if (canonicalResolution.status !== "resolved"
+    || encodeImprovisationResolution(canonicalResolution.resolution) !== execution.valueId) return false;
+
+  const actionFacts = run.facts.filter((fact) => fact.type === "PLAYER_ACTION" && fact.actionId === execution.actionId);
+  const observedFacts = run.facts.filter((fact) => fact.type === "ACTION_OBSERVED"
+    && fact.sourceFactIds.length === 1 && fact.sourceFactIds[0] === execution.id);
+  if (actionFacts.length !== 1 || actionFacts[0].revision !== execution.revision
+    || actionFacts[0].actionTag !== execution.actionTag
+    || execution.sourceFactIds.length !== 2
+    || execution.sourceFactIds[0] !== intentFact.id
+    || execution.sourceFactIds[1] !== actionFacts[0].id
+    || observedFacts.length !== 1 || observedFacts[0].subjectId !== "MASKED_WARDEN"
+    || observedFacts[0].actionId !== execution.actionId || observedFacts[0].actionTag !== execution.actionTag
+    || observedFacts[0].valueId !== recorded.signalId) return false;
+
+  const shouldHaveRelay = run.stageIndex >= LIVING_DUNGEON_ROOMS.findIndex((room) => room.id === "witness");
+  if (shouldHaveRelay) {
+    const relay = relayFacts[0];
+    const witnessEntry = run.facts.find((fact) => fact.type === "ROOM_ENTERED" && fact.valueId === "witness");
+    if (!relay || !witnessEntry || relay.revision !== witnessEntry.revision || relay.roomId !== "witness"
+      || relay.subjectId !== "dungeon-scrivener" || relay.actionId !== observedFacts[0].actionId
+      || relay.actionTag !== observedFacts[0].actionTag || relay.valueId !== observedFacts[0].valueId
+      || relay.sourceFactIds.length !== 1 || relay.sourceFactIds[0] !== observedFacts[0].id) return false;
+  } else if (relayFacts.length !== 0) return false;
+
+  if (recorded.outcome === "SUCCESS") {
+    if (bypassFacts.length !== 1 || bypassFacts[0].subjectId !== "grave-attendant"
+      || bypassFacts[0].roomId !== "warmup" || bypassFacts[0].actionId !== execution.actionId
+      || bypassFacts[0].actionTag !== execution.actionTag || bypassFacts[0].valueId !== recorded.effectId
+      || bypassFacts[0].sourceFactIds.length !== 1 || bypassFacts[0].sourceFactIds[0] !== execution.id) return false;
+  } else if (bypassFacts.length !== 0) return false;
+
+  if (run.stageIndex === 0 && run.revision === execution.revision) {
+    const expected = canonicalResolution.resolution.nextState.player;
+    if (run.player.hp !== expected.hp || run.player.gold !== expected.gold || run.player.potions !== expected.potions) return false;
+    if (recorded.outcome === "SUCCESS" && (run.phase !== "room-cleared" || run.encounter?.hp !== 0)) return false;
+    if (recorded.outcome === "SETBACK" && !["combat", "lost"].includes(run.phase)) return false;
+  }
+  return true;
 }
 
 function factDraft(
@@ -236,7 +457,12 @@ export function livingDungeonCombatPreview(run: LivingDungeon): LivingDungeonCom
 
 export function availableLivingDungeonActions(run: LivingDungeon): readonly LivingDungeonCommand["type"][] {
   if (run.pendingBreach) return ["confirm-breach", "cancel-breach"];
-  if (run.phase === "explore") return ["engage"];
+  if (run.phase === "explore") {
+    if (run.roomId !== "warmup") return ["engage"];
+    return livingDungeonIntentSelection(run)
+      ? ["execute-improvisation", "engage"]
+      : ["declare-intent", "engage"];
+  }
   if (run.phase === "combat") {
     const actions: LivingDungeonCommand["type"][] = ["attack", "storm"];
     if (run.player.potions > 0 && run.player.hp < run.player.maxHp) actions.push("potion");
@@ -307,7 +533,8 @@ function maybeWarnForBreach(
 function observeWitnessAction(run: LivingDungeon, action: PactAction, facts: LivingDungeon["facts"]): Pick<LivingDungeon, "facts" | "witness"> {
   if (run.roomId !== "witness" || run.witness.outcome !== "FIGHTING") return { facts, witness: run.witness };
   if (!["ATTACK", "STORM", "VOLUNTARY_HEALING"].includes(action.tag)
-    || facts.some((fact) => fact.type === "ACTION_OBSERVED" && fact.subjectId === "dungeon-scrivener")) {
+    || facts.some((fact) => (fact.type === "ACTION_OBSERVED" || fact.type === "REPORT_RELAYED")
+      && fact.subjectId === "dungeon-scrivener")) {
     return { facts, witness: run.witness };
   }
   const observed = createDungeonFact(run.runId, {
@@ -478,7 +705,37 @@ function enterStage(run: LivingDungeon, stageIndex: number): LivingDungeon {
 
   const staged: LivingDungeon = { ...run, revision, stageIndex, roomId: room.id, phase, encounter };
   facts = addFact(staged, factDraft(staged, revision, "ROOM_ENTERED", { valueId: room.id, key: room.id }));
-  if (room.id === "witness") witness = Object.freeze({ ...witness, outcome: "FIGHTING" });
+  if (room.id === "witness") {
+    const priorObservation = facts.find((fact) => (
+      fact.type === "ACTION_OBSERVED"
+      && fact.subjectId === "MASKED_WARDEN"
+      && fact.actionTag !== null
+    ));
+    let knownAction = facts.find((fact) => (
+      (fact.type === "ACTION_OBSERVED" || fact.type === "REPORT_RELAYED")
+      && fact.subjectId === "dungeon-scrivener"
+      && fact.actionTag !== null
+    ));
+    if (priorObservation) {
+      const relayed = createDungeonFact(run.runId, factDraft(staged, revision, "REPORT_RELAYED", {
+        subjectId: "dungeon-scrivener",
+        actionId: priorObservation.actionId,
+        actionTag: priorObservation.actionTag,
+        valueId: priorObservation.valueId,
+        sourceFactIds: [priorObservation.id],
+        key: priorObservation.id,
+      }));
+      facts = appendDungeonFact(facts, relayed);
+      knownAction = relayed;
+    }
+    witness = Object.freeze({
+      ...witness,
+      outcome: "FIGHTING",
+      observedTags: knownAction?.actionTag
+        ? Object.freeze([knownAction.actionTag])
+        : witness.observedTags,
+    });
+  }
   if (room.id === "boss") {
     bossPreparation = selectBossPreparation(run.beliefs);
     facts = recordBossPreparation(run.runId, facts, run.beliefs, bossPreparation, revision);
@@ -543,6 +800,131 @@ function campPurchase(run: LivingDungeon, item: "BANDAGE" | "POTION"): LivingDun
   return Object.freeze({ ...run, revision, player: Object.freeze(player), facts, lastAction: `camp-buy-${item.toLocaleLowerCase("en")}` });
 }
 
+function declareLivingDungeonIntent(
+  run: LivingDungeon,
+  selection: ImprovisationSemanticSelection,
+): LivingDungeon {
+  if (run.phase !== "explore" || run.roomId !== "warmup" || livingDungeonIntentSelection(run)
+    || !isImprovisationSemanticSelection(selection) || selection.needsClarification
+    || WITNESS_GATE_PREMISES[selection.premiseId].goalId !== selection.goalId) return run;
+  const supported = Object.values(WITNESS_GATE_MANOEUVRES).some((manoeuvre) => (
+    manoeuvre.premiseId === selection.premiseId
+    && manoeuvre.goalId === selection.goalId
+    && manoeuvre.methodId === selection.methodId
+    && manoeuvre.targetId === selection.targetId
+    && manoeuvre.objectId === selection.objectId
+  ));
+  if (!supported) return run;
+  const revision = run.revision + 1;
+  const actionId = `${run.runId}:${revision}:declare-intent`;
+  const facts = appendDungeonFact(run.facts, createDungeonFact(run.runId, factDraft(
+    run,
+    revision,
+    "PLAYER_INTENT_DECLARED",
+    {
+      subjectId: "PLAYER",
+      actionId,
+      actionTag: "INTERACTION",
+      valueId: encodeIntentSelection(selection),
+      key: "witness-gate",
+    },
+  )));
+  return Object.freeze({
+    ...run,
+    revision,
+    facts,
+    storyBeatId: `intent-${selection.goalId.toLocaleLowerCase("en")}`,
+    lastAction: "declare-intent",
+  });
+}
+
+function actionTagForBeliefSignal(signalId: WitnessGateBeliefSignalId): PactActionTag {
+  if (signalId === "GAMBLES_WITH_STORM") return "STORM";
+  if (signalId === "PAYS_TO_PROTECT") return "VOLUNTARY_HEALING";
+  if (signalId === "BREAKS_OBSTACLES") return "ATTACK";
+  return "INTERACTION";
+}
+
+function executeLivingDungeonImprovisation(
+  run: LivingDungeon,
+  plan: Extract<LivingDungeonCommand, { type: "execute-improvisation" }>["plan"],
+): LivingDungeon {
+  if (run.phase !== "explore" || run.roomId !== "warmup" || !run.encounter) return run;
+  const intent = livingDungeonIntentSelection(run);
+  if (!intent || plan.premiseId !== intent.premiseId || plan.goalId !== intent.goalId
+    || plan.boundaryId !== intent.boundaryId) return run;
+  const state = livingDungeonWitnessGateState(run);
+  const resolved = resolveWitnessGatePlan(plan, state, "en");
+  if (resolved.status !== "resolved") return run;
+
+  const { resolution } = resolved;
+  const revision = run.revision + 1;
+  const actionTag = actionTagForBeliefSignal(resolution.observedBelief.signalId);
+  const actionId = `${run.runId}:${revision}:improvisation-${plan.planId}`;
+  const pactAction: PactAction = Object.freeze({
+    actionId,
+    tag: actionTag,
+    source: "PLAYER",
+    roomId: run.roomId,
+  });
+  const intentFact = run.facts.find((fact) => fact.type === "PLAYER_INTENT_DECLARED")!;
+  let facts = recordPlayerAction(run, pactAction);
+  const executedFact = createDungeonFact(run.runId, factDraft(run, revision, "IMPROVISATION_EXECUTED", {
+    subjectId: plan.manoeuvreId,
+    actionId,
+    actionTag,
+    valueId: encodeImprovisationResolution(resolution),
+    sourceFactIds: [intentFact.id, facts.at(-1)!.id],
+    key: resolution.resolutionId,
+  }));
+  facts = appendDungeonFact(facts, executedFact);
+  facts = appendDungeonFact(facts, createDungeonFact(run.runId, factDraft(run, revision, "ACTION_OBSERVED", {
+    subjectId: "MASKED_WARDEN",
+    actionId,
+    actionTag,
+    valueId: resolution.observedBelief.signalId,
+    sourceFactIds: [executedFact.id],
+    key: actionId,
+  })));
+
+  const succeeded = resolution.outcome === "SUCCESS";
+  if (succeeded) {
+    facts = appendDungeonFact(facts, createDungeonFact(run.runId, factDraft(run, revision, "ENCOUNTER_BYPASSED", {
+      subjectId: run.encounter.id,
+      actionId,
+      actionTag,
+      valueId: resolution.effectId,
+      sourceFactIds: [executedFact.id],
+      key: actionId,
+    })));
+  }
+  const player = Object.freeze({
+    ...run.player,
+    hp: resolution.nextState.player.hp,
+    gold: resolution.nextState.player.gold,
+    potions: resolution.nextState.player.potions,
+  });
+  const phase: LivingDungeonPhase = player.hp === 0
+    ? "lost"
+    : succeeded ? "room-cleared" : "combat";
+  return Object.freeze({
+    ...run,
+    revision,
+    phase,
+    player,
+    encounter: succeeded ? Object.freeze({ ...run.encounter, hp: 0 }) : run.encounter,
+    facts,
+    witness: run.witness,
+    storyBeatId: succeeded ? "witness-gate-success" : "witness-gate-setback",
+    stats: Object.freeze({
+      ...run.stats,
+      damageTaken: run.stats.damageTaken + resolution.costPaid.hp + resolution.setbackDamage,
+    }),
+    lastCombatOutcome: null,
+    lastAction: succeeded ? "improvisation-success" : "improvisation-setback",
+  });
+}
+
 function executeBreachable(
   run: LivingDungeon,
   command: Extract<LivingDungeonCommand, { type: "storm" | "potion" | "camp-buy" }>,
@@ -581,6 +963,8 @@ export function transitionLivingDungeon(
     return executeBreachable(ready, pending.action, true);
   }
 
+  if (command.type === "declare-intent") return declareLivingDungeonIntent(run, command.selection);
+  if (command.type === "execute-improvisation") return executeLivingDungeonImprovisation(run, command.plan);
   if (command.type === "engage") {
     if (run.phase !== "explore" || !run.encounter) return run;
     return Object.freeze({ ...run, revision: run.revision + 1, phase: "combat", lastAction: "engage" });

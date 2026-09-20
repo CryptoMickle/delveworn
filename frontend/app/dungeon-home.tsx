@@ -46,13 +46,13 @@ export default function DungeonHome({ onchainNetwork }: { onchainNetwork: string
     note: "Local simulation. Progress is saved in this browser when available. No transactions or onchain rewards.",
   } : mode === "living-dungeon" ? {
     eyebrow: "THE LIVING DUNGEON · EXPERIMENTAL",
-    title: "Tell the dungeon your plan. Survive what it understands.",
-    intro: "Write naturally, as you would in ChatGPT. The dungeon turns your request into an exact rule that you can review before anything changes.",
-    points: ["Make a promise, then see its benefit, duration and breach cost before you accept.", "Leave witnesses behind and face a boss that prepares for what it believes about you."],
-    facts: ["Local story", "About 15 minutes", "No wallet"],
+    title: "Name the victory. The room changes around it.",
+    intro: "State what victory means: rescue someone, acquire something or discover the truth. The Witness Gate reshapes its objective and usable objects around that intent.",
+    points: ["Describe your maneuver in your own words. Before committing, inspect its exact steps, cost, risk and what the watcher may come to believe.", "If no supported maneuver fits—or the interpreter is unavailable—fight through the room using normal Delveworn combat."],
+    facts: ["One living room", "Exact plan preview", "Normal fight fallback"],
     resume: "Your experimental expedition is saved separately in this browser.",
     cta: "ENTER THE LIVING DUNGEON",
-    note: "Experimental local story. No competitive score, transaction or onchain reward.",
+    note: "First Intent-to-World vertical slice. Local play with no competitive score, transaction or onchain reward.",
   } : {
     eyebrow: `WALLET · ${onchainNetwork.toUpperCase()}`,
     title: "Enter the dungeon onchain.",

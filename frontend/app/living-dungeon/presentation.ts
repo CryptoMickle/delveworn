@@ -44,11 +44,17 @@ function observationFromBelief(claimId: DungeonClaimId): string {
 }
 
 export function bossPreparationExplanation(
-  run: Pick<LivingDungeon, "beliefs" | "bossPreparation">,
+  run: Pick<LivingDungeon, "beliefs" | "bossPreparation"> & Partial<Pick<LivingDungeon, "facts">>,
 ): string {
   const belief = run.beliefs[0];
   if (!belief || run.bossPreparation === "NONE") {
     return "No witness reached the Keeper, so it prepared without a report about you.";
+  }
+  const relay = run.facts?.find((fact) => fact.type === "REPORT_RELAYED"
+    && fact.subjectId === "dungeon-scrivener"
+    && belief.sourceFactIds.includes(fact.id));
+  if (relay) {
+    return `The Masked Warden ${observationFromBelief(belief.claimId)} and relayed that impression to the Scrivener. ${preparationFromBelief(belief.claimId)}`;
   }
   return `The Scrivener ${observationFromBelief(belief.claimId)} and carried that impression forward. ${preparationFromBelief(belief.claimId)}`;
 }

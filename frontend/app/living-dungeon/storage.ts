@@ -3,6 +3,7 @@ import {
   LIVING_DUNGEON_BREACH_BOSS_HP,
   LIVING_DUNGEON_CAMP_PRICES,
   LIVING_DUNGEON_MAX_POTIONS,
+  livingDungeonImprovisationTimelineMatches,
   livingDungeonPactEligibility,
 } from "./engine";
 import { DUNGEON_FACT_TYPES, isDungeonFact } from "./facts";
@@ -189,12 +190,15 @@ function knowledgeMatches(run: LivingDungeon): boolean {
   if (run.pact && !run.facts.some((fact) => fact.type === "PACT_ACCEPTED" && fact.subjectId === run.pact?.terms.pactId)) return false;
   if (run.pact?.status === "BREACHED" && !run.facts.some((fact) => fact.type === "PACT_BREACHED" && fact.actionId === run.pact?.breachActionId)) return false;
   if (run.pact?.status === "COMPLETED" && !run.facts.some((fact) => fact.type === "PACT_COMPLETED" && fact.subjectId === run.pact?.terms.pactId)) return false;
-  return true;
+  return livingDungeonImprovisationTimelineMatches(run);
 }
 
 function progressMatches(run: LivingDungeon): boolean {
   const defeated = (enemyId: LivingDungeonEnemy["id"]) => run.facts.some(
     (fact) => fact.type === "ENEMY_DEFEATED" && fact.subjectId === enemyId && fact.valueId === enemyId,
+  );
+  const resolved = (enemyId: LivingDungeonEnemy["id"]) => defeated(enemyId) || run.facts.some(
+    (fact) => fact.type === "ENCOUNTER_BYPASSED" && fact.subjectId === enemyId,
   );
   const acceptedFacts = run.facts.filter((fact) => fact.type === "PACT_ACCEPTED");
   const declinedFacts = run.facts.filter((fact) => fact.type === "PACT_DECLINED");
@@ -214,16 +218,23 @@ function progressMatches(run: LivingDungeon): boolean {
       || accepted.revision !== run.pact.acceptedAtRevision) return false;
   } else if (acceptedFacts.length !== 0 || declinedFacts.length !== 1
     || declinedFacts[0].valueId !== "DECLINED") return false;
-  if (run.stageIndex > 0 && !defeated("grave-attendant")) return false;
+  if (run.stageIndex > 0 && !resolved("grave-attendant")) return false;
   if (run.stageIndex > 1) {
     const resolvedPactRoom = run.pact !== null || run.facts.some((fact) => fact.type === "PACT_DECLINED");
     if (!resolvedPactRoom) return false;
   }
   if (run.stageIndex > 2 && !defeated("oath-hound")) return false;
-  if (run.phase === "room-cleared" && run.roomId === "warmup" && !defeated("grave-attendant")) return false;
+  if (run.phase === "room-cleared" && run.roomId === "warmup" && !resolved("grave-attendant")) return false;
   if (run.phase === "room-cleared" && run.roomId === "pressure" && !defeated("oath-hound")) return false;
   if (run.phase === "won" && !defeated("keeper-of-conclusions")) return false;
   if (run.stageIndex < 3 && run.witness.outcome !== "UNMET") return false;
+  const knownByScrivener = run.facts.find((fact) => (
+    (fact.type === "ACTION_OBSERVED" || fact.type === "REPORT_RELAYED")
+    && fact.subjectId === "dungeon-scrivener"
+    && fact.actionTag !== null
+  ));
+  const expectedObservedTags = knownByScrivener?.actionTag ? [knownByScrivener.actionTag] : [];
+  if (JSON.stringify(run.witness.observedTags) !== JSON.stringify(expectedObservedTags)) return false;
   if (run.stageIndex === 3) {
     if (["explore", "combat"].includes(run.phase) && run.witness.outcome !== "FIGHTING") return false;
     if (run.phase === "room-cleared" && !["SPARED", "DEFEATED"].includes(run.witness.outcome)) return false;

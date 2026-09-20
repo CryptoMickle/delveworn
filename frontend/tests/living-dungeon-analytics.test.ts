@@ -26,6 +26,10 @@ test("Living Dungeon analytics emits the documented event name and closed proper
   analytics("promise_kept", { restriction_id: "NO_STORM" });
   analytics("promise_broken", { restriction_id: "NO_VOLUNTARY_HEALING", action: "potion" });
   analytics("boss_clue_seen", { preparation_id: "ANTI_STORM_WARD", source: "witness" });
+  analytics("world_shaped", { objective: "RESCUE", method: "CUNNING", boundary: "NO_KILLING", source: "ai" });
+  analytics("maneuver_compiled", { premise_id: "WITNESS_GATE_RESCUE_CARTOGRAPHER", method_id: "CUNNING", source: "ai", result: "compiled" });
+  analytics("maneuver_committed", { manoeuvre_id: "RESCUE_BELL_FEINT" });
+  analytics("maneuver_resolved", { manoeuvre_id: "RESCUE_BELL_FEINT", outcome: "SUCCESS", belief_signal_id: "FAVORS_MISDIRECTION" });
   analytics("living_run_completed", { outcome: "victory", pact_outcome: "kept", variant: "ai", used_ai_interpretation: true });
   analytics("living_run_abandoned", { room: "camp", pact_outcome: "broken" });
   analytics("living_retry_started", { previous_outcome: "defeat" });
@@ -43,6 +47,10 @@ test("Living Dungeon analytics emits the documented event name and closed proper
     "promise_kept",
     "promise_broken",
     "boss_clue_seen",
+    "world_shaped",
+    "maneuver_compiled",
+    "maneuver_committed",
+    "maneuver_resolved",
     "living_run_completed",
     "living_run_abandoned",
     "living_retry_started",
@@ -66,11 +74,59 @@ test("Living Dungeon analytics emits the documented event name and closed proper
   });
   assert.deepEqual(calls[12].properties, {
     analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION,
+    objective: "RESCUE",
+    method: "CUNNING",
+    boundary: "NO_KILLING",
+    source: "ai",
+  });
+  assert.deepEqual(calls[13].properties, {
+    analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION,
+    premise_id: "WITNESS_GATE_RESCUE_CARTOGRAPHER",
+    method_id: "CUNNING",
+    source: "ai",
+    result: "compiled",
+  });
+  assert.deepEqual(calls[14].properties, {
+    analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION,
+    manoeuvre_id: "RESCUE_BELL_FEINT",
+  });
+  assert.deepEqual(calls[15].properties, {
+    analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION,
+    manoeuvre_id: "RESCUE_BELL_FEINT",
+    outcome: "SUCCESS",
+    belief_signal_id: "FAVORS_MISDIRECTION",
+  });
+  assert.deepEqual(calls[16].properties, {
+    analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION,
     outcome: "victory",
     pact_outcome: "kept",
     variant: "ai",
     used_ai_interpretation: true,
   });
+});
+
+test("Intent-to-World analytics accepts only canonical mechanical IDs", () => {
+  assert.deepEqual(livingDungeonAnalyticsPayload("world_shaped", {
+    objective: "DISCOVER",
+    method: "MERCY",
+    boundary: "NO_LYING",
+    source: "authored_fallback",
+  }), {
+    analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION,
+    objective: "DISCOVER",
+    method: "MERCY",
+    boundary: "NO_LYING",
+    source: "authored_fallback",
+  });
+
+  const invalid = livingDungeonAnalyticsPayload("maneuver_resolved", {
+    manoeuvre_id: "MODEL_INVENTED_MANOEUVRE",
+    outcome: "instant_win",
+    belief_signal_id: "player said something private",
+    prompt: "I trick the warden with my real name",
+    runId: "private-run-id",
+  } as never);
+  assert.deepEqual(invalid, { analytics_version: LIVING_DUNGEON_ANALYTICS_VERSION });
 });
 
 test("Living Dungeon analytics strips unknown, identifying and free-text properties at runtime", () => {
@@ -93,6 +149,26 @@ test("Living Dungeon analytics strips unknown, identifying and free-text propert
   });
   for (const forbidden of ["prompt", "generated_dialogue", "wallet", "ip", "save_data", "runId"]) {
     assert.equal(Object.hasOwn(payload, forbidden), false);
+  }
+
+  const improvisationPayloads = [
+    livingDungeonAnalyticsPayload("world_shaped", {
+      objective: "ACQUIRE", method: "FORCE", boundary: "NONE", source: "ai", ...unsafe,
+    } as never),
+    livingDungeonAnalyticsPayload("maneuver_compiled", {
+      premise_id: "WITNESS_GATE_CLAIM_SIGIL", method_id: "FORCE", source: "ai", result: "compiled", ...unsafe,
+    } as never),
+    livingDungeonAnalyticsPayload("maneuver_committed", {
+      manoeuvre_id: "ACQUIRE_WREST_SIGIL", ...unsafe,
+    } as never),
+    livingDungeonAnalyticsPayload("maneuver_resolved", {
+      manoeuvre_id: "ACQUIRE_WREST_SIGIL", outcome: "SETBACK", belief_signal_id: "BREAKS_OBSTACLES", ...unsafe,
+    } as never),
+  ];
+  for (const improvisationPayload of improvisationPayloads) {
+    for (const forbidden of ["prompt", "generated_dialogue", "wallet", "ip", "save_data", "runId", "statement", "playerPlan"]) {
+      assert.equal(Object.hasOwn(improvisationPayload, forbidden), false);
+    }
   }
 });
 

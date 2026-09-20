@@ -39,6 +39,7 @@ import {
   loadLivingDungeon,
   saveLivingDungeon,
 } from "./storage";
+import { useWitnessGateExperience } from "./witness-gate-experience";
 
 const ENEMY_PRESENTATION: Record<LivingDungeonEnemyId, {
   type: 0 | 1 | 2 | 3;
@@ -98,6 +99,8 @@ function actionCopy(run: LivingDungeon): { title: string; detail: string } {
   if (run.phase === "explore") return { title: currentLivingDungeonRoom(run).title, detail: "Walk toward the figure to begin. The floor remains yours while you decide." };
   if (run.phase === "pact") return { title: "The room offers terms", detail: "State the exchange you want, choose written terms or leave without a pact." };
   if (run.phase === "camp") return { title: "A convenient temptation", detail: "Spend your gold, or keep your promise and walk away." };
+  if (run.lastAction === "improvisation-success") return { title: "The room accepts your maneuver", detail: "The objective is complete without a kill. The warden remembers the method it saw." };
+  if (run.lastAction === "improvisation-setback") return { title: "The maneuver meets resistance", detail: "The disclosed cost was paid. The opening becomes an ordinary Delveworn fight." };
   if (run.phase === "room-cleared") {
     if (run.roomId === "witness" && run.witness.outcome === "SPARED") return { title: "The witness leaves", detail: "It carries only what it saw. Whether it understood is another matter." };
     return { title: "Room secured", detail: "Catch your breath, then walk to the north door." };
@@ -125,6 +128,9 @@ function factCopy(type: string, valueId: string | null): string {
   if (type === "BOSS_PREPARED") return `The boss prepared: ${value}.`;
   if (type === "CLUE_REVEALED") return "Found a clue to the boss's preparation.";
   if (type === "ENEMY_DEFEATED") return `Defeated ${value || "an enemy"}.`;
+  if (type === "PLAYER_INTENT_DECLARED") return "Declared what victory should mean in the Witness Gate.";
+  if (type === "IMPROVISATION_EXECUTED") return "Executed an engine-compiled maneuver.";
+  if (type === "ENCOUNTER_BYPASSED") return "Resolved the Witness Gate without killing its guardian.";
   if (type === "CAMP_PURCHASED") return `Bought ${value || "supplies"} at camp.`;
   return type === "PLAYER_ACTION" || type === "ACTION_OBSERVED" ? "" : `${type.replaceAll("_", " ").toLocaleLowerCase("en")}.`;
 }
@@ -137,18 +143,22 @@ function Progress({ run }: { run: LivingDungeon }) {
   </ol>;
 }
 
-function MobileHud({ run, sound, onLog }: {
+function MobileHud({ run, sound, onLog, roomTitle }: {
   run: LivingDungeon;
   sound: ReturnType<typeof useGameAudio>;
   onLog: () => void;
+  roomTitle?: string | null;
 }) {
   const room = currentLivingDungeonRoom(run);
   const promise = activePromiseSummary(run.pact);
+  const improvisationOutcome = run.lastAction === "improvisation-success" || run.lastAction === "improvisation-setback"
+    ? actionCopy(run)
+    : null;
   const soundLabel = !sound.available ? "Sound unavailable" : sound.enabled ? "Mute sound" : "Enable sound";
   return <div className="living-mobile-hud">
     <div className="living-mobile-top">
       <button type="button" onClick={onLog} aria-label="Open expedition record">☰<span className="sr-only">Record</span></button>
-      <div className="living-mobile-title"><strong>{room.title}</strong><span>THE LIVING DUNGEON · {run.stageIndex + 1}/6</span></div>
+      <div className="living-mobile-title"><strong>{roomTitle ?? room.title}</strong><span>THE LIVING DUNGEON · {run.stageIndex + 1}/6</span></div>
       <button type="button" onClick={sound.toggleSound} disabled={!sound.available} aria-label={soundLabel} aria-pressed={sound.enabled}>{sound.enabled ? "♫" : "♪"}</button>
     </div>
     <div className="living-mobile-vitals">
@@ -158,6 +168,10 @@ function MobileHud({ run, sound, onLog }: {
       <span>SCENE<strong>{run.stageIndex + 1}/6</strong></span>
     </div>
     <div className="living-mobile-pact">{promise ?? "NO PACT"}</div>
+    {improvisationOutcome && <div className="living-mobile-improvisation-outcome" role="status">
+      <strong>{improvisationOutcome.title}</strong>
+      <span>{improvisationOutcome.detail}</span>
+    </div>}
     {run.roomId === "boss" && <details className="living-mobile-clue"><summary><strong>WHY THE BOSS PREPARED</strong> {bossPreparationLabel(run.bossPreparation)}</summary><p>{bossPreparationClue(run.bossPreparation)}</p><p>{bossPreparationExplanation(run)}</p></details>}
   </div>;
 }
@@ -413,6 +427,8 @@ export default function LivingDungeonClient() {
     }
   }, [audio, exchange]);
 
+  const witnessGate = useWitnessGateExperience(run, command);
+
   if (!run) return <main className="descent-shell living-dungeon"><DesktopNavigation /><header className="descent-header"><GameLogo /><span className="descent-edition">THE LIVING DUNGEON</span><Link href="/">All modes</Link></header><section className="living-scene-panel living-run-end" role="status"><p className="living-card-kicker">OPENING THE EXPEDITION</p><h2>The dungeon is remembering where it put the door.</h2></section></main>;
 
   const room = currentLivingDungeonRoom(run);
@@ -438,9 +454,9 @@ export default function LivingDungeonClient() {
   };
   const actions = availableLivingDungeonActions(run);
   const preview = livingDungeonCombatPreview(run);
-  const special = run.phase === "pact" || run.phase === "camp" || run.phase === "won" || run.phase === "lost";
+  const special = witnessGate.special || run.phase === "pact" || run.phase === "camp" || run.phase === "won" || run.phase === "lost";
   const report = actionCopy(run);
-  const mobileHud = <MobileHud run={run} sound={audio} onLog={() => logDialog.current?.showModal()} />;
+  const mobileHud = <MobileHud run={run} sound={audio} roomTitle={witnessGate.roomTitle} onLog={() => logDialog.current?.showModal()} />;
   const combatDock = run.phase === "combat" && run.encounter ? <div data-keyboard-action-scope>
     <CombatActionDock busy={false} hp={run.player.hp} maxHp={run.player.maxHp} enemyHp={run.encounter.hp} enemyMaxHp={run.encounter.maxHp}
       lastExchange={exchange} retaliation={`${preview.retaliation[0]}–${preview.retaliation[1]}`} stormDamage={`${preview.storm[0]}–${preview.storm[1]}`}
@@ -454,27 +470,28 @@ export default function LivingDungeonClient() {
       onStorm={() => command({ type: "storm" })} onPotion={() => command({ type: "potion" })} onAttack={() => command({ type: "attack" })} />
     {actions.includes("spare-witness") && <div className="living-actions" data-keyboard-actions><button type="button" className="living-secondary" onClick={() => command({ type: "spare-witness" })}>LET THE SCRIVENER LEAVE · IT MAY REPORT WHAT IT SAW</button></div>}
   </div> : undefined;
-  const roomNotes = enemyPresentation && run.encounter && run.encounter.hp > 0 ? <MonsterFieldNotes className="room-parchment-monster" monster={{ name: run.encounter.name, role: enemyPresentation.role, description: enemyPresentation.description }} />
+  const roomNotes = !witnessGate.active && enemyPresentation && run.encounter && run.encounter.hp > 0 ? <MonsterFieldNotes className="room-parchment-monster" monster={{ name: run.encounter.name, role: enemyPresentation.role, description: enemyPresentation.description }} />
     : run.roomId === "boss" ? <MonsterFieldNotes className="room-parchment-monster" monster={{ name: "Observed preparations", role: "Dungeon intelligence", description: bossPreparationClue(run.bossPreparation) }} /> : undefined;
 
-  return <main className="descent-shell living-dungeon" data-descent-phase={!special ? scenePhase : undefined} data-living-special={special ? "true" : undefined} data-run-revision={run.revision} data-player-hp={run.player.hp}>
+  return <main className="descent-shell living-dungeon" data-descent-phase={!special ? scenePhase : undefined} data-living-special={special ? "true" : undefined} data-living-intent={witnessGate.active ? "true" : undefined} data-run-revision={run.revision} data-player-hp={run.player.hp}>
     <DesktopNavigation />
     <header className="descent-header"><GameLogo /><span className="descent-edition">THE LIVING DUNGEON · EXPERIMENTAL</span><div className="living-dungeon-header-actions"><Link href="/">All modes</Link><button type="button" onClick={audio.toggleSound} disabled={!audio.available}>{audio.enabled ? "♫" : "♪"}<span>{audio.enabled ? "On" : "Off"}</span></button></div></header>
     {special && <div className="living-special-mobile-header">{mobileHud}</div>}
     <div className="dungeon-desktop-status"><GameHud hp={run.player.hp} maxHp={run.player.maxHp} potions={run.player.potions} maxPotions={LIVING_DUNGEON_MAX_POTIONS} gold={run.player.gold} weaponLevel={run.player.weaponLevel} weaponBonus={run.player.weaponLevel * 2} armorLevel={run.player.armorLevel} armorAbsorption={run.player.armorLevel} armorReductionPercent={50} room={run.stageIndex + 1} /></div>
     {(storageNotice === "busy" || storageNotice === "conflict" || storageNotice === "unavailable" || storageNotice === "invalid") && <p className="living-save-notice" role="status">{storageNoticeCopy(storageNotice)}</p>}
-    <div className="living-dungeon-heading"><div><p>EXPERIMENTAL STORY RUN · SCENE {run.stageIndex + 1} OF 6</p><h1>{room.title}</h1></div><span>Forge a pact. Leave witnesses. Face what the dungeon thinks it knows.</span></div>
+    <div className="living-dungeon-heading"><div><p>EXPERIMENTAL STORY RUN · SCENE {run.stageIndex + 1} OF 6</p><h1>{witnessGate.roomTitle ?? room.title}</h1></div><span>{witnessGate.active ? "Describe the victory. Build the maneuver. Let the dungeon remember how you solved it." : "Forge a pact. Leave witnesses. Face what the dungeon thinks it knows."}</span></div>
     <Progress run={run} />
-    <div className="descent-layout"><div className="descent-world">
-      <DungeonScene key={`${run.runId}:${run.roomId}`} view={roomView} actions={{ approach: () => command({ type: "engage" }), enter: () => command({ type: "continue" }) }}
-        allowPendingCombatMovement onCueStart={playSceneCueAudio} topOverlay={!special ? mobileHud : undefined} roomNotes={roomNotes}>
-        {combatDock ?? (run.phase === "pact" || run.phase === "camp" || run.phase === "won" || run.phase === "lost" ? <span hidden /> : undefined)}
+    <div className="descent-layout"><div className="descent-world" data-keyboard-action-scope={witnessGate.active ? "intent" : undefined}>
+      <DungeonScene key={`${run.runId}:${run.roomId}`} view={roomView} actions={{ approach: () => witnessGate.active ? undefined : command({ type: "engage" }), enter: () => command({ type: "continue" }) }}
+        allowPendingCombatMovement onCueStart={playSceneCueAudio} topOverlay={!special ? mobileHud : undefined} presentationOverlay={witnessGate.presentationOverlay} roomNotes={roomNotes}>
+        {combatDock ?? (special ? <span hidden /> : undefined)}
       </DungeonScene>
+      {witnessGate.panel}
       {!special && <div className="living-dungeon-report" role="status" aria-live="polite"><strong>{report.title}</strong><p>{report.detail}</p><button type="button" onClick={() => logDialog.current?.showModal()}>Record ›</button></div>}
       {run.phase === "pact" && <PactRoom run={run} onCommand={command} />}
       {run.phase === "camp" && <CampRoom run={run} onCommand={command} />}
       {(run.phase === "won" || run.phase === "lost") && <RunEnd run={run} onRestart={() => createNew(true)} />}
-    </div><aside className="descent-sidebar living-dungeon-sidebar"><EnemyStatus run={run} retaliation={preview.retaliation} /><PactStatus run={run} />
+    </div><aside className="descent-sidebar living-dungeon-sidebar">{!witnessGate.active && <EnemyStatus run={run} retaliation={preview.retaliation} />}<PactStatus run={run} />
       {run.roomId === "boss" && <section className="living-card living-clue"><p className="living-card-kicker">WHY THE BOSS PREPARED</p><h3>{bossPreparationLabel(run.bossPreparation)}</h3><blockquote>{bossPreparationClue(run.bossPreparation)}</blockquote><p className="living-card-copy">{bossPreparationExplanation(run)}</p></section>}
       <section className="living-card"><p className="living-card-kicker">THE RECORD</p><h3>What happened stays true</h3><p className="living-card-copy">{run.facts.length} recorded event{run.facts.length === 1 ? "" : "s"} · {run.beliefs.length} opinion{run.beliefs.length === 1 ? "" : "s"} held by the dungeon</p><div className="living-actions"><button type="button" className="living-secondary" onClick={() => logDialog.current?.showModal()}>VIEW EXPEDITION RECORD</button></div><KeyboardHint /></section>
     </aside></div>

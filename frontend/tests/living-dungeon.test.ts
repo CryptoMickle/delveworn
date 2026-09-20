@@ -3,8 +3,11 @@ import test from "node:test";
 import {
   bossPreparationClue,
   createLivingDungeon,
+  availableLivingDungeonActions,
   livingDungeonCombatPreview,
+  livingDungeonIntentSelection,
   livingDungeonPactEligibility,
+  livingDungeonWitnessGateState,
   standardLivingDungeonPactOffers,
   transitionLivingDungeon,
 } from "../app/living-dungeon/engine";
@@ -29,6 +32,13 @@ import {
 } from "../app/living-dungeon/storage";
 import type { LivingDungeon } from "../app/living-dungeon/model";
 import { exclusiveSave, type SaveLocks } from "../app/descent/save-lock";
+import {
+  WITNESS_GATE_MANOEUVRES,
+  compileWitnessGatePlan,
+  type CanonicalWitnessGatePlan,
+  type ImprovisationMethodId,
+  type ImprovisationSemanticSelection,
+} from "../app/living-dungeon/improvisation";
 
 const baseIntent = (desiredBoon: PactIntent["desiredBoon"], offeredSacrifice: PactIntent["offeredSacrifice"]): PactIntent => ({
   desiredBoon,
@@ -67,6 +77,159 @@ function reachCamp(intent: PactIntent, runId: string): LivingDungeon {
   run = oneHit(run);
   return transitionLivingDungeon(run, { type: "continue" });
 }
+
+const IMPROVISATION_OBJECTS: Readonly<Record<ImprovisationMethodId, ImprovisationSemanticSelection["objectId"]>> = {
+  CUNNING: "BRASS_BELL",
+  MERCY: "HEALING_DRAUGHT",
+  FORCE: "CHAIN_WINCH",
+  RISK: "ECHO_BRAZIER",
+};
+
+function improvisationSelection(methodId: ImprovisationMethodId): ImprovisationSemanticSelection {
+  return {
+    premiseId: "WITNESS_GATE_RESCUE_CARTOGRAPHER",
+    goalId: "RESCUE",
+    methodId,
+    targetId: "CHAINED_CARTOGRAPHER",
+    objectId: IMPROVISATION_OBJECTS[methodId],
+    boundaryId: "NONE",
+    needsClarification: false,
+  };
+}
+
+function declaredImprovisation(
+  seed: number,
+  runId: string,
+  methodId: ImprovisationMethodId,
+): Readonly<{ run: LivingDungeon; plan: CanonicalWitnessGatePlan }> {
+  let run = createLivingDungeon(seed, runId);
+  const selection = improvisationSelection(methodId);
+  run = transitionLivingDungeon(run, { type: "declare-intent", selection });
+  const compiled = compileWitnessGatePlan(selection, livingDungeonWitnessGateState(run));
+  assert.equal(compiled.status, "compiled");
+  if (compiled.status !== "compiled") throw new Error("Expected the authored manoeuvre to compile.");
+  return { run, plan: compiled.plan };
+}
+
+function improvisationWithOutcome(
+  outcome: "SUCCESS" | "SETBACK",
+  methodId: ImprovisationMethodId,
+): Readonly<{ before: LivingDungeon; after: LivingDungeon; plan: CanonicalWitnessGatePlan }> {
+  for (let seed = 0; seed < 500; seed++) {
+    const { run, plan } = declaredImprovisation(seed, `improv-${outcome.toLocaleLowerCase("en")}-${seed}`, methodId);
+    const after = transitionLivingDungeon(run, { type: "execute-improvisation", plan });
+    if (after.lastAction === `improvisation-${outcome.toLocaleLowerCase("en")}`) {
+      return { before: run, after, plan };
+    }
+  }
+  throw new Error(`Expected to find a deterministic ${outcome} seed.`);
+}
+
+test("the first-room intent is a canonical save fact while normal combat remains available", () => {
+  const fresh = createLivingDungeon(101, "intent-declaration");
+  assert.deepEqual(availableLivingDungeonActions(fresh), ["declare-intent", "engage"]);
+  const selection = improvisationSelection("CUNNING");
+  const declared = transitionLivingDungeon(fresh, { type: "declare-intent", selection });
+  assert.equal(declared.revision, 1);
+  assert.deepEqual(livingDungeonIntentSelection(declared), selection);
+  assert.deepEqual(availableLivingDungeonActions(declared), ["execute-improvisation", "engage"]);
+  assert.ok(declared.facts.some((fact) => fact.type === "PLAYER_INTENT_DECLARED"));
+  assert.ok(isLivingDungeon(JSON.parse(JSON.stringify(declared))));
+  assert.strictEqual(
+    transitionLivingDungeon(declared, { type: "declare-intent", selection }),
+    declared,
+    "the world can be shaped only once",
+  );
+
+  const fallback = transitionLivingDungeon(declared, { type: "engage" });
+  assert.equal(fallback.phase, "combat");
+  assert.deepEqual(livingDungeonIntentSelection(fallback), selection);
+  assert.ok(isLivingDungeon(fallback));
+});
+
+test("a canonical improvisation pays exact costs and can nonlethally bypass the warmup", () => {
+  const { before, after, plan } = improvisationWithOutcome("SUCCESS", "MERCY");
+  assert.equal(after.phase, "room-cleared");
+  assert.equal(after.encounter?.hp, 0);
+  assert.equal(after.player.potions, before.player.potions - 1);
+  assert.equal(after.player.gold, before.player.gold);
+  assert.equal(after.facts.some((fact) => fact.type === "ENEMY_DEFEATED"), false);
+  const bypass = after.facts.find((fact) => fact.type === "ENCOUNTER_BYPASSED");
+  assert.equal(bypass?.subjectId, "grave-attendant");
+  assert.equal(bypass?.valueId, "CARTOGRAPHER_FREED");
+  assert.equal(after.facts.filter((fact) => fact.type === "IMPROVISATION_EXECUTED").length, 1);
+  assert.ok(isLivingDungeon(JSON.parse(JSON.stringify(after))));
+  assert.deepEqual(
+    transitionLivingDungeon(before, { type: "execute-improvisation", plan }),
+    after,
+    "the bounded resolver replays exactly",
+  );
+
+  const next = transitionLivingDungeon(after, { type: "continue" });
+  assert.equal(next.phase, "pact");
+  assert.ok(isLivingDungeon(next), "a nonlethal bypass satisfies room progression without inventing a kill");
+});
+
+test("an improvisation setback starts combat and its witnessed method can shape the later boss belief", () => {
+  const { before, after } = improvisationWithOutcome("SETBACK", "RISK");
+  assert.equal(after.phase, "combat");
+  assert.equal(after.encounter?.hp, after.encounter?.maxHp);
+  assert.ok(after.player.hp < before.player.hp);
+  assert.deepEqual(after.witness.observedTags, [], "the later Scrivener has not received the first-room report yet");
+  const observed = after.facts.find((fact) => fact.type === "ACTION_OBSERVED");
+  assert.equal(observed?.roomId, "warmup");
+  assert.equal(observed?.subjectId, "MASKED_WARDEN");
+  assert.equal(observed?.valueId, "GAMBLES_WITH_STORM");
+  const risk = WITNESS_GATE_MANOEUVRES.RESCUE_STORM_RELAY;
+  assert.equal(after.player.hp, before.player.hp - risk.cost.hp - risk.setbackHp);
+  assert.ok(availableLivingDungeonActions(after).includes("storm"), "the HP cost does not invent or consume a combat Storm charge");
+  assert.ok(isLivingDungeon(after));
+
+  let run = oneHit(after);
+  run = transitionLivingDungeon(run, { type: "continue" });
+  run = transitionLivingDungeon(run, { type: "decline-pact" });
+  run = transitionLivingDungeon(run, { type: "engage" });
+  run = oneHit(run);
+  run = transitionLivingDungeon(run, { type: "continue" });
+  assert.equal(run.roomId, "witness");
+  assert.deepEqual(run.witness.observedTags, ["STORM"]);
+  const relay = run.facts.find((fact) => fact.type === "REPORT_RELAYED");
+  assert.equal(relay?.subjectId, "dungeon-scrivener");
+  assert.equal(relay?.sourceFactIds[0], observed?.id);
+  assert.equal(relay?.valueId, "GAMBLES_WITH_STORM");
+  run = transitionLivingDungeon(run, { type: "engage" });
+  run = { ...run, encounter: { ...run.encounter!, hp: Math.floor(run.encounter!.maxHp / 2) } };
+  run = transitionLivingDungeon(run, { type: "spare-witness" });
+  assert.equal(run.beliefs[0]?.claimId, "PLAYER_RELIES_ON_STORM");
+  assert.ok(run.beliefs[0]?.sourceFactIds.includes(relay!.id));
+  assert.ok(isLivingDungeon(run));
+  assert.equal(isLivingDungeon({
+    ...run,
+    facts: run.facts.filter((fact) => fact.type !== "REPORT_RELAYED"),
+  }), false, "a later belief cannot skip the explicit Masked Warden → Scrivener relay");
+  assert.equal(isLivingDungeon({
+    ...run,
+    facts: run.facts.map((fact) => fact.id === observed?.id
+      ? { ...fact, subjectId: "dungeon-scrivener" }
+      : fact),
+  }), false, "save validation rejects rewriting the first-room observer's identity");
+});
+
+test("improvisation plans are revision-bound and save validation rejects altered outcomes", () => {
+  const { before, after, plan } = improvisationWithOutcome("SUCCESS", "FORCE");
+  const stale = { ...before, revision: before.revision + 1 };
+  assert.strictEqual(transitionLivingDungeon(stale, { type: "execute-improvisation", plan }), stale);
+
+  const execution = after.facts.find((fact) => fact.type === "IMPROVISATION_EXECUTED")!;
+  const alteredFacts = after.facts.map((fact) => fact === execution
+    ? { ...fact, valueId: execution.valueId?.replace("SUCCESS", "SETBACK") ?? null }
+    : fact);
+  assert.equal(isLivingDungeon({ ...after, facts: alteredFacts }), false);
+  assert.equal(isLivingDungeon({
+    ...after,
+    facts: after.facts.filter((fact) => fact.type !== "ENCOUNTER_BYPASSED"),
+  }), false);
+});
 
 test("Pact V0 catalogue builds every legal combination deterministically and rejects cost-free sacrifices", () => {
   const run = enterPact();

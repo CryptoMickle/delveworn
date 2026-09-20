@@ -4,6 +4,11 @@ import {
   createLivingDungeon,
   transitionLivingDungeon,
 } from "../../app/living-dungeon/engine";
+import {
+  improvisationRequestDigest,
+  type PlanImprovisationRequest,
+  type ShapeWorldRequest,
+} from "../../app/living-dungeon/improvisation-ai-contract";
 import type { LivingDungeon, LivingDungeonCommand } from "../../app/living-dungeon/model";
 import { LIVING_DUNGEON_SAVE_KEY, isLivingDungeon } from "../../app/living-dungeon/storage";
 
@@ -104,10 +109,77 @@ test("home introduces the experiment and opens its separate local run", async ({
   const mode = page.getByRole("button", { name: "The Living Dungeon · Experimental", exact: true });
   await mode.click();
   await expect(mode).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "Tell the dungeon your plan. Survive what it understands." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Name the victory. The room changes around it." })).toBeVisible();
   await page.getByRole("button", { name: "ENTER THE LIVING DUNGEON", exact: true }).click();
   await expect(page).toHaveURL(/\/living-dungeon\?entry=home$/);
-  await expect(page.getByRole("button", { name: /Approach Grave Attendant/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What kind of victory are you after?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fight normally instead" })).toBeVisible();
+});
+
+test("a desired victory reshapes the Witness Gate and compiles prose into an exact playable maneuver", async ({ page, isMobile }) => {
+  await page.route("**/api/living-dungeon/shape", async route => {
+    const request = route.request().postDataJSON() as ShapeWorldRequest;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "interpreted",
+        source: "ai",
+        shape: { objective: "RESCUE", method: "CUNNING", boundary: "NO_KILLING", needsClarification: false },
+        binding: {
+          runRevision: request.runRevision,
+          stateDigest: request.stateDigest,
+          requestDigest: improvisationRequestDigest(request),
+        },
+      }),
+    });
+  });
+  await page.route("**/api/living-dungeon/plan", async route => {
+    const request = route.request().postDataJSON() as PlanImprovisationRequest;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "interpreted",
+        source: "ai",
+        plan: { manoeuvreId: "RESCUE_BELL_FEINT", needsClarification: false },
+        binding: {
+          runRevision: request.runRevision,
+          stateDigest: request.stateDigest,
+          requestDigest: improvisationRequestDigest(request),
+        },
+      }),
+    });
+  });
+  await seed(page);
+
+  await page.getByRole("button", { name: "Rescue someone" }).click();
+  const intent = page.getByRole("textbox", { name: "Describe your intended victory" });
+  await expect(intent).toHaveValue(/free the prisoner/);
+  await intent.press("Enter");
+
+  await expect(page.getByRole("heading", { name: "How will you make it happen?" })).toBeVisible();
+  await expect(page.getByRole("figure", { name: "The Witness Gate" }).getByText("Free the witness", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Brass tithe bell/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Chained cartographer/ })).toBeVisible();
+
+  const maneuver = page.getByRole("textbox", { name: "Describe your maneuver" });
+  await maneuver.fill("I roll gold beneath the brass bell, then free the cartographer while the warden counts it.");
+  await page.getByRole("button", { name: "Preview the plan" }).click();
+
+  await expect(page.getByText("Exact compiled preview")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Buy a false opening" })).toBeVisible();
+  await expect(page.getByLabel("Cost")).toContainText("4");
+  await expect(page.getByLabel("Success chance")).toContainText("74%");
+  await expect(page.getByText("The warden concludes that you create openings through misdirection.")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Planned path" })).toBeAttached();
+
+  await page.getByRole("button", { name: "Play this maneuver" }).click();
+  await expect.poll(async () => page.locator("main.living-dungeon").getAttribute("data-descent-phase"))
+    .toMatch(/^(combat|recovery)$/);
+  if (isMobile) {
+    await expect(page.locator(".living-mobile-improvisation-outcome")).toContainText(/room accepts your maneuver|maneuver meets resistance/i);
+  }
 });
 
 test("the Pact Keeper turns a natural-language request into a reviewable exact rule", async ({ page }) => {
@@ -169,8 +241,11 @@ test("the Pact Keeper turns a natural-language request into a reviewable exact r
 test("arrow selection and Enter use the same guarded room and combat actions", async ({ page, isMobile }) => {
   test.skip(isMobile, "Hardware-keyboard navigation is covered in the desktop presentation.");
   await seed(page);
-  const approach = page.getByRole("button", { name: /Approach Grave Attendant/ });
+  const firstIntent = page.getByRole("button", { name: "Rescue someone" });
+  const approach = page.getByRole("button", { name: "Fight normally instead" });
   await page.keyboard.press("ArrowRight");
+  await expect(firstIntent).toBeFocused();
+  await page.keyboard.press("ArrowDown");
   await expect(approach).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("main.living-dungeon")).toHaveAttribute("data-descent-phase", "combat");
@@ -204,7 +279,8 @@ test("menu fallback completes all six scenes and a forbidden action warns before
   });
   await seed(page);
 
-  await enterThrough(page, /Approach Grave Attendant/, /^⚡ STORM/);
+  await page.getByRole("button", { name: "Fight normally instead" }).click();
+  await expect(page.getByRole("button", { name: /^⚡ STORM/ })).toBeVisible();
   await resolveCombat(page);
   await page.getByRole("button", { name: /Enter room 2/ }).click();
   await expect(page.getByRole("heading", { name: "Speak your bargain. Check the rule." })).toBeVisible();

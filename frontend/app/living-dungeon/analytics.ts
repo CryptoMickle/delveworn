@@ -5,14 +5,31 @@ import type { InterpretFallbackReason } from "./ai-contract";
 import type { BossPreparationId } from "./beliefs";
 import type { LivingDungeonRoomId, LivingDungeonVariant } from "./model";
 import type { PactBoonId, PactRestrictionId } from "./pact-schema";
+import {
+  IMPROVISATION_BOUNDARY_IDS,
+  IMPROVISATION_GOAL_IDS,
+  IMPROVISATION_METHOD_IDS,
+  WITNESS_GATE_BELIEF_SIGNAL_IDS,
+  WITNESS_GATE_MANOEUVRE_IDS,
+  WITNESS_GATE_PREMISE_IDS,
+  type ImprovisationBoundaryId,
+  type ImprovisationGoalId,
+  type ImprovisationMethodId,
+  type WitnessGateBeliefSignalId,
+  type WitnessGateManoeuvreId,
+  type WitnessGatePremiseId,
+} from "./improvisation/schema";
 
-export const LIVING_DUNGEON_ANALYTICS_VERSION = "conversation-shell-v1" as const;
+export const LIVING_DUNGEON_ANALYTICS_VERSION = "intent-to-world-v1" as const;
 
 export type LivingDungeonSuggestionId = "protection" | "damage" | "potions";
 export type LivingDungeonInputMethod = "free_text" | "suggestion" | "ready_made" | "custom_menu";
 export type LivingDungeonInterpretationSource = "ai" | "menu" | "fallback";
 export type LivingDungeonLatencyBucket = "under_1s" | "1_to_2_5s" | "2_5_to_4s" | "over_4s";
 export type LivingDungeonPactOutcome = "kept" | "broken" | "declined" | "none";
+export type LivingDungeonImprovisationSource = "ai" | "authored_fallback";
+export type LivingDungeonManeuverCompileResult = "compiled" | "clarification" | "rejected";
+export type LivingDungeonManeuverOutcome = "SUCCESS" | "SETBACK";
 
 /**
  * The complete analytics contract for the Living Dungeon.
@@ -73,6 +90,26 @@ export type LivingDungeonAnalyticsProperties = Readonly<{
   boss_clue_seen: Readonly<{
     preparation_id: BossPreparationId;
     source: "witness" | "no_witness";
+  }>;
+  world_shaped: Readonly<{
+    objective: ImprovisationGoalId;
+    method: ImprovisationMethodId;
+    boundary: ImprovisationBoundaryId;
+    source: LivingDungeonImprovisationSource;
+  }>;
+  maneuver_compiled: Readonly<{
+    premise_id: WitnessGatePremiseId;
+    method_id: ImprovisationMethodId;
+    source: LivingDungeonImprovisationSource;
+    result: LivingDungeonManeuverCompileResult;
+  }>;
+  maneuver_committed: Readonly<{
+    manoeuvre_id: WitnessGateManoeuvreId;
+  }>;
+  maneuver_resolved: Readonly<{
+    manoeuvre_id: WitnessGateManoeuvreId;
+    outcome: LivingDungeonManeuverOutcome;
+    belief_signal_id: WitnessGateBeliefSignalId;
   }>;
   living_run_completed: Readonly<{
     outcome: "victory" | "defeat";
@@ -201,6 +238,26 @@ export function livingDungeonAnalyticsPayload(
     case "boss_clue_seen":
       setMember(payload, "preparation_id", input.preparation_id, PREPARATION_IDS);
       setMember(payload, "source", input.source, ["witness", "no_witness"]);
+      break;
+    case "world_shaped":
+      setMember(payload, "objective", input.objective, IMPROVISATION_GOAL_IDS);
+      setMember(payload, "method", input.method, IMPROVISATION_METHOD_IDS);
+      setMember(payload, "boundary", input.boundary, IMPROVISATION_BOUNDARY_IDS);
+      setMember(payload, "source", input.source, ["ai", "authored_fallback"]);
+      break;
+    case "maneuver_compiled":
+      setMember(payload, "premise_id", input.premise_id, WITNESS_GATE_PREMISE_IDS);
+      setMember(payload, "method_id", input.method_id, IMPROVISATION_METHOD_IDS);
+      setMember(payload, "source", input.source, ["ai", "authored_fallback"]);
+      setMember(payload, "result", input.result, ["compiled", "clarification", "rejected"]);
+      break;
+    case "maneuver_committed":
+      setMember(payload, "manoeuvre_id", input.manoeuvre_id, WITNESS_GATE_MANOEUVRE_IDS);
+      break;
+    case "maneuver_resolved":
+      setMember(payload, "manoeuvre_id", input.manoeuvre_id, WITNESS_GATE_MANOEUVRE_IDS);
+      setMember(payload, "outcome", input.outcome, ["SUCCESS", "SETBACK"]);
+      setMember(payload, "belief_signal_id", input.belief_signal_id, WITNESS_GATE_BELIEF_SIGNAL_IDS);
       break;
     case "living_run_completed":
       setMember(payload, "outcome", input.outcome, ["victory", "defeat"]);

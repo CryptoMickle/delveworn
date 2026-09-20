@@ -28,17 +28,20 @@ export function appendDungeonBelief(ledger: readonly DungeonBelief[], belief: Du
   return ledger;
 }
 
-/** A living witness reports only what its bounded observation facts support. */
+/** The Scrivener reports only what it saw itself or received through a causal relay. */
 export function deriveWitnessBelief(facts: readonly DungeonFact[], revision: number): DungeonBelief | null {
   const survived = facts.find((fact) => fact.type === "WITNESS_SPARED");
   if (!survived || facts.some((fact) => fact.type === "WITNESS_DEFEATED")) return null;
-  const observed = facts.filter((fact) => fact.type === "ACTION_OBSERVED" && fact.subjectId === "dungeon-scrivener");
-  if (observed.length === 0) return null;
+  const evidenceKnownToScrivener = facts.filter((fact) => (
+    (fact.type === "ACTION_OBSERVED" || fact.type === "REPORT_RELAYED")
+    && fact.subjectId === "dungeon-scrivener"
+  ));
+  if (evidenceKnownToScrivener.length === 0) return null;
 
   let claimId: DungeonClaimId;
   let evidence: readonly DungeonFact[];
-  const storm = observed.find((fact) => fact.actionTag === "STORM");
-  const healing = observed.find((fact) => fact.actionTag === "VOLUNTARY_HEALING");
+  const storm = evidenceKnownToScrivener.find((fact) => fact.actionTag === "STORM");
+  const healing = evidenceKnownToScrivener.find((fact) => fact.actionTag === "VOLUNTARY_HEALING");
   if (storm) {
     claimId = "PLAYER_RELIES_ON_STORM";
     evidence = [storm, survived];
@@ -47,7 +50,7 @@ export function deriveWitnessBelief(facts: readonly DungeonFact[], revision: num
     evidence = [healing, survived];
   } else {
     claimId = "PLAYER_AVOIDS_STORM";
-    evidence = [observed[0], survived];
+    evidence = [evidenceKnownToScrivener[0], survived];
   }
   const sourceFactIds = evidence.map((fact) => fact.id);
   return Object.freeze({
@@ -109,4 +112,3 @@ export function isDungeonBelief(value: unknown): value is DungeonBelief {
     && Number.isSafeInteger(belief.formedAtRevision) && belief.formedAtRevision >= 0
     && (belief.expiresAfterStage === null || (Number.isSafeInteger(belief.expiresAfterStage) && belief.expiresAfterStage >= 0));
 }
-

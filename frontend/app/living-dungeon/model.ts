@@ -1,6 +1,10 @@
 import type { ActivePact, PactAction, PactIntent, PactOffer } from "./pact-schema";
 import type { DungeonBelief, BossPreparationId } from "./beliefs";
 import type { DungeonFact } from "./facts";
+import type {
+  CanonicalWitnessGatePlan,
+  ImprovisationSemanticSelection,
+} from "./improvisation";
 
 export const LIVING_DUNGEON_SCHEMA_VERSION = 1 as const;
 export const LIVING_DUNGEON_RULES = "living-dungeon-v0" as const;
@@ -132,6 +136,8 @@ type SimpleLivingDungeonCommand =
 
 export type LivingDungeonCommand =
   | { [K in SimpleLivingDungeonCommand]: Readonly<{ type: K }> }[SimpleLivingDungeonCommand]
+  | Readonly<{ type: "declare-intent"; selection: ImprovisationSemanticSelection }>
+  | Readonly<{ type: "execute-improvisation"; plan: CanonicalWitnessGatePlan }>
   | Readonly<{ type: "prepare-pact"; intent: PactIntent; offerSeed: number }>
   | Readonly<{ type: "accept-pact"; pactId: string }>
   | Readonly<{ type: "camp-buy"; item: "BANDAGE" | "POTION" }>;

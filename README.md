@@ -18,7 +18,7 @@ for controls, recovery, test commands and the blind-test gate.
 | --- | --- | --- |
 | Weekly Verified Challenge | [Play the current weekly seed](https://delveworn.app/challenge) | A wallet-free 10-room sprint with deterministic replay verification and challenge links. |
 | Practice Mode | [Play without a wallet](https://delveworn.app/practice) | The complete local learning and combat loop with simulated state and randomness. |
-| The Living Dungeon | `/living-dungeon` (local working branch) | An experimental six-scene story run with player-shaped pacts, bounded enemy beliefs and deterministic consequences. |
+| The Living Dungeon | [Enter the experiment](https://delveworn.app/living-dungeon) | A six-scene local story whose first Intent-to-World room can reshape around a declared victory, compile a described maneuver and expose its exact consequences before play. |
 | Onchain beta | [Open the Somnia Testnet game](https://delveworn.app/onchain) | Wallet-connected gameplay against the public testnet deployment. |
 | Previous version | [Open the original frontend](https://delveworn.vercel.app) | Preserved separately from the upgraded experience. |
 | Somnia Verified Run | [Open the canonical Somnia game](https://delveworn-somnia.vercel.app/onchain) | Contract-backed state, popup-free sponsored actions and Somnia-native verifiable randomness. |
@@ -49,7 +49,7 @@ For a concise presentation sequence, use the [Somnia Verified Run 90-second demo
 
 The Foundry project remains at the repository root. All frontend commands run from `frontend/`.
 
-The frontend source now serves a neutral mode-selection home at `/`, the current wallet-free challenge at `/challenge`, local Practice at `/practice`, the experimental Living Dungeon at `/living-dungeon`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home, challenge, Practice or Living Dungeon route does not initialize the wallet bridge. See [The Living Dungeon](THE_LIVING_DUNGEON.md) for its Pact V0 rules and AI boundary, [The Living Dungeon V2](THE_LIVING_DUNGEON_V2_PLAN.md) for the conversation-first delivery roadmap and [The Living Dungeon Master Plan](THE_LIVING_DUNGEON_MASTER_PLAN.md) for the long-term product direction.
+The frontend source now serves a neutral mode-selection home at `/`, the current wallet-free challenge at `/challenge`, local Practice at `/practice`, the experimental Living Dungeon at `/living-dungeon`, and the configured wallet game at `/onchain`. The historical `/rise-testnet-demo` alias still resolves to the onchain route. The wallet implementation lives in `frontend/app/onchain-game.tsx`; importing the home, challenge, Practice or Living Dungeon route does not initialize the wallet bridge. See [The Living Dungeon](THE_LIVING_DUNGEON.md) for its first Intent-to-World slice, Pact V0 rules and AI boundary, [The Living Dungeon V2](THE_LIVING_DUNGEON_V2_PLAN.md) for the conversation-first delivery roadmap and [The Living Dungeon Master Plan](THE_LIVING_DUNGEON_MASTER_PLAN.md) for the long-term product direction.
 
 For local frontend checks, run `npm test`, `npm run lint`, and `npm run build`. `npm run test:e2e` runs the interaction suite on desktop Chromium, Android-sized Chromium and small iPhone-sized WebKit; install its browsers with `npx playwright install chromium webkit`. The browser suite seeds explicitly local Practice states and does not submit onchain actions. Emulation is not a physical-device or live-wallet test.
 
@@ -69,7 +69,11 @@ Weekly Challenge runs the same local game rules with a controlled seed derived f
 
 ### The Living Dungeon
 
-The Living Dungeon is a separate local experiment in player-shaped rules and visible consequences. A bounded AI interpreter can map a short bargain into approved semantic slots, while the deterministic engine constructs, validates and executes every pact. The same complete flow works through authored menu choices when AI is disabled or unavailable. A surviving witness may form a sourced belief from what it observed, and the boss can prepare from that belief without rewriting the factual run record. The mode has no wallet, RPC, VRF, leaderboard or onchain reward.
+The Living Dungeon is a separate local experiment in turning player intent into visible, inspectable game mechanics. Its first Intent-to-World vertical slice replaces the opening room with the Witness Gate. The player states a desired victory—rescue the cartographer, acquire the warden's sigil or discover the gate's true memory—and the room presents a distinct premise and usable objects for that goal. The player can then describe a maneuver rather than select a finished combat action.
+
+A bounded interpreter may select only authored semantic IDs. The deterministic engine compiles those IDs into one of twelve authored maneuvers, binds the plan to the current state and shows the exact steps, resource cost, success chance, setback, watcher and possible belief before commitment. A successful maneuver resolves the opening without killing the room's enemy. A setback leads into normal Delveworn combat, which is also available as an immediate fallback. This is one room and a finite catalogue, not arbitrary world generation.
+
+The later Pact Room continues to map a short bargain into approved semantic slots while the deterministic engine constructs, validates and executes every pact. Authored choices preserve both flows when AI is disabled or unavailable. A surviving witness may form a sourced belief from what it observed, and the boss can prepare from that belief without rewriting the factual run record. The mode has no wallet, RPC, VRF, leaderboard or onchain reward.
 
 ### Onchain Mode
 

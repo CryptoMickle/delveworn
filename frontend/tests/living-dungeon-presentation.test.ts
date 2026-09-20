@@ -61,6 +61,18 @@ test("boss explanations name the witness, observation and resulting preparation"
     "The Scrivener saw you use Storm and carried that impression forward. The Keeper built an anti-Storm ward.",
   );
   assert.equal(
+    bossPreparationExplanation({
+      beliefs: [{ ...belief, sourceFactIds: ["relay"] }],
+      bossPreparation: "ANTI_STORM_WARD",
+      facts: [{
+        id: "relay", type: "REPORT_RELAYED", revision: 9, roomId: "witness",
+        subjectId: "dungeon-scrivener", actionId: "action", actionTag: "STORM",
+        valueId: "GAMBLES_WITH_STORM", sourceFactIds: ["masked-observation"],
+      }],
+    }),
+    "The Masked Warden saw you use Storm and relayed that impression to the Scrivener. The Keeper built an anti-Storm ward.",
+  );
+  assert.equal(
     bossPreparationExplanation({ beliefs: [], bossPreparation: "NONE" }),
     "No witness reached the Keeper, so it prepared without a report about you.",
   );
