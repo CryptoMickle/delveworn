@@ -35,6 +35,17 @@ Pactcraft can add certified operation preconditions, not arbitrary executable ru
 
 ## Teaching the player the loop
 
-The board has a persistent “Neste steg” guide derived from the current saved state. The first rescue introduces one action at a time: a private rule, a preview, execution, preserving a maneuver and reaching the stairs. Later guidance handles reuse, correction, an interrupted or paused plan, escorts, retreat after a failed rescue and finishing an Echo. It never commits a world action until the player presses its button.
+The board has a persistent “Next step” guide derived from the current saved state. The first rescue introduces one action at a time: a private rule, a preview, execution, preserving a maneuver and reaching the stairs. Later guidance handles reuse, correction, an interrupted or paused plan, escorts, retreat after a failed rescue and finishing an Echo. It never commits a world action until the player presses its button.
 
-The preview control says “Utfør planen”; the map labels the player and explains sight fields, planned movement and report paths. Custom written intentions are behind an optional disclosure. “Slik spiller du” explains controls and the two kinds of learning, pauses automatic execution and preserves native keyboard navigation while focused. Teaching and subsequent guide transitions scroll back to the board. Existing journals, rules and saved runs are unchanged.
+The preview control says “Execute the plan”; the map labels the player and explains sight fields, planned movement and report paths. Custom written intentions are behind an optional disclosure. “How to play” explains controls and the two kinds of learning, pauses automatic execution and preserves native keyboard navigation while focused. Teaching and subsequent guide transitions scroll back to the board. Guidance does not change the mechanical rules. The English release migrates earlier journals as described below.
+
+
+## English rules and legacy replay
+
+The active game is English throughout: interface, controls, accessibility text, authored chapter, principles, hypotheses, causal reconstruction, errors and fallback. AI instructions require a short English response even to another input language. Norwegian and English equivalent intentions continue to receive the same operation treatment. User-chosen maneuver names are preserved verbatim.
+
+Save v3 / `mind-beneath-2` uses the existing browser storage slot. Authored prose participates in the original context digest, so translating state without a migration would invalidate old committed plans. `legacy-v2/` freezes the six original simulation modules. Each v2 command is first validated against its original revision and digest, then replayed under the English rules; only verified plans receive a new binding. No stale-plan check is bypassed. The next successful saved action writes the upgraded journal; loading alone leaves the old data intact. Tests compare an entire old expedition through the Echo against an exact English replay, and also cover in-flight plans, custom names, corrections, invalid bindings and concurrent writes.
+
+## Painted presentation
+
+`art.tsx` reuses the existing Delveworn adventurer, enemy cutouts, eight room paintings, logo and item art. A 281 KB atlas supplies Living Dungeon-specific characters and objects. The fixed board projection applies equally to artwork, floor input, plans, walls and sightlines. Decorative image bounds never determine a target's clickable area. World-state events drive brief flashes; there is no continuous particle or idle animation loop. See `frontend/public/living-dungeon/README.md` for source paths, generation prompts and rendering details.

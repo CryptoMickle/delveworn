@@ -28,7 +28,7 @@ for (const [index, entry] of cases.entries()) {
   const started = Date.now();
   const response = await fetch(origin + "/api/living-dungeon/mind", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(request), signal: AbortSignal.timeout(15000) });
   const reply = await response.json() as MindReply;
-  results.push({ task: entry.task, language: index === 2 ? "en" : "nb", status: response.status, source: reply.source, reason: reply.reason, latencyMs: Date.now() - started, usage: reply.usage, teaching: reply.teaching, operations: reply.plan?.steps.filter(s => s.verb !== "MOVE"), validBinding: validReply(run, reply, binding) });
+  results.push({ task: entry.task, language: index === 2 ? "en" : "nb", status: response.status, source: reply.source, reason: reply.reason, latencyMs: Date.now() - started, usage: reply.usage, line: reply.line, teaching: reply.teaching, operations: reply.plan?.steps.filter(s => s.verb !== "MOVE"), validBinding: validReply(run, reply, binding) });
   await writeFile(out, JSON.stringify(results, null, 2));
   assert.equal(response.status, 200);
   assert.ok(validReply(run, reply, binding));

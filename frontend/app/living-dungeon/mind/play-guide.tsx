@@ -12,83 +12,83 @@ export function PlayGuide({ run, plan, preview, auto, canRemember, canReuse, atE
   onAction: (action: Action) => void; children?: ReactNode;
 }) {
   const first = run.room.index === 0, captive = entity(run.room, "captive");
-  let step = 1, title = "Lær relikvien en regel", body = "Du er den turkise figuren med en lysende rune. Få kartografen fri, og nå trappen. Begynn med en regel relikvien skal følge.", action: Action | null = null, label = "";
+  let step = 1, title = "Teach the relic a rule", body = "You are the adventurer in the burgundy cloak, beside the glowing rune. Free the cartographer and reach the stairs. Start with a rule for the relic to follow.", action: Action | null = null, label = "";
   if (run.relic.principles.length) {
-    step = 2; title = first ? "Se en redningsplan" : "Finn en vei gjennom rommet";
-    body = first ? "Lykten gjør det lett å se deg. Slukk den, bruk klokken til å trekke vokteren bort, og åpne fangens lenke. Du får se hele planen før noe skjer." : run.room.objective;
-    action = "preview"; label = canReuse ? "Prøv manøveren her" : first ? "Vis en redningsplan" : "Vis et planforslag";
-    if (canReuse && !first) body = "Et nytt rom, men den samme hensikten. Relikvien kan bruke manøveren din med andre redskaper. Se den nye planen før du utfører den.";
+    step = 2; title = first ? "Preview a rescue" : "Find a way through the room";
+    body = first ? "The lantern makes you easy to see. Put it out, ring the bell to draw the guard away, and open the captive's chain. You will see the whole plan before anything happens." : run.room.objective;
+    action = "preview"; label = canReuse ? "Try your maneuver here" : first ? "Show a rescue plan" : "Show a suggested plan";
+    if (canReuse && !first) body = "A new room, the same intention. The relic can use your maneuver with different tools. Preview the new plan before you commit.";
     if (run.relic.misunderstanding) {
-      title = "Relikvien har misforstått";
-      body = "Den beskyttet vokteren og lot fangen vente. Fortell den at personen faktisk må komme fri. Korrigeringen endrer det den gjør videre.";
-      action = "correct"; label = "Korriger lærdommen";
+      title = "The relic misunderstood";
+      body = "It protected the guard and left the captive waiting. Tell it the captive must actually go free. Your correction changes what it does next.";
+      action = "correct"; label = "Correct the lesson";
     }
     if (run.room.solved) {
-      step = 5; title = first ? "Første rom er løst" : "Rommet er løst";
-      body = run.room.index < 4 ? "Gå til trappen og velg «Gå dypere». Det du lærte relikvien, følger med til neste rom." : "Du kan gå videre nå. En åpen rapportvei lar overlevende vitner fortelle hva de så. Steng den hvis du vil beskytte hemmeligheten.";
-      action = "exit"; label = atExit ? "Fortsett til neste rom" : "Vis veien til trappen";
+      step = 5; title = first ? "First room complete" : "Room complete";
+      body = run.room.index < 4 ? "Reach the stairs and choose “Go deeper”. What you taught the relic carries into the next room." : "You can move on now. An open report route lets surviving witnesses tell what they saw. Close it to protect your secret.";
+      action = "exit"; label = atExit ? "Continue to the next room" : "Show the way to the stairs";
       if (first && canRemember && !run.relic.maneuvers.length) {
-        step = 4; title = "Redningen kan bli din egen evne";
-        body = "Kartografen er fri. Bevar handlingene som «Stille nåde», så kan relikvien bruke samme idé med andre objekter senere. Det koster ingen tur.";
-        action = "remember"; label = "Bevar «Stille nåde»";
+        step = 4; title = "The rescue can become your own ability";
+        body = "The cartographer is free. Remember these actions as “Quiet Mercy” so the relic can use the idea with different objects later. This costs no turn.";
+        action = "remember"; label = "Remember “Quiet Mercy”";
       }
     }
     if (run.room.goal === "escort" && captive?.freed && !run.room.solved) {
-      title = atExit ? "Vent på personen ved trappen" : "Følg personen til trappen";
-      body = atExit ? "Du er framme. Personen trenger fortsatt tid. Vent én tur, så kommer de nærmere. Fiender kan også handle mens du venter." : "Lenken er åpen, men redningen er ikke ferdig. Personen går mot utgangen hver gang du tar en tur. Gå dit sammen.";
-      action = "exit"; label = atExit ? "Se én tur ved trappen" : "Vis veien til trappen";
+      title = atExit ? "Wait for them at the stairs" : "Escort them to the stairs";
+      body = atExit ? "You have arrived. They still need time. Wait one turn and they will move closer. Enemies can act while you wait, too." : "The chain is open, but the rescue is not over. They move towards the exit each time you take a turn. Go together.";
+      action = "exit"; label = atExit ? "Preview a turn at the stairs" : "Show the way to the stairs";
     }
     if (run.room.goal === "echo" && captive?.freed && !run.room.solved) {
-      title = "Fangen er fri. Bryt ekkoet";
-      body = "Ekkoet står fortsatt. Prøv et angrep fra skjul. Forhåndsvisningen viser veien fram, hva det koster, og hvem som kan se deg.";
-      action = "preview"; label = "Vis et skjult angrep";
+      title = "The captive is free. Break the Echo";
+      body = "The Echo is still standing. Try an attack from hiding. The preview shows your route, its cost, and who can see you.";
+      action = "preview"; label = "Preview a hidden attack";
     }
     if (!run.room.solved && ["rescue", "escort"].includes(run.room.goal) && !captive?.active) {
-      title = "Redningen gikk tapt";
-      body = "Personen kan ikke lenger reddes. Nå trappen og trekk deg ut. Det som skjedde, følger med dere videre.";
-      action = "retreat"; label = atExit ? "Trekk deg ut" : "Vis veien ut";
+      title = "The rescue was lost";
+      body = "They can no longer be saved. Reach the stairs and retreat. What happened will follow you onward.";
+      action = "retreat"; label = atExit ? "Retreat" : "Show the way out";
     }
   }
   if (plan) {
-    step = run.room.solved ? 5 : 3; title = preview?.legal ? "Dette er bare en forhåndsvisning" : "Planen trenger en endring";
-    body = preview?.legal ? "Den stiplede linjen viser hvor du vil gå. Tallene viser handlingene. Trykk «Utfør planen» når du er klar; da beveger du deg og fiendene kan reagere." : `${preview?.reason ?? "Denne veien er ikke mulig."} Endre planen eller velg et annet forslag.`;
+    step = run.room.solved ? 5 : 3; title = preview?.legal ? "This is only a preview" : "The plan needs a change";
+    body = preview?.legal ? "The dashed line shows where you will go. The numbers mark your actions. Choose “Execute the plan” when ready; you will move and enemies can react." : `${preview?.reason ?? "This route is not possible."} Change the plan or choose another suggestion.`;
     action = null;
   }
   if (run.activePlan) {
-    step = run.room.solved ? 5 : 3; title = run.activePlan.interrupted ? "Noe kom i veien" : auto ? "Nå skjer handlingene i rommet" : "Planen er satt på pause";
-    body = run.activePlan.interrupted ? `${run.activePlan.interrupted} Det som allerede skjedde, står ved lag. Lag en ny plan fra der du er.` : auto ? "Følg figuren på gulvet. Du kan pause planen ved brettet. Hvert steg gir også fiendene en tur." : "Trykk «Fortsett ved brettet» for å utføre resten. Du kan lese og tenke så lenge du vil før du fortsetter.";
-    action = run.activePlan.interrupted ? "retry" : null; label = "Lag en ny plan";
+    step = run.room.solved ? 5 : 3; title = run.activePlan.interrupted ? "Something got in the way" : auto ? "Your actions are happening in the room" : "The plan is paused";
+    body = run.activePlan.interrupted ? `${run.activePlan.interrupted} What already happened stays. Make a new plan from where you are.` : auto ? "Watch your character on the floor. You can pause beside the board. Each step also gives enemies a turn." : "Choose “Continue here” to carry out the rest. Take as long as you like to read and think before continuing.";
+    action = run.activePlan.interrupted ? "retry" : null; label = "Make a new plan";
   }
   if (run.status === "fallen") return null;
-  return <section className={styles.playGuide} aria-label="Neste steg" data-testid="play-guide">
-    <p className={styles.eyebrow}>{first ? `DIN FØRSTE REDNING · ${step} AV 5` : "NESTE STEG"}</p>
+  return <section className={styles.playGuide} aria-label="Next step" data-testid="play-guide">
+    <p className={styles.eyebrow}>{first ? `YOUR FIRST RESCUE · ${step} OF 5` : "NEXT STEP"}</p>
     <h3>{title}</h3><p>{body}</p>
-    {run.room.index >= 4 && run.room.index < 6 && !plan && !run.activePlan && !run.room.solved && <p className={styles.guideWitness}>Et vitne kan fortelle hva det ser. Ravfargede ruter viser synsfeltet. Slukk lyset for å skjule mer, eller la vitnet se noe du vil at dungeonen skal tro.</p>}
+    {run.room.index >= 4 && run.room.index < 6 && !plan && !run.activePlan && !run.room.solved && <p className={styles.guideWitness}>A witness can report what it sees. Amber tiles show its sightlines. Extinguish the light to hide more, or let the witness see what you want the dungeon to believe.</p>}
     {action && <button className={styles.primary} onClick={() => onAction(action!)}>{label} →</button>}
     {children}
-    {!run.activePlan && <small>Du har tid til å tenke. Verden går én tur når du utfører en handling. Å undersøke er gratis.</small>}
+    {!run.activePlan && <small>You have time to think. The world advances one turn when you take an action. Examining is free.</small>}
   </section>;
 }
 
 export function PlayHelp({ open, onToggle }: { open: boolean; onToggle: (open: boolean) => void }) {
   return <details id="mind-how-to" className={styles.playHelp} open={open} onToggle={event => onToggle(event.currentTarget.open)}>
-    <summary>Slik spiller du</summary>
+    <summary>How to play</summary>
     <div>
-      <h3>Et rom. En plan. Hvem så det?</h3>
+      <h3>One room. One plan. Who saw it?</h3>
       <ol>
-        <li><b>Les målet over brettet.</b> Første oppgave er å frigjøre kartografen. Du trenger ikke drepe vokteren.</li>
-        <li><b>Velg et planforslag.</b> Den stiplede linjen er en mulig framtid. Ingen turer går før du velger «Utfør planen».</li>
-        <li><b>Se handlingene skje.</b> Fiender får også handle. Pause ved brettet hvis du vil stoppe og tenke.</li>
-        <li><b>Bevar det som virket.</b> En personlig manøver er en rekke handlinger relikvien kan tilpasse til nye rom.</li>
-        <li><b>Nå trappen og gå dypere.</b> Senere må du også velge hvilke vitner som får fortelle om deg.</li>
+        <li><b>Read the goal above the board.</b>  Your first task is to free the cartographer. You do not need to kill the guard.</li>
+        <li><b>Choose a suggested plan.</b>  The dashed line is a possible future. No turns pass until you choose “Execute the plan”.</li>
+        <li><b>Watch the actions unfold.</b>  Enemies act, too. Pause beside the board whenever you want to think.</li>
+        <li><b>Remember what worked.</b>  A personal maneuver is a sequence of actions the relic can adapt to new rooms.</li>
+        <li><b>Reach the stairs and go deeper.</b>  Later, you will also choose which witnesses get to tell your story.</li>
       </ol>
       <div className={styles.helpIdentities}>
-        <p><b>Relikvien lærte</b>Reglene og grunnene du lærer den privat. Dungeonen hører ikke denne samtalen.</p>
-        <p><b>Dungeonen mistenker</b>Historien som faktisk når fram fra vitner. Den kan være ufullstendig eller feil.</p>
+        <p><b>The relic learned</b>The rules and reasons you teach it in private. The dungeon cannot hear this conversation.</p>
+        <p><b>The dungeon suspects</b>The story that actually arrives from witnesses. It may be incomplete or wrong.</p>
       </div>
-      <p><b>Et eksempel:</b> Bruk Storm flere ganger foran vitner. Dungeonen kan da bygge vern mot lyn. Samtidig kan du lære relikvien en skjult redningsmanøver. Senere kan den hemmelige planen utnytte det vernet overser.</p>
-      <p><b>Styring:</b> Trykk på en figur eller gjenstand for å se mulighetene. Trykk på gulvet, eller bruk WASD/piltaster, for å gå. En fjern rute blir først en plan. Enter undersøker valgt objekt når brettet har fokus.</p>
-      <p>Du kan spille med forslagene hele veien. «Beskriv en egen plan» er valgfritt.</p>
+      <p><b>An example:</b>  Use Storm several times in front of witnesses. The dungeon may build wards against lightning. Meanwhile, teach the relic a hidden rescue maneuver. Later, that secret plan can exploit what the wards overlook.</p>
+      <p><b>Controls:</b>  Select a character or object to see your options. Tap the floor, or use WASD/arrow keys, to move. A distant tile becomes a plan first. Enter examines the selected object when the board has focus.</p>
+      <p>You can play using suggestions all the way through. “Describe your own plan” is optional.</p>
     </div>
   </details>;
 }

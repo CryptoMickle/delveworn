@@ -83,7 +83,7 @@ test("an enemy physically destroys a planned object and interrupts the next seal
   let run = taught(); run.room.index = 4; run.room.turn = 6; run.room.alert = 3; run.player.hiddenUntil = 999;
   Object.assign(entity(run.room, "player")!, { x: 3, y: 5 }); Object.assign(entity(run.room, "guardian")!, { x: 4, y: 4 });
   const plan = compilePlan(run, [{ verb: "WAIT" }, { verb: "DISTRACT", target: "distraction" }]);
-  const preview = previewPlan(run, plan); assert.equal(preview.legal, true); assert.ok(preview.complications.some(c => c.includes("avbrutt")));
+  const preview = previewPlan(run, plan); assert.equal(preview.legal, true); assert.ok(preview.complications.some(c => c.includes("interrupted")));
   run = act(run, { type: "commit", plan }); run = act(run, { type: "step" });
   assert.equal(entity(run.room, "distraction")!.active, false);
   run = act(run, { type: "step" }); assert.ok(run.activePlan?.interrupted);

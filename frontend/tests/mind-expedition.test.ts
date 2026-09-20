@@ -78,3 +78,26 @@ test("scenario grammar continues through several Echoes without repeating recent
   for (let i = 12; i < run.history.length; i++) if (run.history[i] !== "echo") assert.ok(!run.history.slice(i - 3, i).includes(run.history[i]));
   assert.deepEqual(decodeSave(JSON.stringify(envelope(run))), run);
 });
+
+test("a complete Norwegian expedition migrates through the Echo with identical English replay", async () => {
+  const { createRun: oldCreate, transition: oldTransition } = await import("../app/living-dungeon/mind/legacy-v2/engine");
+  const { bind: oldBind } = await import("../app/living-dungeon/mind/legacy-v2/protocol");
+  const { hash } = await import("../app/living-dungeon/mind/protocol");
+  const english = playChapter("public-storm");
+  let legacy = oldCreate(english.seed, english.runId);
+  for (const entry of english.journal) {
+    const command = structuredClone(entry.command);
+    if (command.type === "commit") {
+      command.plan.binding = oldBind(legacy, command.plan.binding.requestId, command.plan.binding.generation);
+      if (!command.plan.maneuverId) command.plan.name = "En mulig framtid";
+    }
+    const next = oldTransition(legacy, command, entry.revision);
+    assert.notEqual(next, legacy);
+    legacy = next;
+  }
+  const data = { version: 2, rules: "mind-beneath-1", runId: legacy.runId, seed: legacy.seed, revision: legacy.revision, journal: legacy.journal };
+  const migrated = decodeSave(JSON.stringify({ ...data, checksum: hash(data) }));
+  assert.deepEqual(migrated, english);
+  assert.equal(migrated?.echoes, 1);
+  assert.ok(migrated?.chills.divergence);
+});

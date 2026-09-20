@@ -3,10 +3,10 @@ import { bind, hash } from "./protocol";
 import type { Maneuver, Operation, Plan, Point, Preview, Role, Run, Verb } from "./types";
 import { canSee, distance, entity, lineOfSight, passable, playerEntity } from "./world";
 
-export const VERB_COPY: Record<Verb, string> = { MOVE: "Flytt", ATTACK: "Attack", STORM: "Storm", POTION: "Potion", PROTECT: "Beskytt", DISTRACT: "Avled", HIDE: "Skjul deg", OBSERVE: "Undersøk", CREATE_NOISE: "Lag lyd", EXTINGUISH_LIGHT: "Slukk lyset", RELEASE: "Frigjør", TRANSFER_ITEM: "Gi helsedrikk", REVEAL_EVIDENCE: "Vis bevis", PLANT_EVIDENCE: "Legg et falskt spor", REPORT: "La vitnet rapportere", INTERRUPT_REPORT: "Stans rapporten", RETREAT: "Trekk deg ut", WAIT: "Vent én tur" };
+export const VERB_COPY: Record<Verb, string> = { MOVE: "Move", ATTACK: "Attack", STORM: "Storm", POTION: "Potion", PROTECT: "Protect", DISTRACT: "Distract", HIDE: "Hide", OBSERVE: "Examine", CREATE_NOISE: "Make noise", EXTINGUISH_LIGHT: "Extinguish the light", RELEASE: "Release", TRANSFER_ITEM: "Give a potion", REVEAL_EVIDENCE: "Reveal evidence", PLANT_EVIDENCE: "Plant evidence", REPORT: "Let the witness report", INTERRUPT_REPORT: "Interrupt the report", RETREAT: "Retreat", WAIT: "Wait one turn" };
 export function describeOperation(run: Run, op: Operation): string {
   const target = entity(run.room, op.target);
-  if (op.verb === "MOVE") return `Gå til ${op.at?.x}, ${op.at?.y}`;
+  if (op.verb === "MOVE") return `Move to ${op.at?.x}, ${op.at?.y}`;
   return `${VERB_COPY[op.verb]}${target ? ` · ${target.name}` : ""}`;
 }
 const rangeFor = (verb: Verb) => ["OBSERVE", "REPORT", "HIDE", "WAIT", "POTION", "RETREAT"].includes(verb) ? 99 : verb === "STORM" ? 6 : ["DISTRACT", "CREATE_NOISE", "INTERRUPT_REPORT"].includes(verb) ? 3 : 1;
@@ -44,13 +44,13 @@ export function compilePlan(run: Run, desired: Operation[], options: { name?: st
     }
     add(wanted);
   }
-  return { id: `plan-${hash([run.revision, steps])}`, binding: bind(run), name: (options.name ?? "En mulig framtid").slice(0, 60), boundary: options.boundary ?? "none", steps, ...(options.maneuverId ? { maneuverId: options.maneuverId } : {}) };
+  return { id: `plan-${hash([run.revision, steps])}`, binding: bind(run), name: (options.name ?? "A Possible Future").slice(0, 60), boundary: options.boundary ?? "none", steps, ...(options.maneuverId ? { maneuverId: options.maneuverId } : {}) };
 }
 export function previewPlan(run: Run, plan: Plan): Preview {
   let simulated = run;
-  const result: Preview = { legal: true, reason: null, steps: [], healthCost: 0, energyCost: 0, potionCost: 0, complications: [], observations: [], outcome: "Stegene er mulige med det du vet nå." };
-  if (!plan.steps.length) return { ...result, legal: false, reason: "Velg minst én forbindelse i rommet." };
-  if (plan.boundary === "no-harm" && plan.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))) return { ...result, legal: false, reason: "Denne planen bryter grensen om å la vokteren leve." };
+  const result: Preview = { legal: true, reason: null, steps: [], healthCost: 0, energyCost: 0, potionCost: 0, complications: [], observations: [], outcome: "These steps are possible with what you know now." };
+  if (!plan.steps.length) return { ...result, legal: false, reason: "Choose at least one connection in the room." };
+  if (plan.boundary === "no-harm" && plan.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))) return { ...result, legal: false, reason: "This plan breaks your promise to let the guard live." };
   for (const operation of plan.steps) {
     const from = { ...playerEntity(simulated.room) }, error = operationError(simulated, operation);
     const witnesses = simulated.room.entities.filter(e => canSee(simulated.room, e, operation.at ?? from, simulated.player.hiddenUntil >= simulated.tick)).map(e => e.name);
@@ -60,8 +60,8 @@ export function previewPlan(run: Run, plan: Plan): Preview {
     if (error) {
       const changedTarget = operation.target && entity(run.room, operation.target)?.active && !entity(simulated.room, operation.target)?.active;
       if (changedTarget && result.steps.length > 1) {
-        result.complications.push(`Planen kan bli avbrutt: ${error}`);
-        result.outcome = "Åpningen kan forsøkes. Et nødvendig objekt kan forsvinne underveis.";
+        result.complications.push(`The plan may be interrupted: ${error}`);
+        result.outcome = "You can attempt this opening. An object you need may disappear along the way.";
       } else { result.legal = false; result.reason = error; }
       break;
     }
@@ -69,13 +69,13 @@ export function previewPlan(run: Run, plan: Plan): Preview {
   result.healthCost = run.player.hp - simulated.player.hp;
   result.energyCost = run.relic.energy - simulated.relic.energy;
   result.potionCost = run.player.potions - simulated.player.potions;
-  result.observations = [...new Set(simulated.observations.slice(run.observations.length).map(o => entity(run.room, o.observer.split(":").slice(1).join(":"))?.name ?? "Et vitne"))];
-  if (run.room.entities.some(e => e.role === "observer" && e.active)) result.complications.push("Skriveren flytter seg mot rapportåren mens du handler.");
-  if (run.room.alert >= 2) result.complications.push("Vokteren kan komme i veien eller ødelegge en avledning.");
-  if (run.room.captiveDeadline) result.complications.push(`Den fangede er i fare etter tur ${run.room.captiveDeadline}.`);
-  if (simulated.status === "fallen") { result.legal = false; result.reason = "Du vil falle før planen er ferdig."; }
-  if (simulated.room.solved) result.outcome = simulated.room.family === "echo" ? "Ekkoet bryter sammen." : "Den fangede kommer fri. Historien er ennå din å forme.";
-  if (plan.boundary === "free-target" && !entity(simulated.room, "captive")?.freed) { result.legal = false; result.reason = "Personen blir ikke fri med disse stegene."; }
+  result.observations = [...new Set(simulated.observations.slice(run.observations.length).map(o => entity(run.room, o.observer.split(":").slice(1).join(":"))?.name ?? "A witness"))];
+  if (run.room.entities.some(e => e.role === "observer" && e.active)) result.complications.push("The scribe moves towards the conduit while you act.");
+  if (run.room.alert >= 2) result.complications.push("The guard may get in the way or destroy a distraction.");
+  if (run.room.captiveDeadline) result.complications.push(`The captive is in danger after turn ${run.room.captiveDeadline}.`);
+  if (simulated.status === "fallen") { result.legal = false; result.reason = "You will fall before the plan is finished."; }
+  if (simulated.room.solved) result.outcome = simulated.room.family === "echo" ? "The Echo collapses." : "The captive goes free. The story is still yours to shape.";
+  if (plan.boundary === "free-target" && !entity(simulated.room, "captive")?.freed) { result.legal = false; result.reason = "These steps do not free the captive."; }
   return result;
 }
 
@@ -105,23 +105,23 @@ export function verbsForRole(role: Role): Verb[] {
 export function suggestions(run: Run): { label: string; detail: string; operations: Operation[]; boundary: Maneuver["boundary"] }[] {
   const boss = run.room.family === "echo";
   if (!run.room.solved && run.room.index >= 12 && run.room.goal === "evidence") return [
-    { label: "Hent det utelatte minnet", detail: "Gå til vitneseglet og avslør det dungeonen skjulte.", operations: [{ verb: "REVEAL_EVIDENCE", target: "evidence" }], boundary: "none" },
-    { label: "Gi noen friheten først", detail: "Minnet er målet. Personen kan likevel bli ditt ansvar.", operations: [...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "RELEASE", target: "captive" }], boundary: "free-target" },
-    { label: "Steng rapportveien", detail: "Hent kunnskapen uten å gi den tilbake til dypet.", operations: [{ verb: "INTERRUPT_REPORT", target: "relay" }], boundary: "none" },
+    { label: "Recover the missing memory", detail: "Reach the witness seal and reveal what the dungeon hid.", operations: [{ verb: "REVEAL_EVIDENCE", target: "evidence" }], boundary: "none" },
+    { label: "Free someone first", detail: "The memory is the goal. The captive can still become your responsibility.", operations: [...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "RELEASE", target: "captive" }], boundary: "free-target" },
+    { label: "Close the report route", detail: "Recover the knowledge without returning it to the depths.", operations: [{ verb: "INTERRUPT_REPORT", target: "relay" }], boundary: "none" },
   ];
   if (run.room.goal === "story" || run.room.goal === "escort" && entity(run.room, "captive")?.freed) return [
-    { label: "Stans historien", detail: "Bryt den fysiske rapportveien.", operations: [{ verb: "INTERRUPT_REPORT", target: "relay" }], boundary: "none" },
-    { label: "La dem fortelle", detail: "La et troverdig vitne bære det som ble sett.", operations: [{ verb: "REPORT", target: "observer" }, { verb: "WAIT" }, { verb: "WAIT" }], boundary: "none" },
-    { label: "Følg personen ut", detail: "Hvert skritt kjøper tid til å nå trappen.", operations: [{ verb: "MOVE", at: { x: 8, y: 7 } }], boundary: "none" },
+    { label: "Stop the story", detail: "Break the physical report route.", operations: [{ verb: "INTERRUPT_REPORT", target: "relay" }], boundary: "none" },
+    { label: "Let them tell it", detail: "Let a credible witness carry what was seen.", operations: [{ verb: "REPORT", target: "observer" }, { verb: "WAIT" }, { verb: "WAIT" }], boundary: "none" },
+    { label: "Escort them out", detail: "Every step buys time to reach the stairs.", operations: [{ verb: "MOVE", at: { x: 8, y: 7 } }], boundary: "none" },
   ];
   if (run.room.solved) return [
-    { label: "Stans historien", detail: "Nå rapportåren før vitnet.", operations: [{ verb: "INTERRUPT_REPORT", target: "relay" }], boundary: "none" },
-    { label: "La dem fortelle", detail: "En dyr, synlig handling kan styrke rollen din.", operations: [{ verb: "REPORT", target: entity(run.room, "observer")?.active ? "observer" : "guardian" }], boundary: "none" },
-    { label: "Finn trappen", detail: "Gå videre med det dere har lært.", operations: [{ verb: "MOVE", at: { x: 8, y: 7 } }], boundary: "none" },
+    { label: "Stop the story", detail: "Reach the conduit before the witness.", operations: [{ verb: "INTERRUPT_REPORT", target: "relay" }], boundary: "none" },
+    { label: "Let them tell it", detail: "A costly, visible action can strengthen your role.", operations: [{ verb: "REPORT", target: entity(run.room, "observer")?.active ? "observer" : "guardian" }], boundary: "none" },
+    { label: "Find the stairs", detail: "Move on with what you have learned.", operations: [{ verb: "MOVE", at: { x: 8, y: 7 } }], boundary: "none" },
   ];
   return [
-    { label: "Skap en skjult åpning", detail: "Slukk lyset, avled vokteren, få personen fri.", operations: [...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "DISTRACT", target: boss && run.room.components.some(c => c.id === "echo-snare") ? "resonator" : "distraction" }, { verb: "HIDE" }, { verb: "RELEASE", target: "captive" }], boundary: "no-harm" },
-    { label: "La dem se Storm", detail: "Bruk 4 energi på et synlig mønster. Bevar en annen vei.", operations: [{ verb: "STORM", target: "guardian" }], boundary: "none" },
-    { label: boss ? "Bryt den blinde siden" : "Beskytt før du angriper", detail: boss ? "Skjul deg. Angrip det vernet overser." : "Gå til den fangede og gi vern.", operations: boss ? [{ verb: "EXTINGUISH_LIGHT", target: "light" }, { verb: "HIDE" }, { verb: "ATTACK", target: "guardian" }] : [{ verb: "PROTECT", target: "captive" }, { verb: "RELEASE", target: "captive" }], boundary: boss ? "none" : "free-target" },
+    { label: "Create a hidden opening", detail: "Extinguish the light, distract the guard, free the captive.", operations: [...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "DISTRACT", target: boss && run.room.components.some(c => c.id === "echo-snare") ? "resonator" : "distraction" }, { verb: "HIDE" }, { verb: "RELEASE", target: "captive" }], boundary: "no-harm" },
+    { label: "Let them see Storm", detail: "Spend 4 energy on a visible pattern. Keep another way hidden.", operations: [{ verb: "STORM", target: "guardian" }], boundary: "none" },
+    { label: boss ? "Strike the blind side" : "Protect before you attack", detail: boss ? "Hide. Attack what the ward overlooks." : "Reach the captive and protect them.", operations: boss ? [{ verb: "EXTINGUISH_LIGHT", target: "light" }, { verb: "HIDE" }, { verb: "ATTACK", target: "guardian" }] : [{ verb: "PROTECT", target: "captive" }, { verb: "RELEASE", target: "captive" }], boundary: boss ? "none" : "free-target" },
   ];
 }

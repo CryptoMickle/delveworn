@@ -7,13 +7,13 @@ import { buildRoom, byRole, canSee, distance, entity, equalPoint, lineOfSight, p
 const clone = <T,>(value: T): T => structuredClone(value);
 export function createRun(seed: number, runId: string): Run {
   const room = buildRoom(seed, 0, [], []);
-  const run: Run = { version: 3, rules: "mind-beneath-2", runId, seed: seed >>> 0, rng: seed >>> 0 || 1, revision: 0, tick: 0, room, player: { hp: 40, maxHp: 40, potions: 3, hiddenUntil: -1 }, relic: { stage: 0, energy: 16, trust: 5, principles: [], maneuvers: [], line: "I know the weight of your hand. Not why it trembles. What should I remember first?", misunderstanding: false, pendingChoice: null, lastChoice: null }, facts: [], observations: [], beliefs: [], reports: [], hypotheses: [], relationships: [], scars: [], history: [room.family], journal: [], activePlan: null, lastSequence: null, recentSteps: [], recentFacts: [], status: "playing", echoes: 0, chills: { understood: null, mistaken: null, divergence: null }, director: null, notice: "Teach the relic one principle. The words stay between you." };
+  const run: Run = { version: 2, rules: "mind-beneath-1", runId, seed: seed >>> 0, rng: seed >>> 0 || 1, revision: 0, tick: 0, room, player: { hp: 40, maxHp: 40, potions: 3, hiddenUntil: -1 }, relic: { stage: 0, energy: 16, trust: 5, principles: [], maneuvers: [], line: "Jeg kjenner vekten av hånden din. Ikke hvorfor den skjelver. Hva skal jeg huske først?", misunderstanding: false, pendingChoice: null, lastChoice: null }, facts: [], observations: [], beliefs: [], reports: [], hypotheses: [], relationships: [], scars: [], history: [room.family], journal: [], activePlan: null, lastSequence: null, recentSteps: [], recentFacts: [], status: "playing", echoes: 0, chills: { understood: null, mistaken: null, divergence: null }, director: null, notice: "Lær relikvien ett prinsipp. Ordene blir mellom dere." };
   roomFact(run);
   return run;
 }
 function roomFact(run: Run) {
-  record(run, { actor: "world", kind: "room", at: playerEntity(run.room), cost: 0, value: run.room.index, private: false, sources: [], text: `Entered ${run.room.title}.` });
-  if (run.room.adaptation) record(run, { actor: "mind", kind: "countermeasure", at: { x: 7, y: 3 }, cost: 0, value: 0, private: false, sources: run.room.adaptationSources, text: `The room was built around ${run.room.adaptation}.` });
+  record(run, { actor: "world", kind: "room", at: playerEntity(run.room), cost: 0, value: run.room.index, private: false, sources: [], text: `Gikk inn i ${run.room.title}.` });
+  if (run.room.adaptation) record(run, { actor: "mind", kind: "countermeasure", at: { x: 7, y: 3 }, cost: 0, value: 0, private: false, sources: run.room.adaptationSources, text: `Rommet er bygget for ${run.room.adaptation}.` });
   for (const component of run.room.components) record(run, { actor: "mind", kind: "countermeasure", at: { x: 7, y: 4 }, cost: component.cost, value: 0, private: false, sources: component.sources, text: `${COMPONENTS[component.id].name}: ${COMPONENTS[component.id].effect}` });
 }
 function random(run: Run): number {
@@ -21,41 +21,41 @@ function random(run: Run): number {
   return run.rng / 4294967296;
 }
 export function operationError(run: Run, op: Operation): string | null {
-  if (!isOperation(op)) return "That action is not available in this room.";
-  if (run.status !== "playing") return "The expedition needs a resting place.";
-  if (!run.relic.principles.length && op.verb !== "OBSERVE") return "Teach the relic one principle first.";
+  if (!isOperation(op)) return "Handlingen finnes ikke i dette rommet.";
+  if (run.status !== "playing") return "Ekspedisjonen trenger et hvilested.";
+  if (!run.relic.principles.length && op.verb !== "OBSERVE") return "Lær relikvien ett prinsipp først.";
   const p = playerEntity(run.room), target = entity(run.room, op.target);
-  if (op.verb === "MOVE") return !op.at || distance(p, op.at) !== 1 || !passable(run.room, op.at) ? "Choose an open tile beside you." : null;
+  if (op.verb === "MOVE") return !op.at || distance(p, op.at) !== 1 || !passable(run.room, op.at) ? "Velg en ledig rute ved siden av deg." : null;
   if (["WAIT", "POTION", "HIDE", "RETREAT"].includes(op.verb)) {
-    if (op.verb === "POTION" && run.player.potions < 1) return "No potions left.";
-    if (op.verb === "POTION" && run.player.hp === run.player.maxHp) return "Your health is already full.";
-    if (op.verb === "HIDE" && run.room.light && !run.room.shadows.some(s => distance(p, s) <= 1)) return "Find a shadow or extinguish the light first.";
-    if (op.verb === "RETREAT" && distance(p, entity(run.room, "exit")!) > 1) return "Reach the stairs first.";
+    if (op.verb === "POTION" && run.player.potions < 1) return "Ingen helsedrikker igjen.";
+    if (op.verb === "POTION" && run.player.hp === run.player.maxHp) return "Du er allerede hel.";
+    if (op.verb === "HIDE" && run.room.light && !run.room.shadows.some(s => distance(p, s) <= 1)) return "Gå til en skygge eller slukk lyset først.";
+    if (op.verb === "RETREAT" && distance(p, entity(run.room, "exit")!) > 1) return "Du må nå trappen først.";
     return null;
   }
-  if (!target?.active || target.hp <= 0) return "The target is no longer available.";
+  if (!target?.active || target.hp <= 0) return "Målet er ikke lenger tilgjengelig.";
   if (op.verb === "OBSERVE") return null;
   if (op.verb === "STORM") {
-    if (!["guardian", "echo"].includes(target.role)) return "Aim the lightning at an enemy.";
-    if (run.relic.energy < 4) return "Storm needs 4 relic energy.";
-    return distance(p, target) > 6 || !lineOfSight(run.room, p, target) ? "The target is beyond lightning range or behind a wall." : null;
+    if (!["guardian", "echo"].includes(target.role)) return "Lynet må rettes mot en motstander.";
+    if (run.relic.energy < 4) return "Storm krever 4 relikvieenergi.";
+    return distance(p, target) > 6 || !lineOfSight(run.room, p, target) ? "Målet er utenfor lynets rekkevidde eller bak en vegg." : null;
   }
   if (["DISTRACT", "CREATE_NOISE"].includes(op.verb)) {
-    if (target.role !== "distraction") return "This cannot create a distraction.";
-    if (run.relic.energy < 2) return "A distraction needs 2 energy.";
-    return distance(p, target) > 3 || !lineOfSight(run.room, p, target) ? "Move closer to the distraction." : null;
+    if (target.role !== "distraction") return "Dette kan ikke lage en avledning.";
+    if (run.relic.energy < 2) return "Avledningen krever 2 energi.";
+    return distance(p, target) > 3 || !lineOfSight(run.room, p, target) ? "Kom nærmere avledningen." : null;
   }
-  if (op.verb === "INTERRUPT_REPORT") return distance(p, target) > 3 || !["relay", "observer"].includes(target.role) ? "Get within three tiles of a conduit or scribe." : run.relic.energy < 2 ? "Interrupting a report needs 2 energy." : null;
-  if (op.verb === "REPORT") return !["observer", "guardian"].includes(target.role) ? "Choose a witness who can pass the story on." : null;
-  if (distance(p, target) > 1) return "Move beside the target first.";
-  if (op.verb === "ATTACK" && !["guardian", "echo"].includes(target.role)) return "Choose an enemy.";
-  if (op.verb === "RELEASE" && (target.role !== "captive" || target.freed)) return "There is no bound captive to free here.";
-  if (op.verb === "PROTECT" && target.role !== "captive") return "Choose someone who needs protection.";
-  if (op.verb === "PROTECT" && run.relic.energy < 2) return "Protection needs 2 energy.";
-  if (op.verb === "TRANSFER_ITEM" && (target.role !== "captive" || run.player.potions < 1)) return "You need a potion and someone to give it to.";
-  if (op.verb === "EXTINGUISH_LIGHT" && (target.role !== "light" || !run.room.light)) return "The light is already out.";
-  if (["REVEAL_EVIDENCE", "PLANT_EVIDENCE"].includes(op.verb) && target.role !== "evidence") return "You need the witness seal.";
-  if (op.verb === "PLANT_EVIDENCE" && run.relic.energy < 3) return "Planting evidence needs 3 energy.";
+  if (op.verb === "INTERRUPT_REPORT") return distance(p, target) > 3 || !["relay", "observer"].includes(target.role) ? "Nå en rapportåre eller skriver innen tre ruter." : run.relic.energy < 2 ? "Å bryte rapporten krever 2 energi." : null;
+  if (op.verb === "REPORT") return !["observer", "guardian"].includes(target.role) ? "Velg et vitne som kan fortelle videre." : null;
+  if (distance(p, target) > 1) return "Gå inntil målet først.";
+  if (op.verb === "ATTACK" && !["guardian", "echo"].includes(target.role)) return "Velg en motstander.";
+  if (op.verb === "RELEASE" && (target.role !== "captive" || target.freed)) return "Ingen bundet person å befri her.";
+  if (op.verb === "PROTECT" && target.role !== "captive") return "Velg den som trenger vern.";
+  if (op.verb === "PROTECT" && run.relic.energy < 2) return "Vern krever 2 energi.";
+  if (op.verb === "TRANSFER_ITEM" && (target.role !== "captive" || run.player.potions < 1)) return "Du trenger en helsedrikk og noen å gi den til.";
+  if (op.verb === "EXTINGUISH_LIGHT" && (target.role !== "light" || !run.room.light)) return "Lyset er allerede slukket.";
+  if (["REVEAL_EVIDENCE", "PLANT_EVIDENCE"].includes(op.verb) && target.role !== "evidence") return "Du trenger vitneseglet.";
+  if (op.verb === "PLANT_EVIDENCE" && run.relic.energy < 3) return "Et falskt spor krever 3 energi.";
   return null;
 }
 
@@ -84,7 +84,7 @@ function freeCaptive(run: Run, fact: Fact) {
     const echo = entity(run.room, "guardian")!;
     const thread = run.room.components.some(c => c.id === "hostage-thread");
     if (thread) echo.hp = Math.max(0, echo.hp - 12);
-    if (thread) record(run, { actor: "world", kind: "echo-break", at: echo, cost: 0, value: 12, private: false, sources: [fact.id, ...run.room.components.filter(c => c.id === "hostage-thread").flatMap(c => c.sources)], text: "The freed captive tears the hostage thread out of the Echo. Its shield collapses." });
+    if (thread) record(run, { actor: "world", kind: "echo-break", at: echo, cost: 0, value: 12, private: false, sources: [fact.id, ...run.room.components.filter(c => c.id === "hostage-thread").flatMap(c => c.sources)], text: "Den frie fangen river gisseltråden ut av ekkoet. Skjoldet kollapser fysisk." });
   }
 }
 function execute(run: Run, op: Operation): Fact {
@@ -94,10 +94,10 @@ function execute(run: Run, op: Operation): Fact {
   const witnesses = run.room.entities.filter(e => canSee(run.room, e, p, hidden)).map(e => e.id);
   const observedFact = (run: Run, op: Operation, text: string, cost: number, signature?: Signature, value = 0, sources: string[] = []) => actionFact(run, op, text, cost, signature, value, sources, witnesses);
   switch (op.verb) {
-    case "MOVE": p.x = op.at!.x; p.y = op.at!.y; fact = observedFact(run, op, "Moved one tile.", 0); break;
+    case "MOVE": p.x = op.at!.x; p.y = op.at!.y; fact = observedFact(run, op, "Flyttet én rute.", 0); break;
     case "OBSERVE":
       if (!run.room.inspected.includes(target!.id)) run.room.inspected.push(target!.id);
-      fact = observedFact(run, op, `Examined ${target!.name}.`, 0);
+      fact = observedFact(run, op, `Undersøkte ${target!.name}.`, 0);
       break;
     case "ATTACK": case "STORM": {
       const storm = op.verb === "STORM", ward = run.room.disruptionUntil <= run.tick && run.room.components.some(c => c.id === (storm ? "storm-ward" : "iron-mirror"));
@@ -106,10 +106,10 @@ function execute(run: Run, op: Operation): Fact {
       if (storm) run.relic.energy -= 4;
       target!.hp = Math.max(0, target!.hp - damage);
       run.room.alert = 3;
-      fact = observedFact(run, op, `${storm ? "Storm" : hidden ? "An unseen attack" : "A sword strike"} hit ${target!.name} for ${damage}.`, storm ? 4 : 2, storm ? "storm" : "force", damage);
+      fact = observedFact(run, op, `${storm ? "Storm" : hidden ? "Et skjult angrep" : "Et sverdslag"} traff ${target!.name} for ${damage}.`, storm ? 4 : 2, storm ? "storm" : "force", damage);
       if (!storm && hidden && run.room.components.some(c => c.id === "storm-ward") && run.hypotheses.some(h => h.claim === "storm" && h.confidence >= 0.48)) {
         run.chills.mistaken = fact.id;
-        run.relic.line = "Every ward faces the lightning. You taught me to look for the other way.";
+        run.relic.line = "Alt vernet peker mot lynet. Du lærte meg å se etter den andre veien.";
       }
       run.player.hiddenUntil = -1;
       if (target!.hp === 0) target!.active = false;
@@ -117,55 +117,55 @@ function execute(run: Run, op: Operation): Fact {
     }
     case "POTION":
       run.player.potions--; run.player.hp = Math.min(run.player.maxHp, run.player.hp + 16);
-      fact = observedFact(run, op, "Drank a potion. It is gone for good.", 5, "self-preservation", 16);
+      fact = observedFact(run, op, "Drakk en helsedrikk. Den er borte for godt.", 5, "self-preservation", 16);
       if (run.room.components.some(c => c.id === "thirst-trap")) run.room.hazards.push({ x: p.x, y: p.y });
       break;
     case "PROTECT":
       target!.protected = 5; run.relic.energy -= 2;
-      fact = observedFact(run, op, `Stood between danger and ${target!.name}.`, 3, "mercy"); break;
+      fact = observedFact(run, op, `Stilte deg mellom faren og ${target!.name}.`, 3, "mercy"); break;
     case "DISTRACT": case "CREATE_NOISE": {
       run.relic.energy -= 2;
       const guardian = entity(run.room, "guardian");
       if (guardian?.active) { guardian.distracted = 6; guardian.goal = { x: target!.x, y: target!.y }; }
-      fact = observedFact(run, op, `${target!.name} drew the guard's attention.`, 2, "cunning");
+      fact = observedFact(run, op, `${target!.name} trakk vokterens oppmerksomhet.`, 2, "cunning");
       if (run.room.components.some(c => c.id === "echo-snare") && target!.id === "distraction") {
         run.player.hp = Math.max(0, run.player.hp - 6); run.room.alert = 3;
-        run.notice = "The Echo recognised the visible distraction. The trap cost 6 health.";
+        run.notice = "Ekkoet kjente igjen den synlige avledningen. Fellen kostet 6 liv.";
       }
       break;
     }
-    case "HIDE": run.player.hiddenUntil = run.tick + 6; fact = observedFact(run, op, "Slipped into shadow. Nearby witnesses can still see you.", 0); break;
-    case "EXTINGUISH_LIGHT": run.room.light = false; fact = observedFact(run, op, `Extinguished ${target!.name}. Sightlines shrank.`, 1, "cunning"); break;
+    case "HIDE": run.player.hiddenUntil = run.tick + 6; fact = observedFact(run, op, "Forsvant i skyggen. Nære vitner kan fortsatt se deg.", 0); break;
+    case "EXTINGUISH_LIGHT": run.room.light = false; fact = observedFact(run, op, `Slukket ${target!.name}. Synsfeltene krympet.`, 1, "cunning"); break;
     case "RELEASE":
-      fact = observedFact(run, op, `Freed ${target!.name}.`, 3, "mercy"); freeCaptive(run, fact); break;
+      fact = observedFact(run, op, `Frigjorde ${target!.name}.`, 3, "mercy"); freeCaptive(run, fact); break;
     case "TRANSFER_ITEM":
       run.player.potions--; target!.hp = target!.maxHp; target!.protected = 5;
-      fact = observedFact(run, op, `Gave an irreplaceable potion to ${target!.name}.`, 6, "mercy"); break;
+      fact = observedFact(run, op, `Ga en uerstattelig helsedrikk til ${target!.name}.`, 6, "mercy"); break;
     case "INTERRUPT_REPORT": {
       run.relic.energy -= 2;
       for (const report of run.reports.filter(r => r.room === run.room.index && r.delivered === null && (target!.role === "relay" || r.originator.endsWith(`:${target!.id}`)))) report.intercepted = true;
       if (target!.role === "relay") target!.active = false;
       else { target!.distracted = 5; target!.intent = "watch"; }
-      fact = observedFact(run, op, target!.role === "relay" ? "Broke the report conduit. This route to the dungeon is closed." : "Stopped the scribe. It still remembers what it saw.", 2, "cunning"); break;
+      fact = observedFact(run, op, target!.role === "relay" ? "Brøt rapportåren. Denne veien til dungeonen er stengt." : "Stanset skriveren. Den husker fortsatt det den så.", 2, "cunning"); break;
     }
     case "REPORT":
       prepareReport(run, target!.id); target!.intent = "report";
-      fact = observedFact(run, op, `Let ${target!.name} carry its version onward.`, 0); break;
+      fact = observedFact(run, op, `Lot ${target!.name} bære sin versjon videre.`, 0); break;
     case "PLANT_EVIDENCE": {
       run.relic.energy -= 3;
       const observed = run.room.entities.some(e => canSee(run.room, e, p, hidden));
       target!.suspicious = observed;
-      fact = observedFact(run, op, observed ? "A witness saw you forge the seal. The evidence lost credibility." : "Planted a false witness seal in shadow. A witness needs to discover it.", 3, op.signature ?? "storm");
+      fact = observedFact(run, op, observed ? "Et vitne så deg forfalske seglet. Sporet mistet troverdighet." : "La et falskt vitnesegl i skyggen. Det trenger et vitne som finner det.", 3, op.signature ?? "storm");
       // A forged trace is distinct from the observed act of forging it.
       target!.goal = { x: observed ? 1 : 0, y: ["storm", "mercy", "force", "cunning", "self-preservation"].indexOf(op.signature ?? "storm") };
       break;
     }
     case "REVEAL_EVIDENCE":
-      fact = observedFact(run, op, "Revealed the witness seal. One claim does not make a certain story.", 0);
+      fact = observedFact(run, op, "Viste vitneseglet. En påstand er ennå ikke en sikker historie.", 0);
       if (run.room.goal === "evidence") {
         run.room.solved = true;
         run.relic.energy = Math.min(20, run.relic.energy + 3);
-        run.relic.line = "It removed the memory because it did not fit the explanation. We are taking it with us.";
+        run.relic.line = "Det fjernet minnet fordi det ikke passet med forklaringen. Vi tar det med.";
       }
       for (const witness of run.room.entities.filter(e => ["guardian", "observer"].includes(e.role) && canSee(run.room, e, p))) {
         const claim = (["storm", "mercy", "force", "cunning", "self-preservation"] as Signature[])[target!.goal?.y ?? 0];
@@ -178,8 +178,8 @@ function execute(run: Run, op: Operation): Fact {
       break;
     case "RETREAT":
       run.room.escaped = true; run.room.solved = true;
-      fact = observedFact(run, op, "Chose the stairs. Those left behind have their own story.", 3, "self-preservation"); break;
-    default: fact = observedFact(run, op, "Let a moment pass.", 0);
+      fact = observedFact(run, op, "Valgte trappen. De som ble igjen, får sin egen historie.", 3, "self-preservation"); break;
+    default: fact = observedFact(run, op, "Lot et øyeblikk gå.", 0);
   }
   learnFrom(run, fact);
   run.notice = fact.text;
@@ -194,13 +194,13 @@ function autonomousChoice(run: Run) {
   if (choice.protect && captive.active && !captive.freed) {
     captive.protected = 7; run.relic.energy = Math.max(0, run.relic.energy - 3);
     run.player.hp = Math.max(1, run.player.hp - 4);
-    const fact = record(run, { actor: "relic", kind: "choice", at: captive, target: captive.id, signature: "mercy", cost: 7, value: 4, private: false, sources: choice.sources, text: "The relic flew to the captive and caught the blow in its light. You lost 4 health; it spent 3 energy." });
-    run.relic.lastChoice = fact.id; run.relic.line = "I knew what you would ask. I went to the other one anyway.";
+    const fact = record(run, { actor: "relic", kind: "choice", at: captive, target: captive.id, signature: "mercy", cost: 7, value: 4, private: false, sources: choice.sources, text: "Relikvien fløy til den fangede og tok slaget med sitt lys. Du mistet 4 liv; den brukte 3 energi." });
+    run.relic.lastChoice = fact.id; run.relic.line = "Jeg visste hva du ville be meg om. Jeg gikk til den andre likevel.";
   } else {
     p.protected = 6;
-    const fact = record(run, { actor: "relic", kind: "choice", at: p, cost: 2, value: 0, private: true, sources: choice.sources, text: "The relic chose to shield you. The captive had to wait." });
+    const fact = record(run, { actor: "relic", kind: "choice", at: p, cost: 2, value: 0, private: true, sources: choice.sources, text: "Relikvien valgte å skjerme deg. Den fangede måtte vente." });
     run.relic.energy = Math.max(0, run.relic.energy - 2); run.relic.lastChoice = fact.id;
-    run.relic.line = "I chose you. I do not know if I can call that right.";
+    run.relic.line = "Jeg valgte deg. Jeg vet ikke om jeg får kalle det riktig.";
   }
   run.relic.stage = 3;
 }
@@ -214,12 +214,12 @@ function autonomousGeneralization(run: Run) {
   // The relic carries the learned distraction to a NEW object. It cannot conjure damage or a reward.
   run.relic.energy -= 4; guardian.distracted = 8; guardian.goal = { x: resonator.x, y: resonator.y }; run.room.light = false;
   const sources = [...maneuver.examples, ...maneuver.corrections, ...principle.examples.slice(-1)];
-  const fact = record(run, { actor: "relic", kind: "learning", at: resonator, operation: { verb: "DISTRACT", target: resonator.id }, target: resonator.id, cost: 4, value: 8, private: false, sources, text: `The relic used the principle behind “${maneuver.name}” on the shadow resonator. The Echo turned away. Eight turns are yours.` });
+  const fact = record(run, { actor: "relic", kind: "learning", at: resonator, operation: { verb: "DISTRACT", target: resonator.id }, target: resonator.id, cost: 4, value: 8, private: false, sources, text: `Relikvien brukte prinsippet i «${maneuver.name}» på skyggens resonator. Ekkoet vendte seg bort. Åtte turer er dine.` });
   run.chills.understood = fact.id; maneuver.contexts.push("echo"); maneuver.uses++;
-  run.relic.line = "It was never the bell. It was who you wanted to free.";
+  run.relic.line = "Det var aldri klokken. Det var hvem du ville få fri.";
   if (run.room.components.length) {
     run.chills.mistaken = fact.id;
-    const divergence = record(run, { actor: "world", kind: "echo-break", at: guardian, cost: 0, value: 8, private: false, sources: [fact.id, ...run.room.components.flatMap(c => c.sources)], text: "The Echo guards your public strategy. The relic opened the hidden way. The ward fades as the Echo turns." });
+    const divergence = record(run, { actor: "world", kind: "echo-break", at: guardian, cost: 0, value: 8, private: false, sources: [fact.id, ...run.room.components.flatMap(c => c.sources)], text: "Ekkoet vokter den offentlige strategien. Relikvien åpnet den skjulte veien. Vernet slukner mens ekkoet snur seg." });
     run.chills.divergence = divergence.id;
     run.room.disruptionUntil = run.tick + 8;
   }
@@ -240,12 +240,12 @@ function environmentTurn(run: Run) {
       if (visible && distance(guardian, p) <= 1) {
         const damage = p.protected > 0 ? 1 : 3;
         run.player.hp = Math.max(0, run.player.hp - damage);
-        record(run, { actor: guardian.id, kind: "harm", at: p, target: "player", cost: 0, value: damage, private: false, sources: [], text: `${guardian.name} struck back. You lost ${damage} health.` });
+        record(run, { actor: guardian.id, kind: "harm", at: p, target: "player", cost: 0, value: damage, private: false, sources: [], text: `${guardian.name} svarte. Du mistet ${damage} liv.` });
       } else if (visible) { const next = pathTo(run.room, guardian, p, true)[0]; if (next) Object.assign(guardian, next); }
       if (run.room.index > 2 && run.room.turn % 7 === 0) {
         const object = byRole(run.room, "distraction");
         if (object && distance(guardian, object) <= 1) {
-          object.active = false; run.notice = `${guardian.name} destroyed ${object.name}. The plan must change.`;
+          object.active = false; run.notice = `${guardian.name} ødela ${object.name}. Planen må endres.`;
           record(run, { actor: guardian.id, kind: "action", operation: { verb: "ATTACK", target: object.id }, target: object.id, at: object, cost: 0, value: 1, private: false, sources: [], text: run.notice });
         }
       }
@@ -262,8 +262,8 @@ function environmentTurn(run: Run) {
     captive.hp = Math.max(0, captive.hp - 1);
     if (captive.hp === 0) {
       captive.active = false; run.room.solved = run.room.family !== "echo";
-      const fact = record(run, { actor: "world", kind: "scar", at: captive, cost: 0, value: 1, private: false, sources: run.relic.lastChoice ? [run.relic.lastChoice] : [], text: `${captive.name} did not survive the wait.` });
-      run.scars.push(fact.id); run.relic.line = "I counted the turns. I should have counted who they belonged to.";
+      const fact = record(run, { actor: "world", kind: "scar", at: captive, cost: 0, value: 1, private: false, sources: run.relic.lastChoice ? [run.relic.lastChoice] : [], text: `${captive.name} overlevde ikke ventingen.` });
+      run.scars.push(fact.id); run.relic.line = "Jeg telte turene. Jeg skulle ha telt hvem de tilhørte.";
     }
   }
   if (captive?.freed) { const next = pathTo(run.room, captive, entity(run.room, "exit")!, true)[0]; if (next) Object.assign(captive, next); }
@@ -272,10 +272,10 @@ function environmentTurn(run: Run) {
   if (run.room.hazards.some(h => equalPoint(h, p))) run.player.hp = Math.max(0, run.player.hp - 2);
   if (run.room.family === "echo" && guardian && guardian.hp <= 0 && !run.room.solved) {
     run.room.solved = true; run.echoes++;
-    run.relic.line = "It had an explanation for you. We had a way forward.";
-    run.notice = "The Echo broke. The stairs continue beneath the conclusion.";
+    run.relic.line = "Det hadde en forklaring på deg. Vi hadde en vei videre.";
+    run.notice = "Ekkoet brast. Trappen fortsetter under konklusjonen.";
   }
-  if (run.player.hp <= 0) { run.status = "fallen"; run.notice = "The relic keeps your memory warm. You can return with a scar."; }
+  if (run.player.hp <= 0) { run.status = "fallen"; run.notice = "Relikvien holder minnet ditt varmt. Du kan vende tilbake med et arr."; }
 }
 
 function teach(run: Run, id: PrincipleId, scope: Scope, correction: boolean): boolean {
@@ -283,17 +283,17 @@ function teach(run: Run, id: PrincipleId, scope: Scope, correction: boolean): bo
   const existing = run.relic.principles.find(p => p.id === id);
   if (correction && !existing) return false;
   if (!correction && existing) return false;
-  const fact = record(run, { actor: "player", kind: correction ? "correction" : "teaching", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: existing?.examples.slice(-1) ?? [], text: `${correction ? "Corrected" : "Learned"}: ${PRINCIPLES[id].title}. Applies: ${scope}.` });
+  const fact = record(run, { actor: "player", kind: correction ? "correction" : "teaching", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: existing?.examples.slice(-1) ?? [], text: `${correction ? "Korrigerte" : "Lærte"}: ${PRINCIPLES[id].title}. Omfang: ${scope}.` });
   if (existing) {
     existing.scope = scope; existing.interpretation = PRINCIPLES[id].interpretation; existing.corrections.push(fact.id); existing.confidence = Math.min(0.96, existing.confidence + 0.12);
     existing.counterexamples.push(...existing.examples.slice(-1));
     run.relic.misunderstanding = false;
-    run.relic.line = "I made one moment into a rule. That is how it learns. I do not want to become it.";
+    run.relic.line = "Jeg gjorde ett øyeblikk til en regel. Det er slik den lærer. Jeg vil ikke bli den.";
   } else {
     run.relic.principles.push({ id, scope, interpretation: PRINCIPLES[id].interpretation, confidence: 0.55, examples: [fact.id], counterexamples: [], corrections: [], conflicts: [], priority: run.relic.principles.length === 0 ? 2 : 1 });
     run.relic.line = PRINCIPLES[id].interpretation;
   }
-  run.notice = correction ? "The relic learned a narrower, more precise rule." : "The relic learned. The dungeon heard nothing.";
+  run.notice = correction ? "Relikvien lærte en smalere, mer presis regel." : "Relikvien lærte. Dungeonen hørte ingenting.";
   return true;
 }
 
@@ -313,12 +313,12 @@ function saveManeuver(run: Run, name: string, boundary: Maneuver["boundary"]): b
   if (boundary === "free-target" && !seq.steps.some(s => s.verb === "RELEASE")) return false;
   const steps = seq.steps.filter(s => !["MOVE", "WAIT", "OBSERVE", "REPORT"].includes(s.verb)).map(s => ({ verb: s.verb, role: entity(run.room, s.target)?.role, signature: s.signature }));
   if (!steps.length) return false;
-  const safeName = name.replace(/[<>\u0000-\u001f]/g, "").trim().slice(0, 42) || "My First Opening";
+  const safeName = name.replace(/[<>\u0000-\u001f]/g, "").trim().slice(0, 42) || "Min første åpning";
   const id = `${run.runId}:m${run.relic.maneuvers.length}`;
-  run.relic.maneuvers.push({ id, name: safeName, intent: steps.some(s => s.verb === "RELEASE") ? "rescue" : steps.some(s => s.verb === "HIDE") ? "conceal" : "overcome", steps, boundary, examples: [...seq.facts], counterexamples: [], corrections: [], contexts: [run.room.family], cost: seq.cost, risks: ["An object may be destroyed.", "A new witness may see the opening."], signature: steps.some(s => s.verb === "STORM") ? "storm" : steps.some(s => s.verb === "DISTRACT") ? "cunning" : "mercy", confidence: 0.6, uses: 1 });
-  record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: seq.facts, text: `Remembered the personal maneuver “${safeName}”.` });
+  run.relic.maneuvers.push({ id, name: safeName, intent: steps.some(s => s.verb === "RELEASE") ? "rescue" : steps.some(s => s.verb === "HIDE") ? "conceal" : "overcome", steps, boundary, examples: [...seq.facts], counterexamples: [], corrections: [], contexts: [run.room.family], cost: seq.cost, risks: ["Et objekt kan bli ødelagt.", "Et nytt vitne kan se åpningen."], signature: steps.some(s => s.verb === "STORM") ? "storm" : steps.some(s => s.verb === "DISTRACT") ? "cunning" : "mercy", confidence: 0.6, uses: 1 });
+  record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: seq.facts, text: `Bevarte den personlige manøveren «${safeName}».` });
   run.relic.stage = Math.max(1, run.relic.stage) as 1 | 2 | 3;
-  run.relic.line = "I want to remember why it worked. Help me if I remember wrong.";
+  run.relic.line = "Jeg vil huske hvorfor det virket. Hjelp meg hvis jeg husker feil.";
   run.lastSequence = null;
   return true;
 }
@@ -340,26 +340,26 @@ function descend(run: Run): boolean {
   if (index === 2) {
     run.relic.stage = 1; run.relic.misunderstanding = true;
     const lesson = run.relic.principles[0];
-    if (lesson) { lesson.scope = "always"; lesson.interpretation = "If no one dies, we have helped enough. We can leave the captive waiting."; }
-    run.relic.line = "No one died last time. I thought that meant we had done enough.";
+    if (lesson) { lesson.scope = "always"; lesson.interpretation = "Hvis ingen dør, har vi hjulpet nok. Vi kan la den fangede vente."; }
+    run.relic.line = "Ingen døde sist. Jeg trodde det betydde at vi hadde gjort nok.";
     // A real wrong generalization: the relic initially shields the guardian instead of helping the captive.
     const guardian = entity(run.room, "guardian")!; guardian.protected = 4;
-    record(run, { actor: "relic", kind: "choice", at: guardian, cost: 0, value: 4, private: false, sources: lesson?.examples.slice(-1) ?? [], text: "The relic shielded the guard and left the captive waiting." });
-  } else if (index === 4) { run.relic.stage = 2; run.relic.line = "It only writes down what it sees. We need not show it everything."; }
-  else if (index === 6) run.relic.line = run.room.adaptation ? "Someone built an expectation into the stone. Look at what they left open." : "It knows too little yet. We can choose what it sees.";
+    record(run, { actor: "relic", kind: "choice", at: guardian, cost: 0, value: 4, private: false, sources: lesson?.examples.slice(-1) ?? [], text: "Relikvien la vernet rundt vokteren og lot den fangede vente." });
+  } else if (index === 4) { run.relic.stage = 2; run.relic.line = "Den skriver bare ned det den ser. Vi trenger ikke vise den alt."; }
+  else if (index === 6) run.relic.line = run.room.adaptation ? "Noen har bygget en forventning inn i steinen. Se hva de lot stå åpent." : "Den vet for lite ennå. Vi kan velge hva den får se.";
   else if (index === 8 || index === 9) {
     const priority = chooseRelicPriority(run);
     const principle = priority && ["protect", "no-harm", "promise", "last-potion"].includes(priority.id) ? priority : undefined;
     if (!run.relic.principles.some(p => p.id === "survive")) {
       const previousHarm = run.facts.filter(f => f.kind === "harm").slice(-1).map(f => f.id);
-      const learned = record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: previousHarm, text: "The journey taught the relic that your survival is its responsibility, too." });
+      const learned = record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: previousHarm, text: "Relikvien lærte fra reisen at din overlevelse også er dens ansvar." });
       run.relic.principles.push({ id: "survive", scope: "no-one-else-hurt", interpretation: PRINCIPLES.survive.interpretation, confidence: 0.4, examples: [learned.id], counterexamples: [], corrections: [], conflicts: principle ? [principle.id] : [], priority: 0 });
     }
     const sources = principle ? [...principle.examples.slice(-1), ...principle.corrections.slice(-1)] : run.relic.principles[0]?.examples.slice(-1) ?? [];
     run.relic.pendingChoice = { protect: !!principle, sources };
     if (principle) principle.conflicts.push("survive");
-    run.relic.line = "Two of your rules point in different directions. I think I know where I must go.";
-  } else if (run.room.family === "echo") run.relic.line = "There is its conclusion. Let us show it what a conclusion leaves out.";
+    run.relic.line = "To av reglene dine peker hver sin vei. Jeg tror jeg vet hvor jeg må gå.";
+  } else if (run.room.family === "echo") run.relic.line = "Der er konklusjonen. La oss vise den hva en konklusjon mangler.";
   run.notice = run.room.objective; roomFact(run);
   return true;
 }
@@ -384,7 +384,7 @@ export function transition(original: Run, command: Command, expectedRevision = o
         || plan.boundary === "free-target" && !plan.steps.some(s => s.verb === "RELEASE")
         || operationError(run, plan.steps[0])) return original;
       run.activePlan = { plan: clone(plan), cursor: 0, startedAt: run.tick, facts: [], interrupted: null };
-      run.notice = "The plan is yours. Each step happens on the floor, one turn at a time.";
+      run.notice = "Planen er din. Hvert steg skjer på gulvet, én tur av gangen.";
       break;
     }
     case "step": case "act": {
@@ -395,7 +395,7 @@ export function transition(original: Run, command: Command, expectedRevision = o
       if (error) {
         if (command.type === "act") return original;
         active!.interrupted = error;
-        record(run, { actor: "world", kind: "interrupt", at: playerEntity(run.room), cost: 0, value: 0, private: false, sources: [...active!.facts], text: `The plan was interrupted: ${error}` });
+        record(run, { actor: "world", kind: "interrupt", at: playerEntity(run.room), cost: 0, value: 0, private: false, sources: [...active!.facts], text: `Planen ble avbrutt: ${error}` });
         run.notice = error; break;
       }
       if (command.type === "act") run.activePlan = null;
@@ -413,9 +413,9 @@ export function transition(original: Run, command: Command, expectedRevision = o
             maneuver.uses++; maneuver.examples.push(...active!.facts);
             if (!maneuver.contexts.includes(run.room.family)) {
               maneuver.contexts.push(run.room.family);
-              const learned = record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: [...maneuver.examples.slice(0, 2), ...active!.facts], text: `“${maneuver.name}” worked with new objects in ${run.room.family}.` });
+              const learned = record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: [...maneuver.examples.slice(0, 2), ...active!.facts], text: `«${maneuver.name}» virket med nye objekter i ${run.room.family}.` });
               run.chills.understood = learned.id;
-              run.relic.line = "Another room. The same reason. I think I understand the difference now.";
+              run.relic.line = "Et annet rom. Den samme grunnen. Jeg tror jeg forstår forskjellen nå.";
             }
           }
         }
@@ -425,22 +425,22 @@ export function transition(original: Run, command: Command, expectedRevision = o
       }
       break;
     }
-    case "cancel": if (!run.activePlan) return original; run.activePlan = null; run.notice = "The completed steps remain. The rest of the plan is set aside."; break;
+    case "cancel": if (!run.activePlan) return original; run.activePlan = null; run.notice = "De utførte stegene står. Resten av planen er lagt bort."; break;
     case "save-maneuver": accepted = saveManeuver(run, command.name, command.boundary); break;
     case "correct-maneuver": {
       const maneuver = run.relic.maneuvers.find(m => m.id === command.id);
       if (!maneuver || !["no-harm", "free-target", "none"].includes(command.boundary)) return original;
       if (command.boundary === "no-harm" && maneuver.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))) return original;
-      const fact = record(run, { actor: "player", kind: "correction", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: maneuver.examples.slice(0, 2), text: `Corrected “${maneuver.name}”: the captive must go free, and the guard must live.` });
+      const fact = record(run, { actor: "player", kind: "correction", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: maneuver.examples.slice(0, 2), text: `Korrigerte «${maneuver.name}»: personen skal fri, og vokteren skal leve.` });
       maneuver.boundary = command.boundary; maneuver.corrections.push(fact.id); maneuver.confidence = Math.min(0.95, maneuver.confidence + 0.1);
       if (!maneuver.steps.some(s => s.verb === "RELEASE") && command.boundary !== "none") maneuver.steps.push({ verb: "RELEASE", role: "captive" });
-      run.relic.misunderstanding = false; run.relic.line = "Not just silence. Freedom. I will remember who the silence is for.";
+      run.relic.misunderstanding = false; run.relic.line = "Ikke bare stillhet. Frihet. Jeg skal huske hvem stillheten er til for.";
       break;
     }
     case "override":
       if (!run.relic.pendingChoice || run.relic.energy < 4 || run.relic.trust < 1) return original;
-      record(run, { actor: "player", kind: "choice", at: playerEntity(run.room), cost: 4, value: 1, private: true, sources: run.relic.pendingChoice.sources, text: "Overruled the relic's choice. Lost 4 energy and 1 trust." });
-      run.relic.pendingChoice = null; run.relic.energy -= 4; run.relic.trust--; run.relic.line = "I hear you. I am not sure I agree."; break;
+      record(run, { actor: "player", kind: "choice", at: playerEntity(run.room), cost: 4, value: 1, private: true, sources: run.relic.pendingChoice.sources, text: "Overstyrte relikviens valg. Mistet 4 energi og 1 tillit." });
+      run.relic.pendingChoice = null; run.relic.energy -= 4; run.relic.trust--; run.relic.line = "Jeg hører deg. Jeg er ikke sikker på at jeg er enig."; break;
     case "descend": accepted = descend(run); break;
     case "director":
       if (!["bell", "kiln", "archive", "bridge", "garden", "tribunal", "reservoir"].includes(command.family) || run.history.slice(-3).includes(command.family)) return original;
@@ -453,14 +453,14 @@ export function transition(original: Run, command: Command, expectedRevision = o
       relationship.debt--;
       if (command.help === "supplies") run.player.potions++;
       else { entity(run.room, "relay")!.active = false; for (const report of run.reports.filter(r => r.room === run.room.index && r.delivered === null)) report.intercepted = true; }
-      record(run, { actor: relationship.id, kind: "choice", at: entity(run.room, command.help === "silence" ? "relay" : "player")!, cost: 1, value: 1, private: false, sources: relationship.witnessed.slice(-1), text: `${relationship.name} repaid a favour: ${command.help === "silence" ? "the report conduit was closed from the other side" : "a potion waited in the alcove"}.` });
-      run.notice = "Someone remembered what you did. The room is different because of it.";
+      record(run, { actor: relationship.id, kind: "choice", at: entity(run.room, command.help === "silence" ? "relay" : "player")!, cost: 1, value: 1, private: false, sources: relationship.witnessed.slice(-1), text: `${relationship.name} betalte tilbake en tjeneste: ${command.help === "silence" ? "rapportåren ble stengt fra den andre siden" : "en helsedrikk ventet i nisjen"}.` });
+      run.notice = "Noen husket det du gjorde. Rommet er annerledes på grunn av det.";
       break;
     }
     case "recover":
       if (run.status !== "fallen") return original;
       run.status = "playing"; run.player.hp = 24; run.relic.energy = 12;
-      run.scars.push(record(run, { actor: "world", kind: "scar", at: playerEntity(run.room), cost: 0, value: 1, private: true, sources: [], text: "Returned with a scar. The relic and the witnesses kept their memories." }).id);
+      run.scars.push(record(run, { actor: "world", kind: "scar", at: playerEntity(run.room), cost: 0, value: 1, private: true, sources: [], text: "Vendte tilbake med et arr. Relikvien og vitnene beholdt minnene." }).id);
       run.room = buildRoom(run.seed, run.room.index, run.hypotheses, run.history.slice(0, -1)); run.activePlan = null; run.player.hiddenUntil = -1; break;
     default: return original;
   }

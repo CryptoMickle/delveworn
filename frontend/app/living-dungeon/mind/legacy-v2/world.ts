@@ -81,19 +81,19 @@ export function buildRoom(seed: number, index: number, hypotheses: Hypothesis[],
   const walls = geometry[family];
   if (adaptive && theory.claim === "force") walls.push({ x: 6, y: 6 }, { x: 7, y: 6 });
   const entities = [
-    makeEntity("player", "player", "You", 2, 6, 40),
+    makeEntity("player", "player", "Du", 2, 6, 40),
     makeEntity("guardian", boss ? "echo" : "guardian", copy.guardian, 7, 4, boss ? 30 : 12),
     makeEntity("captive", "captive", copy.captive, 8, 2, 8),
     makeEntity("distraction", "distraction", copy.distraction, 3, 4),
     makeEntity("light", "light", copy.light, 4, 2),
-    makeEntity("relay", "relay", "The Report Conduit", 9, 1),
-    makeEntity("exit", "exit", "The Stairs Below", 9, 7),
-    makeEntity("cover", "cover", "The Blind Alcove", 2, 3),
-    makeEntity("evidence", "evidence", "An Unused Witness Seal", 3, 6),
+    makeEntity("relay", "relay", "Rapportåren", 9, 1),
+    makeEntity("exit", "exit", "Trappen under", 9, 7),
+    makeEntity("cover", "cover", "Den blinde nisjen", 2, 3),
+    makeEntity("evidence", "evidence", "Et ubrukt vitnesegl", 3, 6),
   ];
-  if (index >= 4) entities.push(makeEntity("observer", "observer", index > 11 ? "The Wandering Scribe" : "The One-Handed Scribe", 8, 5));
-  if (index >= 12 && Math.floor(index / 6) % 2 === 0) entities.push(makeEntity("observer-2", "observer", "Another Witness", 6, 1));
-  if (boss) entities.push(makeEntity("resonator", "distraction", "The Shadow Resonator", 2, 2));
+  if (index >= 4) entities.push(makeEntity("observer", "observer", index > 11 ? "Den omreisende skriveren" : "Skriveren med én hånd", 8, 5));
+  if (index >= 12 && Math.floor(index / 6) % 2 === 0) entities.push(makeEntity("observer-2", "observer", "Et annet vitne", 6, 1));
+  if (boss) entities.push(makeEntity("resonator", "distraction", "Skyggens resonator", 2, 2));
   // Variations stay inside the directed scene and keep certified routes reachable.
   if (index > 0 && !boss && (seed + index) % 3 === 0) {
     if (!walls.some(w => w.x === 3 && w.y === 2)) entities.find(e => e.id === "light")!.x = 3;
@@ -104,5 +104,5 @@ export function buildRoom(seed: number, index: number, hypotheses: Hypothesis[],
   const hazards: Point[] = [];
   if (adaptive && theory.claim === "storm") hazards.push({ x: 7, y: 3 }, { x: 8, y: 4 });
   if (components.some(c => c.id === "echo-snare")) hazards.push({ x: 3, y: 4 });
-  return { id: `chamber-${index}`, index, act, family, goal, title: chapter?.title ?? copy.place, subtitle: chapter?.subtitle ?? "An old lesson. A room asking a different question.", objective: boss ? "Break the Echo. Use what you chose not to show." : goal === "evidence" ? "Recover the missing memory from the witness seal. Decide whether the captive goes free, too." : goal === "escort" ? "Free the captive and escort them to the stairs." : goal === "story" ? "Choose which story reaches the depths: break the conduit or let the witness report." : "Free the captive. Decide who gets to tell the story.", width: 11, height: 9, walls, shadows: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 4, y: 4 }, { x: 4, y: 5 }, { x: 6, y: 4 }].filter(s => !walls.some(w => equalPoint(s, w))), hazards, entities, turn: 0, solved: false, escaped: false, light: true, alert: 0, reportDelay: index < 4 ? 999 : Math.max(2, 6 - Math.floor(index / 12)), components, adaptation: adaptive ? theory.claim : null, adaptationSources: adaptive ? [...theory.sources] : [], inspected: [], captiveDeadline: index === 8 || index === 9 ? 10 : index > 11 ? 28 : 0, disruptionUntil: 0 };
+  return { id: `chamber-${index}`, index, act, family, goal, title: chapter?.title ?? copy.place, subtitle: chapter?.subtitle ?? "En gammel lærdom. Et rom som prøver et annet spørsmål.", objective: boss ? "Bryt ekkoet. Bruk det du lot være å vise." : goal === "evidence" ? "Hent det utelatte minnet fra vitneseglet. Velg om personen også får fri." : goal === "escort" ? "Frigjør personen og følg dem helt fram til trappen." : goal === "story" ? "Bestem hvilken historie som når fram: stans rapportåren, eller la vitnet fortelle." : "Få den fangede fri. Bestem hvem som får fortelle hvordan.", width: 11, height: 9, walls, shadows: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 4, y: 4 }, { x: 4, y: 5 }, { x: 6, y: 4 }].filter(s => !walls.some(w => equalPoint(s, w))), hazards, entities, turn: 0, solved: false, escaped: false, light: true, alert: 0, reportDelay: index < 4 ? 999 : Math.max(2, 6 - Math.floor(index / 12)), components, adaptation: adaptive ? theory.claim : null, adaptationSources: adaptive ? [...theory.sources] : [], inspected: [], captiveDeadline: index === 8 || index === 9 ? 10 : index > 11 ? 28 : 0, disruptionUntil: 0 };
 }

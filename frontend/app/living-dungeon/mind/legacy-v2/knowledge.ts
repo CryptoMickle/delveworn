@@ -39,7 +39,7 @@ export function deliverReports(run: Run, witnessId: string): void {
   const holder = `${run.room.index}:${witnessId}`;
   for (const report of run.reports.filter(r => r.originator === holder && !r.intercepted && r.delivered === null)) {
     report.delivered = run.tick;
-    const fact = record(run, { actor: witnessId, kind: "report", at: entity(run.room, "relay")!, signature: report.claim, cost: 0, value: 0, private: false, sources: [report.id], text: `The report arrived: “${THEORY_COPY[report.claim]}”` });
+    const fact = record(run, { actor: witnessId, kind: "report", at: entity(run.room, "relay")!, signature: report.claim, cost: 0, value: 0, private: false, sources: [report.id], text: `Rapporten nådde fram: «${THEORY_COPY[report.claim]}»` });
     run.notice = fact.text;
     run.beliefs.push({ id: `${run.runId}:b${run.beliefs.length}`, holder: "mind", claim: report.claim, confidence: report.reliability, sources: [report.id], tick: run.tick, evidence: [...report.observations], knownBy: ["mind"] });
   }
@@ -76,11 +76,11 @@ export function traceSources(run: Run, ids: string[], seen = new Set<string>()):
     if (seen.has(id)) continue;
     seen.add(id);
     const fact = run.facts.find(f => f.id === id);
-    if (fact) { lines.push(`Chamber ${fact.room + 1}, turn ${fact.tick}: ${fact.text}`); lines.push(...traceSources(run, fact.sources, seen)); continue; }
+    if (fact) { lines.push(`Kammer ${fact.room + 1}, tur ${fact.tick}: ${fact.text}`); lines.push(...traceSources(run, fact.sources, seen)); continue; }
     const observation = run.observations.find(o => o.id === id);
-    if (observation) { lines.push(`Someone observed: ${observation.observer.split(":").slice(1).join(":")}.`); lines.push(...traceSources(run, [observation.factId], seen)); continue; }
+    if (observation) { lines.push(`Noen observerte: ${observation.observer.split(":").slice(1).join(":")}.`); lines.push(...traceSources(run, [observation.factId], seen)); continue; }
     const report = run.reports.find(r => r.id === id);
-    if (report) { lines.push(`Report from chamber ${report.room + 1}, ${report.delivered === null ? "not delivered" : `delivered on turn ${report.delivered}`}.`); lines.push(...traceSources(run, report.observations, seen)); }
+    if (report) { lines.push(`Rapport fra kammer ${report.room + 1}, ${report.delivered === null ? "ikke levert" : `levert tur ${report.delivered}`}.`); lines.push(...traceSources(run, report.observations, seen)); }
   }
   return lines;
 }

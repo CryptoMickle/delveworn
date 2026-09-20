@@ -288,3 +288,41 @@
 
 .playGuide > .guideWitness { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; font-size: 12px; color: #d2bd91; }
 .onboarding .resources, .onboarding .acts, .onboarding .roomLore { display: none; }
+
+/* Delveworn's painted world. Information colors retain their gameplay meaning. */
+.root { background: radial-gradient(ellipse at 48% 10%, #66513916, transparent 65%), linear-gradient(#111917f5, #101816fa 700px), url('/dungeon/stone-room.webp') center top / 1440px 960px no-repeat, #101816; }
+.brand { display: block; line-height: 0; flex-shrink: 0; letter-spacing: normal; }
+.brand img { display: block; width: 180px; height: auto; }
+.boardFrame { padding: 7px; border-color: #b79a627d; background: linear-gradient(135deg, #675038, #262724 18%, #111a1b 68%, #534333); box-shadow: 0 22px 50px #0007, inset 0 0 0 2px #151818, inset 0 0 0 4px #b5944b30; }
+.boardTop { background: #171d1b; color: #d3c09a; border-bottom-color: #b7975445; }
+.boardBottom { background: #161d1c; color: #c2c4ad; }
+.roomPainting { pointer-events: none; }
+.roomShade { transition: opacity .5s ease; }
+.board { background: #171b1e; aspect-ratio: 33/25; }
+.floorCell:hover > rect:first-child { fill: #d8ffe34d; stroke: #d1e8bf; stroke-width: 1.5px; }
+.spriteFrame { overflow: visible; }
+.spriteFrame > svg { display: block; width: 100%; height: 100%; overflow: hidden; }
+.echoSprite { filter: sepia(.35) hue-rotate(280deg) saturate(.75); }
+.entityPortrait { width: 65px; height: 82px; flex-shrink: 0; overflow: visible; filter: drop-shadow(0 4px 4px #0008); }
+.inspectionHeading { display: flex; align-items: center; gap: 14px; margin-bottom: 7px; }
+.inspectionHeading h3 { margin: 0; font-size: 24px; }
+.inspection { background: linear-gradient(120deg, #40372655, #1a271d); border-color: #a88b5745; }
+.relicCard { border-color: #c2a77655; background: radial-gradient(ellipse at 10% 10%, #64938230, transparent 70%), linear-gradient(130deg, #242e29, #121d1d); box-shadow: inset 0 2px #c4a96840, 0 10px 25px #0002; }
+.relicPortrait { width: 86px; height: 77px; position: relative; flex-shrink: 0; border: 1px solid #ac9c6a50; border-radius: 50%; background: #0d1919; overflow: hidden; }
+.relicPortrait img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: .94; mask-image: radial-gradient(ellipse, #000 46%, transparent 74%); }
+.relicPortrait > span { position: absolute; bottom: -3px; left: 34px; color: #bfffe4; font-size: 21px; text-shadow: 0 0 8px #8bffd5; }
+.root .actionDock > button { background: linear-gradient(#343529, #19221e); border-color: #b0966548; box-shadow: inset 0 1px #e4d5a111; }
+.actionDock > button > .actionIcon { display: flex; align-items: center; justify-content: center; height: 39px; width: 47px; }
+.actionArtwork { width: 44px; height: 38px; object-fit: contain; mask-image: radial-gradient(ellipse, #000 40%, transparent 76%); }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.actionEffect { animation: mindImpact .65s ease-out both; transform-box: fill-box; }
+@keyframes mindImpact { 0% { opacity: 0; } 14% { opacity: 1; } 55% { opacity: .9; } 100% { opacity: 0; } }
+.echoFrame { border-color: #d2969a99; box-shadow: 0 0 38px #b5657226, inset 0 0 0 3px #17131c; }
+.echoFrame .boardTop { color: #dfb2b2; }
+@media (max-width: 480px) {
+  .brand img { width: 135px; }.boardFrame { padding: 4px; }
+  .actionDock > button > .actionIcon { height: 29px; width: 34px; }.actionArtwork { width: 34px; height: 29px; }
+  .entityPortrait { width: 58px; height: 73px; }.inspectionHeading { gap: 12px; }
+  .relicPortrait { width: 75px; height: 68px; }.relicPortrait > span { left: 29px; }
+}
+@media (prefers-reduced-motion: reduce) { .actionEffect { display: none; }.roomShade { transition: none; } }
