@@ -93,7 +93,7 @@ test("stale AI reply cannot replace a plan after the player moves", async ({ pag
   await page.getByRole("group", { name: /^Dungeon floor/ }).press("w");
   await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", "2");
   release!();
-  await expect(page.getByText("The room changed while I was thinking. Choose a new opening.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show a possible future ↗", exact: true })).toBeEnabled();
   await expect(page.getByText("An old future.", { exact: true })).not.toBeVisible();
 });
 
@@ -233,5 +233,30 @@ test("an existing Norwegian memory resumes its approved plan in English", async 
   await page.getByRole("button", { name: "Continue here", exact: true }).click();
   await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", "4");
   await expect(page.getByText("Saved on this device", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("delveworn:mind-beneath:v2")!).version)).toBe(3);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("delveworn:mind-beneath:v2")!).version)).toBe(4);
+});
+
+
+test("choosing a local preview cancels an older AI future at the same world revision", async ({ page }) => {
+  let release: (() => void) | undefined;
+  let received = false;
+  await page.route("**/api/living-dungeon/mind", async route => {
+    const request = route.request().postDataJSON() as MindRequest; received = true;
+    await new Promise<void>(resolve => { release = resolve; });
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ source: "ai", binding: request.binding, plan: { id: "late", name: "The overwritten choice", binding: request.binding, boundary: "none", steps: [{ verb: "WAIT" }] }, teaching: null, family: null, line: "An old future.", reason: null, usage: null }) });
+  });
+  await begin(page);
+  await page.locator("summary").filter({ hasText: "Describe your own plan" }).click();
+  await page.getByLabel("What are you trying to do?").fill("Think of an opening.");
+  await page.getByRole("button", { name: "Show a possible future ↗", exact: true }).click();
+  await expect.poll(() => received).toBe(true);
+  await page.getByRole("button", { name: /01 Create a hidden opening/ }).click();
+  await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", "1");
+  release!();
+  await expect(page.getByRole("heading", { name: "Create a hidden opening", exact: true })).toBeVisible();
+  await expect(page.getByText("The overwritten choice", { exact: true })).not.toBeVisible();
+  await commit(page);
+  await expect(page.getByRole("button", { name: "Release ＋", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "First room complete", exact: true })).toHaveCount(0);
+  await expect(page.getByText("The rescue can become your own ability", { exact: true })).toBeVisible();
 });

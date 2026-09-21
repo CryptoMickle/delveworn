@@ -9,7 +9,7 @@ import styles from "./mind.module.css";
 export function MindBoard({ run, lens, selected, plan, preview, onSelect, onTile, onKey, onConnect }: { run: Run; lens: boolean; selected: string | null; plan: Plan | null; preview: Preview | null; onSelect: (id: string) => void; onTile: (at: Point) => void; onKey: (event: React.KeyboardEvent) => void; onConnect: (from: string, to: string) => void }) {
   const dragFrom = useRef<string | null>(null);
   const room = run.room, player = playerEntity(room), ghosts = preview?.steps ?? [];
-  const witnesses = room.entities.filter(e => ["guardian", "observer", "echo"].includes(e.role) && e.active);
+  const witnesses = room.entities.filter(e => ["guardian", "observer", "captive", "echo"].includes(e.role) && e.active);
   const selectedEntity = room.entities.find(e => e.id === selected);
   const moves = run.facts.filter(f => f.room === room.index && f.actor === "player" && f.operation?.verb === "MOVE").slice(-2);
   const orientation = moves.length && moves.at(-1)!.at.y > (moves.length > 1 ? moves[0].at.y : 6) ? "south" : "north";
@@ -57,7 +57,7 @@ export function MindBoard({ run, lens, selected, plan, preview, onSelect, onTile
           {shadow && lens && <path d={`M${x * 60 + 25} ${y * 60 + 24}a8 8 0 1 0 10 12 10 10 0 0 1-10-12`} fill="#9dd9e0" opacity=".45" />}
         </g>;
       }))}
-      {room.hazards.map((h, i) => <g key={`h${i}`} transform={`translate(${h.x * 60 + 30} ${h.y * 60 + 30})`}><path d="M0-22 22 0 0 22 -22 0Z" fill="#9c60452b" stroke="#ac7558" /><path d="M2-14 -5 0H4L-2 15" stroke="#d3a677" fill="none" strokeWidth="2" /></g>)}
+      {room.hazards.map((h, i) => <g key={`h${i}`} pointerEvents="none" transform={`translate(${h.x * 60 + 30} ${h.y * 60 + 30})`}><path d="M0-22 22 0 0 22 -22 0Z" fill="#9c60452b" stroke="#ac7558" /><path d="M2-14 -5 0H4L-2 15" stroke="#d3a677" fill="none" strokeWidth="2" /></g>)}
       {boss?.active && <g opacity=".6" fill="none" stroke="#d69d99" pointerEvents="none"><ellipse cx={boss.x * 60 + 30} cy={boss.y * 60 + 42} rx="76" ry="48" strokeWidth="2" strokeDasharray="3 7" /><ellipse cx={boss.x * 60 + 30} cy={boss.y * 60 + 42} rx="64" ry="40" />{room.components.map((c, i) => <path key={c.id} transform={`translate(${boss.x * 60 + 30} ${boss.y * 60 + 42}) rotate(${i * 120})`} d="M0-57 7-47 0-37-7-47Z" fill="#e0b99a" data-boss-component={c.id} />)}</g>}
       {lens && room.entities.filter(e => e.role === "observer" && e.active).map(w => {
         const relay = room.entities.find(e => e.id === "relay")!;

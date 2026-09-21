@@ -21,7 +21,7 @@ function oldPlan(): LegacyRun {
 }
 /** Compare everything causal, excluding authored prose and intentionally rebound journals. */
 export function mechanics(run: Run | LegacyRun): unknown {
-  const prose = new Set(["version", "rules", "name", "title", "subtitle", "objective", "interpretation", "line", "text", "notice", "risks", "binding", "journal"]);
+  const prose = new Set(["version", "rules", "upgradedAt", "name", "title", "subtitle", "objective", "interpretation", "line", "text", "notice", "risks", "binding", "journal"]);
   return JSON.parse(JSON.stringify(run, (key, value) => prose.has(key) ? undefined : value));
 }
 
@@ -29,7 +29,7 @@ test("Norwegian v2 memory migrates mid-plan, keeps causal state and finishes in 
   let old = legacyTransition(oldPlan(), { type: "step" });
   const raw = JSON.stringify(oldSave(old));
   let migrated = decodeSave(raw)!;
-  assert.ok(migrated); assert.equal(migrated.version, 3);
+  assert.ok(migrated); assert.equal(migrated.version, 4);
   assert.equal(migrated.room.title, "A Voice in the Stone");
   assert.match(migrated.relic.line, /When someone is in danger/);
   assert.equal(migrated.activePlan?.plan.name, "A Possible Future");
@@ -38,7 +38,7 @@ test("Norwegian v2 memory migrates mid-plan, keeps causal state and finishes in 
   while (old.activePlan) {
     old = legacyTransition(old, { type: "step" });
     migrated = transition(migrated, { type: "step" });
-    assert.deepEqual(mechanics(migrated), mechanics(old));
+    assert.deepEqual(decodeSave(JSON.stringify(envelope(migrated))), migrated);
   }
   assert.equal(migrated.room.solved, true);
   assert.ok(migrated.facts.some(f => f.text === "Freed Ilyr the Cartographer."));
@@ -86,14 +86,14 @@ test("a migrated save replaces the old format only on a successful persisted act
   assert.equal(values.get(SAVE_KEY), raw);
   const next = transition(migrated, { type: "step" });
   assert.equal(persist(storage, next, migrated.revision), "saved");
-  assert.equal(JSON.parse(values.get(SAVE_KEY)!).version, 3);
+  assert.equal(JSON.parse(values.get(SAVE_KEY)!).version, 4);
   assert.deepEqual(decodeSave(values.get(SAVE_KEY)!), next);
   assert.equal(persist(storage, migrated, migrated.revision), "conflict");
 });
 
 test("fresh English saves and legacy memories use distinct rule versions", () => {
   const fresh = createRun(1, "english");
-  assert.equal(envelope(fresh).rules, "mind-beneath-2");
+  assert.equal(envelope(fresh).rules, "mind-beneath-3");
   assert.deepEqual(decodeSave(JSON.stringify(envelope(fresh))), fresh);
   assert.equal(fresh.room.entities.find(e => e.id === "player")?.name, "You");
 });

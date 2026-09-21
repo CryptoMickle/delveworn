@@ -5,10 +5,10 @@ import { canSee, entity } from "./world";
 type FactDraft = Omit<Fact, "id" | "tick" | "room">;
 /** Internal mutable transaction helper. Public engine entry points clone first. */
 export function record(run: Run, draft: FactDraft, witnessedBefore?: string[]): Fact {
-  const fact: Fact = { ...structuredClone(draft), at: { x: draft.at.x, y: draft.at.y }, id: `${run.runId}:f${run.facts.length}`, tick: run.tick, room: run.room.index };
+  const fact: Fact = { ...draft, id: `${run.runId}:f${run.facts.length}`, tick: run.tick, room: run.room.index };
   run.facts.push(fact);
   if (fact.private || !fact.signature || fact.actor !== "player" && fact.actor !== "relic") return fact;
-  const hidden = fact.actor === "player" && run.player.hiddenUntil >= run.tick;
+  const hidden = run.player.hiddenUntil >= run.tick;
   for (const witness of run.room.entities.filter(e => ["guardian", "observer", "captive", "echo"].includes(e.role))) {
     if (witnessedBefore ? !witnessedBefore.includes(witness.id) : !canSee(run.room, witness, fact.at, hidden)) continue;
     const id = `${run.runId}:o${run.observations.length}`;
@@ -24,13 +24,13 @@ export function prepareReport(run: Run, witnessId: string): boolean {
   const witness = entity(run.room, witnessId), relay = entity(run.room, "relay");
   if (!witness?.active || witness.hp <= 0 || !relay?.active || !["observer", "guardian", "echo"].includes(witness.role)) return false;
   const holder = `${run.room.index}:${witness.id}`;
-  const alreadyReported = new Set(run.reports.filter(r => !r.intercepted).flatMap(r => r.observations));
+  const alreadyReported = new Set(run.reports.flatMap(r => r.observations));
   const observations = run.observations.filter(o => o.observer === holder && !alreadyReported.has(o.id));
   if (!observations.length) return false;
   const signatures = [...new Set(observations.map(o => o.signature))];
   for (const claim of signatures) {
     const sources = observations.filter(o => o.signature === claim);
-    run.reports.push({ id: `${run.runId}:r${run.reports.length}`, originator: holder, relay: "relay", observations: sources.map(o => o.id), claim, created: run.tick, delivered: null, intercepted: false, reliability: witness.credibility, cost: sources.reduce((sum, o) => sum + o.cost, 0), route: [holder, `${run.room.index}:relay`, "mind"], room: run.room.index, forged: sources.every(o => run.facts.find(f => f.id === o.factId)?.operation?.verb === "PLANT_EVIDENCE" && o.cost === 0) });
+    run.reports.push({ id: `${run.runId}:r${run.reports.length}`, originator: holder, relay: "relay", observations: sources.map(o => o.id), claim, created: run.tick, delivered: null, intercepted: false, reliability: witness.credibility, cost: sources.reduce((sum, o) => sum + o.cost, 0), route: [holder, `${run.room.index}:relay`, "mind"], room: run.room.index, forged: sources.every(o => run.facts.find(f => f.id === o.factId)?.operation?.verb === "PLANT_EVIDENCE") });
   }
   return true;
 }

@@ -7,7 +7,7 @@ import { exclusiveSave } from "../../descent/save-lock";
 import { ACTS, COMPONENTS, PRINCIPLES, THEORY_COPY } from "./catalogue";
 import { createRun, operationError, transition } from "./engine";
 import { traceSources } from "./knowledge";
-import { compilePlan, describeOperation, generalizeManeuver, previewPlan, suggestions, VERB_COPY, verbsForRole } from "./planning";
+import { compilePlan, describeOperation, generalizeManeuver, previewPlan, suggestions, VERB_COPY, availableVerbs, canSaveManeuver, suggestedBoundary } from "./planning";
 import { bind } from "./protocol";
 import { decodeSave, envelope, legacyNotice, persist, SAVE_KEY } from "./storage";
 import { AI_TEXT_LIMIT, validReply, type MindReply, type MindRequest } from "./ai-contract";
@@ -63,11 +63,17 @@ export default function MindBeneathClient() {
     requestAnimationFrame(() => boardAnchor.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" }));
   }, []);
 
+  const cancelAi = useCallback(() => {
+    requestRef.current?.controller.abort(); requestRef.current = null;
+    setAiBusy(false); setAiLine("");
+  }, []);
+
   const dispatch = useCallback(async (command: Command) => {
     const current = runRef.current;
     if (!current || busy.current) return;
     const next = transition(current, command);
     if (next === current) { if (command.type === "act") setNotice(operationError(current, command.operation) ?? "That action could not be performed."); return; }
+    cancelAi();
     busy.current = true;
     try {
       if (persistent.current) {
@@ -86,10 +92,10 @@ export default function MindBeneathClient() {
       else if (next.echoes > current.echoes) audio.current?.motif("echo");
       else if (command.type === "step" || command.type === "act") audio.current?.motif("step");
       if (command.type === "descend") { setConnections([]); setSelected("captive"); setTab("room"); setAiLine(""); setAuto(false); }
-      if (command.type === "teach") { setPendingTeaching(null); setLens(true); }
+      if (command.type === "teach" || command.type === "correct") { setPendingTeaching(null); setLens(true); }
       if (["teach", "save-maneuver", "descend"].includes(command.type)) focusBoard();
     } finally { busy.current = false; }
-  }, [focusBoard]);
+  }, [focusBoard, cancelAi]);
 
   useEffect(() => {
     if (!auto || !run?.activePlan || run.activePlan.interrupted || run.status !== "playing") return;
@@ -99,10 +105,10 @@ export default function MindBeneathClient() {
 
   const choosePlan = useCallback((operations: Operation[], boundary: Maneuver["boundary"] = "none", name?: string) => {
     const current = runRef.current; if (!current) return;
-    setAuto(false); setLens(true); setTab("room"); setConnections(operations);
+    cancelAi(); setAuto(false); setLens(true); setTab("room"); setConnections(operations);
     setPlan(compilePlan(current, operations, { boundary, name }));
     focusBoard();
-  }, [focusBoard]);
+  }, [focusBoard, cancelAi]);
   const direct = useCallback((operation: Operation) => {
     const current = runRef.current; if (!current) return;
     setAuto(false);
@@ -121,13 +127,13 @@ export default function MindBeneathClient() {
       void dispatch({ type: "act", operation: { verb: "MOVE", at: { x: p.x + dx, y: p.y + dy } } });
     } else if (event.key === "Enter" && target.tagName.toLowerCase() === "svg" && selected) { event.preventDefault(); direct({ verb: "OBSERVE", target: selected }); }
     else if (event.key.toLowerCase() === "l") { event.preventDefault(); setLens(v => !v); }
-    else if (event.key === "Escape") { setPlan(null); setConnections([]); setAuto(false); }
-  }, [dispatch, direct, selected]);
+    else if (event.key === "Escape") { cancelAi(); setPlan(null); setConnections([]); setAuto(false); }
+  }, [dispatch, direct, selected, cancelAi]);
   useEffect(() => { window.addEventListener("keydown", handleKey); return () => window.removeEventListener("keydown", handleKey); }, [handleKey]);
 
   const askRelic = async (task: MindRequest["task"]) => {
     const current = runRef.current;
-    if (!current || aiBusy || calls.current >= 40 || !text.trim() && task !== "director") return;
+    if (!current || current.status !== "playing" || aiBusy || calls.current >= 40 || !text.trim() && task !== "director") return;
     calls.current++; setCallCount(calls.current); requestRef.current?.controller.abort();
     const controller = new AbortController(), generation = crypto.randomUUID(), binding = bind(current, crypto.randomUUID(), generation);
     requestRef.current = { controller, generation }; setAiBusy(true); setAiLine("");
@@ -136,27 +142,40 @@ export default function MindBeneathClient() {
       const response = await fetch("/api/living-dungeon/mind", { method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal, body: JSON.stringify({ task, text: text.trim(), binding, save: envelope(current) } satisfies MindRequest) });
       if (!response.ok) throw new Error("unavailable");
       const reply = await response.json() as MindReply;
-      if (!runRef.current || requestRef.current?.generation !== generation || !validReply(runRef.current, reply, binding)) { setAiLine("The room changed while I was thinking. Choose a new opening."); return; }
+      if (requestRef.current?.generation !== generation) return;
+      if (!runRef.current || !validReply(runRef.current, reply, binding)) { setAiLine("The room changed while I was thinking. Choose a new opening."); return; }
       setAiLine(reply.source === "fallback" ? "I cannot make sense of the words just now. Try one of the openings in the room." : reply.line);
       if (reply.teaching) setPendingTeaching(reply.teaching);
       if (reply.plan && reply.source !== "fallback") { setPlan(reply.plan); setConnections(reply.plan.steps.filter(s => s.verb !== "MOVE")); setLens(true); setTab("room"); }
       if (reply.family) await dispatch({ type: "director", family: reply.family });
       setText("");
-    } catch { if (mounted.current) setAiLine("The words cannot reach me just now. The room and its visible possibilities still work."); }
-    finally { clearTimeout(timeout); if (mounted.current) setAiBusy(false); }
+    } catch { if (mounted.current && requestRef.current?.generation === generation) setAiLine("The words cannot reach me just now. The room and its visible possibilities still work."); }
+    finally { clearTimeout(timeout); if (mounted.current && requestRef.current?.generation === generation) { requestRef.current = null; setAiBusy(false); } }
   };
 
   useEffect(() => {
     if (!run || run.room.index < 11 || !run.room.solved || preparedRoom.current === run.room.index || calls.current >= 40) return;
-    preparedRoom.current = run.room.index;
     const current = run, controller = new AbortController(), binding = bind(current, crypto.randomUUID(), crypto.randomUUID());
-    const timer = setTimeout(() => controller.abort(), 8000);
-    calls.current++;
-    // Prepare the next room while the player can continue moving; outdated context is discarded.
-    void fetch("/api/living-dungeon/mind", { method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal, body: JSON.stringify({ task: "director", text: "", binding, save: envelope(current) } satisfies MindRequest) })
-      .then(async response => { if (!response.ok) return; const reply = await response.json() as MindReply; if (runRef.current && validReply(runRef.current, reply, binding) && reply.family) await dispatch({ type: "director", family: reply.family }); })
-      .catch(() => undefined).finally(() => clearTimeout(timer));
-    return () => { controller.abort(); clearTimeout(timer); };
+    let accepted = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    // Wait for a short reading pause; movement restarts preparation without consuming a call.
+    const timer = setTimeout(() => {
+      preparedRoom.current = current.room.index;
+      calls.current++; setCallCount(calls.current);
+      timeout = setTimeout(() => controller.abort(), 8000);
+      void fetch("/api/living-dungeon/mind", { method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal, body: JSON.stringify({ task: "director", text: "", binding, save: envelope(current) } satisfies MindRequest) })
+        .then(async response => {
+          if (!response.ok) return;
+          const reply = await response.json() as MindReply;
+          if (runRef.current && validReply(runRef.current, reply, binding) && reply.family) {
+            accepted = true; await dispatch({ type: "director", family: reply.family });
+          }
+        }).catch(() => undefined).finally(() => clearTimeout(timeout));
+    }, 700);
+    return () => {
+      clearTimeout(timer); clearTimeout(timeout); controller.abort();
+      if (!accepted && preparedRoom.current === current.room.index) preparedRoom.current = -1;
+    };
   }, [run, dispatch]);
 
   const activePlan = run?.activePlan;
@@ -167,14 +186,15 @@ export default function MindBeneathClient() {
     const next = generalizeManeuver(run, run.relic.maneuvers[0]);
     return previewPlan(run, next).legal ? next : null;
   }, [run, plan]);
+  const choices = useMemo(() => run ? suggestions(run) : [], [run]);
   if (!run) return <main className={styles.root} lang="en"><div className={styles.loading}><Rune /><p>The stone holds its breath.</p></div></main>;
   const selectedEntity = entity(run.room, selected ?? undefined), guardian = entity(run.room, "guardian"), atExit = distance(playerEntity(run.room), entity(run.room, "exit")!) <= 1;
   const lastEvents = meaningful(run).slice(-5).reverse(), latestTheory = run.hypotheses[0];
-  const choices = suggestions(run), pendingReports = run.reports.filter(r => r.room === run.room.index && !r.intercepted && r.delivered === null);
-  const canSave = !!run.lastSequence?.success && run.lastSequence.steps.length > 1;
+  const pendingReports = run.reports.filter(r => r.room === run.room.index && !r.intercepted && r.delivered === null);
+  const canSave = canSaveManeuver(run);
   const canRemember = canSave && !!run.lastSequence?.steps.some(s => s.verb === "RELEASE");
   const canReuse = !!reusablePlan;
-  const showLearnedPlan = (next: Plan) => { setAuto(false); setPlan(next); setConnections(next.steps.filter(s => s.verb !== "MOVE")); setLens(true); setTab("room"); focusBoard(); };
+  const showLearnedPlan = (next: Plan) => { cancelAi(); setAuto(false); setPlan(next); setConnections(next.steps.filter(s => s.verb !== "MOVE")); setLens(true); setTab("room"); focusBoard(); };
   const nextAction = !run.relic.principles.length ? "Teach the relic who you are." : run.activePlan?.interrupted ? "The plan has broken. Find a new opening." : run.room.solved ? "Decide which story you let travel onward." : run.room.objective;
 
   return <main className={`${styles.root} ${!run.relic.principles.length ? styles.onboarding : ""}`} lang="en" data-testid="mind-game" data-revision={run.revision} data-room={run.room.index} data-status={run.status} data-hp={run.player.hp}>
@@ -195,8 +215,8 @@ export default function MindBeneathClient() {
         <p className={styles.objective}>{nextAction}</p><p className={styles.roomLore}>{run.room.subtitle}</p>
         <div ref={boardAnchor} className={styles.boardAnchor}>
         <PlayGuide run={run} plan={plan} preview={preview} auto={auto} canRemember={canRemember} canReuse={canReuse} atExit={atExit} onAction={action => {
-          if (action === "preview") { if (run.room.goal === "echo" && entity(run.room, "captive")?.freed) choosePlan([...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "HIDE" }, { verb: "ATTACK", target: "guardian" }], "none", "Attack from hiding"); else if (canReuse && reusablePlan) showLearnedPlan(reusablePlan); else choosePlan(choices[0].operations, choices[0].boundary, choices[0].label); }
-          else if (action === "remember") void dispatch({ type: "save-maneuver", name: "Quiet Mercy", boundary: run.lastSequence?.steps.some(s => ["ATTACK", "STORM"].includes(s.verb)) ? "free-target" : "no-harm" });
+          if (action === "preview") { if (run.room.goal === "echo" && entity(run.room, "captive")?.freed) choosePlan([...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "HIDE" }, { verb: "ATTACK", target: "guardian" }], "none", "Attack from hiding"); else if (canReuse && reusablePlan) showLearnedPlan(reusablePlan); else if (choices[0]) choosePlan(choices[0].operations, choices[0].boundary, choices[0].label); }
+          else if (action === "remember") void dispatch({ type: "save-maneuver", name: "Quiet Mercy", boundary: suggestedBoundary(run) });
           else if (action === "exit") { if (atExit && run.room.solved) void dispatch({ type: "descend" }); else if (atExit) choosePlan([{ verb: "WAIT" }], "none", "Wait at the stairs"); else choosePlan([{ verb: "MOVE", at: { x: 8, y: 7 } }], "none", "To the stairs"); }
           else if (action === "retreat") { if (atExit) direct({ verb: "RETREAT" }); else choosePlan([{ verb: "MOVE", at: { x: 8, y: 7 } }], "none", "The way out"); }
           else if (action === "retry") { setAuto(false); void dispatch({ type: "cancel" }); }
@@ -226,26 +246,26 @@ export default function MindBeneathClient() {
         }} />
         </div>
         <div className={styles.actionDock} aria-label="Direct actions">
-          {([ ["ATTACK", "Attack", "╱"], ["STORM", "Storm", "ϟ"], ["POTION", "Potion", "♧"], ["PROTECT", "Protect", "◇"], ["HIDE", "Hide", "◐"], ["OBSERVE", "Examine", "◎"] ] as [Verb, string, string][]).map(([verb, label, icon]) => <button key={verb} disabled={!run.relic.principles.length || run.status !== "playing" || verb === "POTION" && (run.player.potions === 0 || run.player.hp === run.player.maxHp) || verb === "STORM" && run.relic.energy < 4} onClick={() => direct({ verb, ...(["ATTACK", "STORM"].includes(verb) ? { target: "guardian" } : verb === "PROTECT" ? { target: "captive" } : verb === "OBSERVE" ? { target: selected ?? "captive" } : {}) })}><span className={styles.actionIcon}><span className={styles.srOnly}>{icon}</span><ActionArtwork verb={verb} /></span>{label}<small>{verb === "STORM" ? "4 energy" : verb === "PROTECT" ? "2 energy" : verb === "POTION" ? "+16 health" : verb === "OBSERVE" ? "Free action" : "1 turn"}</small></button>)}
+          {([ ["ATTACK", "Attack", "╱"], ["STORM", "Storm", "ϟ"], ["POTION", "Potion", "♧"], ["PROTECT", "Protect", "◇"], ["HIDE", "Hide", "◐"], ["OBSERVE", "Examine", "◎"] ] as [Verb, string, string][]).map(([verb, label, icon]) => <button key={verb} disabled={!run.relic.principles.length || run.status !== "playing" || verb === "POTION" && (run.player.potions === 0 || run.player.hp === run.player.maxHp) || verb === "STORM" && run.relic.energy < 4 || ["ATTACK", "STORM"].includes(verb) && !guardian?.active || verb === "PROTECT" && (run.relic.energy < 2 || !entity(run.room, "captive")?.active)} onClick={() => direct({ verb, ...(["ATTACK", "STORM"].includes(verb) ? { target: "guardian" } : verb === "PROTECT" ? { target: "captive" } : verb === "OBSERVE" ? { target: selected ?? "captive" } : {}) })}><span className={styles.actionIcon}><span className={styles.srOnly}>{icon}</span><ActionArtwork verb={verb} /></span>{label}<small>{verb === "STORM" ? "4 energy" : verb === "PROTECT" ? "2 energy" : verb === "POTION" ? "+16 health" : verb === "OBSERVE" ? "Free action" : "1 turn"}</small></button>)}
         </div>
         <div className={styles.worldNotice} role="status" aria-live="polite"><span>WHAT HAPPENED</span><p>{notice || run.notice}</p></div>
-        {run.room.solved && <div className={styles.exitCard}><div><span className={styles.eyebrow}>{run.room.family === "echo" ? "THE ECHO BROKE" : "A WAY FORWARD"}</span><h3>{run.room.family === "echo" ? "It was certain. You were not finished." : "Who gets to tell the story?"}</h3><p>{entity(run.room, "relay")?.active && run.room.index >= 4 ? "Surviving witnesses can report when you leave the room." : "The report route is quiet. What you learned goes with you."}</p></div><button className={styles.primary} onClick={() => atExit ? void dispatch({ type: "descend" }) : choosePlan([{ verb: "MOVE", at: { x: 8, y: 7 } }])}>{atExit ? "Go deeper ↓" : "Go to the stairs →"}</button></div>}
+        {run.room.solved && run.status === "playing" && <div className={styles.exitCard}><div><span className={styles.eyebrow}>{run.room.escaped ? "YOU RETREATED" : run.room.family === "echo" ? "THE ECHO BROKE" : "A WAY FORWARD"}</span><h3>{run.room.escaped ? "The unfinished story follows you." : run.room.family === "echo" ? "It was certain. You were not finished." : "Who gets to tell the story?"}</h3><p>{entity(run.room, "relay")?.active && run.room.index >= 4 ? "Surviving witnesses can report when you leave the room." : "The report route is quiet. What you learned goes with you."}</p></div><button className={styles.primary} onClick={() => atExit ? void dispatch({ type: "descend" }) : choosePlan([{ verb: "MOVE", at: { x: 8, y: 7 } }])}>{atExit ? "Go deeper ↓" : "Go to the stairs →"}</button></div>}
         {run.status === "fallen" && <div className={styles.exitCard}><div><h3>A scar. Your story remains.</h3><p>The relic and the witnesses keep what they know. Return to this chamber with 24 health.</p></div><button className={styles.primary} onClick={() => void dispatch({ type: "recover" })}>Return</button></div>}
         <div className={styles.identityStrip}><div><span className={styles.eyebrow}>THE RELIC LEARNED <i className={styles.tealDot} /></span><p>{run.relic.principles[0] ? PRINCIPLES[run.relic.principles[0].id].title : "Your reasons are still your own."}</p><small>Private between you</small></div><div><span className={styles.eyebrow}>THE DUNGEON SUSPECTS <i className={styles.goldDot} /></span><p>{latestTheory && (run.room.index >= 6 || run.room.inspected.includes("relay")) ? THEORY_COPY[latestTheory.claim] : run.reports.some(r => r.delivered !== null) ? "A story has reached the depths. The signs will follow." : "No story has reached it yet."}</p><small>{latestTheory && run.room.index >= 6 ? latestTheory.confidence >= .65 ? "It seems certain" : "It is testing a theory" : "Only what reaches it"}</small></div></div>
       </section>
       <aside className={styles.sideColumn}>
         <div className={styles.relicCard} key={`${run.relic.stage}-${run.chills.understood ?? ""}`}><div className={styles.relicTop}><RelicPortrait /><div><span className={styles.eyebrow}>THE RELIC</span><span className={styles.relicStage}>{STAGES[run.relic.stage]}</span></div><span className={styles.privateBadge}>PRIVATE</span></div><blockquote>“{run.relic.line}”</blockquote>
-          {run.relic.pendingChoice && <div className={styles.choice}><p>The rune turns towards {run.relic.pendingChoice.protect ? "the captive" : "you"}. It will act on the next turn.</p><small>{run.relic.pendingChoice.protect ? "You lose 4 health. The relic spends 3 energy protecting the captive." : "The relic spends 2 energy shielding you."}</small><button disabled={run.relic.energy < 4 || run.relic.trust < 1} onClick={() => void dispatch({ type: "override" })}>Override · 4 energy + 1 trust</button><Why run={run} sources={run.relic.pendingChoice.sources} /></div>}
+          {run.relic.pendingChoice && <div className={styles.choice}><p>The rune turns towards {run.relic.pendingChoice.protect ? "the captive" : "you"}. It will act on the next turn.</p><small>{run.relic.energy < 2 ? "The relic has too little energy to act." : run.relic.pendingChoice.protect && run.relic.energy >= 3 ? `You lose ${Math.min(4, run.player.hp)} health. The relic spends 3 energy protecting the captive.${run.player.hp <= 4 ? " This will make you fall." : ""}` : "The relic spends 2 energy shielding you."}</small><button disabled={run.relic.energy < 4 || run.relic.trust < 1} onClick={() => void dispatch({ type: "override" })}>Override · 4 energy + 1 trust</button><Why run={run} sources={run.relic.pendingChoice.sources} /></div>}
         </div>
         {run.relic.principles.length > 0 && <>
           <div className={styles.tabs} role="tablist" aria-label="Knowledge"><button role="tab" aria-selected={tab === "room"} onClick={() => setTab("room")}>Possibilities</button><button role="tab" aria-selected={tab === "relic"} onClick={() => setTab("relic")}>The relic</button><button role="tab" aria-selected={tab === "memory"} onClick={() => setTab("memory")}>Traces</button></div>
           {tab === "room" && <section className={styles.panel}>
             {run.activePlan ? <div className={styles.activePlan}><p className={styles.eyebrow}>YOUR SEQUENCE</p><h3>{run.activePlan.plan.name}</h3><p>{run.activePlan.interrupted ?? `Step ${run.activePlan.cursor + 1} of ${run.activePlan.plan.steps.length}`}</p><div className={styles.buttonRow}><button className={styles.primary} disabled={!!run.activePlan.interrupted} onClick={() => { setAuto(false); void dispatch({ type: "step" }); }}>Next step →</button><button onClick={() => setAuto(v => !v)} disabled={!!run.activePlan.interrupted}>{auto ? "Pause" : "Let the plan run"}</button></div><button className={styles.textButton} onClick={() => { setAuto(false); void dispatch({ type: "cancel" }); }}>Stop and improvise</button></div>
-              : plan && preview ? <div className={styles.planCard}><p className={styles.eyebrow}>A POSSIBLE FUTURE</p><h3>{plan.name}</h3><div className={styles.costs}><span>{plan.steps.length}  turns</span><span>{preview.energyCost}  energy</span><span>{preview.healthCost > 0 ? `−${preview.healthCost}` : preview.healthCost < 0 ? `+${-preview.healthCost}` : "0"}  health</span></div><ol className={styles.planSteps}>{plan.steps.map((step, i) => step.verb === "MOVE" ? null : <li key={i}><span>{describeOperation(run, step)}</span><button aria-label={`Remove step ${i + 1}`} onClick={() => { const steps = plan.steps.filter((_, j) => i !== j); setPlan({ ...plan, steps }); }}>×</button></li>)}</ol><details className={styles.why}><summary>Show movement · {plan.steps.filter(s => s.verb === "MOVE").length}  tiles</summary><ol>{plan.steps.map((step, i) => <li key={i}>{describeOperation(run, step)}</li>)}</ol></details><p className={preview.legal ? styles.consequence : styles.warning}>{preview.legal ? preview.outcome : preview.reason}</p><p className={styles.audience}><span>SOMEONE MAY OBSERVE</span>{preview.observations.length ? preview.observations.join(", ") : "No one sees the decisive actions."}</p>{preview.complications.length > 0 && <details className={styles.why}><summary>Possible consequence</summary>{preview.complications.map(c => <p key={c}>{c}</p>)}</details>}<div className={styles.buttonRow}><button className={styles.primary} disabled={!preview.legal} onClick={() => { void dispatch({ type: "commit", plan }); setAuto(true); }}>Execute from details</button><button onClick={() => { setPlan(null); setConnections([]); }}>Change</button></div></div>
+              : plan && preview ? <div className={styles.planCard}><p className={styles.eyebrow}>A POSSIBLE FUTURE</p><h3>{plan.name}</h3><div className={styles.costs}><span>{plan.steps.filter(s => s.verb !== "OBSERVE").length}  turns</span><span>{preview.energyCost}  energy</span><span>{preview.healthCost > 0 ? `−${preview.healthCost}` : preview.healthCost < 0 ? `+${-preview.healthCost}` : "0"}  health</span></div><ol className={styles.planSteps}>{plan.steps.map((step, i) => step.verb === "MOVE" ? null : <li key={i}><span>{describeOperation(run, step)}</span><button aria-label={`Remove step ${i + 1}`} onClick={() => { const steps = plan.steps.filter((_, j) => i !== j); setPlan({ ...plan, steps }); }}>×</button></li>)}</ol><details className={styles.why}><summary>Show movement · {plan.steps.filter(s => s.verb === "MOVE").length}  tiles</summary><ol>{plan.steps.map((step, i) => <li key={i}>{describeOperation(run, step)}</li>)}</ol></details><p className={preview.legal ? styles.consequence : styles.warning}>{preview.legal ? preview.outcome : preview.reason}</p><p className={styles.audience}><span>SOMEONE MAY OBSERVE</span>{preview.observations.length ? preview.observations.join(", ") : "No one sees the decisive actions."}</p>{preview.complications.length > 0 && <details className={styles.why}><summary>Possible consequence</summary>{preview.complications.map(c => <p key={c}>{c}</p>)}</details>}<div className={styles.buttonRow}><button className={styles.primary} disabled={!preview.legal} onClick={() => { void dispatch({ type: "commit", plan }); setAuto(true); }}>Execute from details</button><button onClick={() => { setPlan(null); setConnections([]); }}>Change</button></div></div>
               : <><div className={styles.panelTitle}><span className={styles.eyebrow}>READ THE ROOM</span><span>{pendingReports.length ? `${pendingReports.length} report on its way` : "Select something to examine it"}</span></div>
                 <div className={styles.objectList}>{run.room.entities.filter(e => e.active && !["player"].includes(e.role)).map(e => <button key={e.id} className={selected === e.id ? styles.objectSelected : ""} onClick={() => setSelected(e.id)} title={e.name}>{e.role === "captive" ? "◇" : e.role === "guardian" || e.role === "echo" ? "†" : e.role === "observer" ? "◉" : e.role === "relay" ? "⋈" : "·"}<span>{e.name}</span></button>)}</div>
-                {selectedEntity && <div className={styles.inspection}><div className={styles.inspectionHeading}><EntityPortrait entity={selectedEntity} room={run.room} /><h3>{selectedEntity.name}</h3></div><p>{objectCopy(run, selectedEntity.id)}</p><div className={styles.contextActions}>{verbsForRole(selectedEntity.role).map(verb => <button key={verb} onClick={() => {
-                  const operation: Operation = { verb, ...(!["HIDE", "WAIT", "POTION", "RETREAT"].includes(verb) ? { target: selectedEntity.id } : {}) };
+                {selectedEntity && <div className={styles.inspection}><div className={styles.inspectionHeading}><EntityPortrait entity={selectedEntity} room={run.room} /><h3>{selectedEntity.name}</h3></div><p>{objectCopy(run, selectedEntity.id)}</p><div className={styles.contextActions}>{availableVerbs(run, selectedEntity.id).map(verb => <button key={verb} onClick={() => {
+                  const operation: Operation = { verb, ...(!["WAIT", "POTION", "RETREAT"].includes(verb) ? { target: selectedEntity.id } : {}) };
                   if (verb === "OBSERVE") direct(operation); else { const ops = [...connections, operation]; setConnections(ops); choosePlan(ops); }
                 }}>{VERB_COPY[verb]}{verb !== "OBSERVE" ? " ＋" : ""}</button>)}</div></div>}
                 <div className={styles.suggestions}><p className={styles.eyebrow}>CHOOSE A PLAN</p>{choices.map((choice, i) => <button key={choice.label} onClick={() => choosePlan(choice.operations, choice.boundary, choice.label)}><span>0{i + 1}</span><div><b>{choice.label}</b><small>{choice.detail}</small></div><span>↗</span></button>)}</div></>}
@@ -254,8 +274,8 @@ export default function MindBeneathClient() {
           </section>}
           {tab === "relic" && <section className={styles.panel}><p className={styles.eyebrow}>WHAT ONLY YOU TWO KNOW</p><h3>What did you learn?</h3>{run.relic.principles.map(p => <div className={styles.lesson} key={p.id}><h4>{PRINCIPLES[p.id].title}</h4><p>{p.interpretation}</p><small>{p.confidence >= .75 ? "More certain of this lesson" : "Still uncertain"} · {SCOPE_COPY[p.scope]}</small><Why run={run} sources={[...p.examples.slice(-1), ...p.corrections.slice(-1)]} /><label>When should this apply?<select aria-label={`Correct ${PRINCIPLES[p.id].title}`} value={p.scope} onChange={e => void dispatch({ type: "correct", principle: p.id, scope: e.target.value as Scope })}>{Object.entries(SCOPE_COPY).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label>{run.relic.misunderstanding && <button onClick={() => void dispatch({ type: "correct", principle: p.id, scope: PRINCIPLES[p.id].scope })}>No. The captive must actually go free.</button>}<details className={styles.why}><summary>What are you unsure of?</summary><p>{p.conflicts.length ? "Two rules want the same moment. Someone has to wait." : PRINCIPLES[p.id].question}</p></details></div>)}
             <button className={styles.textButton} onClick={() => setRawLessons(v => !v)}>Teach another principle ＋</button>{rawLessons && <div className={styles.moreLessons}>{(Object.keys(PRINCIPLES) as PrincipleId[]).filter(id => !run.relic.principles.some(p => p.id === id)).map(id => <button key={id} onClick={() => setPendingTeaching({ principle: id, scope: PRINCIPLES[id].scope })}>{PRINCIPLES[id].title}</button>)}<label htmlFor="teach-text">Or explain the principle briefly</label><textarea id="teach-text" value={text} maxLength={AI_TEXT_LIMIT} onChange={e => setText(e.target.value)} /><small>Sent to OpenAI when you choose “Interpret the lesson”.</small><button disabled={!text.trim() || aiBusy} onClick={() => void askRelic("teach")}>Interpret the lesson</button>{aiLine && <p>{aiLine}</p>}</div>}{pendingTeaching && <TeachingConfirmation teaching={pendingTeaching} onConfirm={() => void dispatch({ type: run.relic.principles.some(p => p.id === pendingTeaching.principle) ? "correct" : "teach", ...pendingTeaching })} onScope={scope => setPendingTeaching({ ...pendingTeaching, scope })} />}
-            <h3 className={styles.sectionTitle}>Personal maneuvers</h3>{canSave && <div className={styles.saveManeuver}><p>This opening worked. What should the relic carry forward?</p><label htmlFor="maneuver-name">Name your maneuver</label><input id="maneuver-name" maxLength={42} value={maneuverName} onChange={e => setManeuverName(e.target.value)} /><button className={styles.primary} onClick={() => void dispatch({ type: "save-maneuver", name: maneuverName, boundary: run.lastSequence?.steps.some(s => ["ATTACK", "STORM"].includes(s.verb)) ? "free-target" : "no-harm" })}>Remember the maneuver</button></div>}
-            {!run.relic.maneuvers.length && !canSave && <p className={styles.muted}>An opening you create and make work can become something you carry forward.</p>}{run.relic.maneuvers.map(m => <div className={styles.maneuver} key={m.id}><span className={styles.eyebrow}>{m.uses}  USES · {m.contexts.length}  ROOM TYPES</span><h4>{m.name}</h4><p>{m.steps.map(s => VERB_COPY[s.verb]).join(" → ")}</p><small>{m.boundary === "no-harm" ? "The captive goes free. The guard stays alive." : m.boundary === "free-target" ? "The captive must go free." : "No firm boundary yet."}</small><button onClick={() => { showLearnedPlan(generalizeManeuver(run, m)); }}>Use in this room ↗</button><button className={styles.textButton} onClick={() => void dispatch({ type: "correct-maneuver", id: m.id, boundary: "no-harm" })}>Correct: Freedom, without harming the guard</button><Why run={run} sources={m.examples.slice(0, 3)} /></div>)}</section>}
+            <h3 className={styles.sectionTitle}>Personal maneuvers</h3>{canSave && <div className={styles.saveManeuver}><p>This opening worked. What should the relic carry forward?</p><label htmlFor="maneuver-name">Name your maneuver</label><input id="maneuver-name" maxLength={42} value={maneuverName} onChange={e => setManeuverName(e.target.value)} /><button className={styles.primary} onClick={() => void dispatch({ type: "save-maneuver", name: maneuverName, boundary: suggestedBoundary(run) })}>Remember the maneuver</button></div>}
+            {!run.relic.maneuvers.length && !canSave && <p className={styles.muted}>An opening you create and make work can become something you carry forward.</p>}{run.relic.maneuvers.map(m => <div className={styles.maneuver} key={m.id}><span className={styles.eyebrow}>{m.uses}  USES · {m.contexts.length}  ROOM TYPES</span><h4>{m.name}</h4><p>{m.steps.map(s => VERB_COPY[s.verb]).join(" → ")}</p><small>{m.boundary === "no-harm" ? m.intent === "rescue" ? "The captive goes free. The guard stays alive." : "The guard must not be harmed." : m.boundary === "free-target" ? "The captive must go free." : "No firm boundary yet."}</small><button onClick={() => { showLearnedPlan(generalizeManeuver(run, m)); }}>Use in this room ↗</button>{!m.steps.some(s => ["ATTACK", "STORM"].includes(s.verb)) && <button className={styles.textButton} onClick={() => void dispatch({ type: "correct-maneuver", id: m.id, boundary: "no-harm" })}>{m.intent === "rescue" ? "Correct: Freedom, without harming the guard" : "Correct: No harm to the guard"}</button>}<Why run={run} sources={m.examples.slice(0, 3)} /></div>)}</section>}
           {tab === "memory" && <section className={styles.panel}><p className={styles.eyebrow}>THE STORY HAS MANY OWNERS</p><h3>Traces that matter</h3>{run.room.index >= 6 && run.hypotheses.map(h => <div className={styles.theory} key={h.claim}><span>THE DUNGEON SUSPECTS</span><p>{THEORY_COPY[h.claim]}</p><small>{h.confidence > .65 ? "Certain" : "Tentative"} · {h.rooms.length}  chambers · {h.noise > 2 ? "Conflicting traces" : "Consistent traces"}</small><Why run={run} sources={h.sources} /></div>)}
             {run.room.components.map(c => <div className={styles.theory} key={c.id}><h4>{COMPONENTS[c.id].name}</h4><p>{COMPONENTS[c.id].effect}</p><Why run={run} sources={c.sources} /></div>)}
             {lastEvents.map(f => <div className={styles.event} key={f.id}><span>{f.private ? "PRIVATE" : "WHAT HAPPENED"}  · CHAMBER {f.room + 1}</span><p>{f.text}</p>{f.sources.length > 0 && <Why run={run} sources={f.sources} />}</div>)}

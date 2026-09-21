@@ -7,7 +7,7 @@ import { buildRoom, byRole, canSee, distance, entity, equalPoint, lineOfSight, p
 const clone = <T,>(value: T): T => structuredClone(value);
 export function createRun(seed: number, runId: string): Run {
   const room = buildRoom(seed, 0, [], []);
-  const run: Run = { version: 4, rules: "mind-beneath-3", runId, seed: seed >>> 0, rng: seed >>> 0 || 1, revision: 0, tick: 0, room, player: { hp: 40, maxHp: 40, potions: 3, hiddenUntil: -1 }, relic: { stage: 0, energy: 16, trust: 5, principles: [], maneuvers: [], line: "I know the weight of your hand. Not why it trembles. What should I remember first?", misunderstanding: false, pendingChoice: null, lastChoice: null }, facts: [], observations: [], beliefs: [], reports: [], hypotheses: [], relationships: [], scars: [], history: [room.family], journal: [], activePlan: null, lastSequence: null, recentSteps: [], recentFacts: [], status: "playing", echoes: 0, chills: { understood: null, mistaken: null, divergence: null }, director: null, notice: "Teach the relic one principle. The words stay between you." };
+  const run: Run = { version: 3, rules: "mind-beneath-2", runId, seed: seed >>> 0, rng: seed >>> 0 || 1, revision: 0, tick: 0, room, player: { hp: 40, maxHp: 40, potions: 3, hiddenUntil: -1 }, relic: { stage: 0, energy: 16, trust: 5, principles: [], maneuvers: [], line: "I know the weight of your hand. Not why it trembles. What should I remember first?", misunderstanding: false, pendingChoice: null, lastChoice: null }, facts: [], observations: [], beliefs: [], reports: [], hypotheses: [], relationships: [], scars: [], history: [room.family], journal: [], activePlan: null, lastSequence: null, recentSteps: [], recentFacts: [], status: "playing", echoes: 0, chills: { understood: null, mistaken: null, divergence: null }, director: null, notice: "Teach the relic one principle. The words stay between you." };
   roomFact(run);
   return run;
 }
@@ -45,7 +45,7 @@ export function operationError(run: Run, op: Operation): string | null {
     if (run.relic.energy < 2) return "A distraction needs 2 energy.";
     return distance(p, target) > 3 || !lineOfSight(run.room, p, target) ? "Move closer to the distraction." : null;
   }
-  if (op.verb === "INTERRUPT_REPORT") return distance(p, target) > 3 || !lineOfSight(run.room, p, target) || !["relay", "observer"].includes(target.role) ? "Reach a clear sightline within three tiles of a conduit or scribe." : run.relic.energy < 2 ? "Interrupting a report needs 2 energy." : null;
+  if (op.verb === "INTERRUPT_REPORT") return distance(p, target) > 3 || !["relay", "observer"].includes(target.role) ? "Get within three tiles of a conduit or scribe." : run.relic.energy < 2 ? "Interrupting a report needs 2 energy." : null;
   if (op.verb === "REPORT") return !["observer", "guardian"].includes(target.role) ? "Choose a witness who can pass the story on." : null;
   if (distance(p, target) > 1) return "Move beside the target first.";
   if (op.verb === "ATTACK" && !["guardian", "echo"].includes(target.role)) return "Choose an enemy.";
@@ -129,8 +129,8 @@ function execute(run: Run, op: Operation): Fact {
       if (guardian?.active) { guardian.distracted = 6; guardian.goal = { x: target!.x, y: target!.y }; }
       fact = observedFact(run, op, `${target!.name} drew the guard's attention.`, 2, "cunning");
       if (run.room.components.some(c => c.id === "echo-snare") && target!.id === "distraction") {
-        const damage = Math.min(6, run.player.hp); run.player.hp -= damage; run.room.alert = 3;
-        record(run, { actor: "mind", kind: "harm", at: p, target: "player", cost: 0, value: damage, private: false, sources: [fact.id, ...run.room.components.filter(c => c.id === "echo-snare").flatMap(c => c.sources)], text: `The Echo recognised the distraction. Its trap cost ${damage} health.` });
+        run.player.hp = Math.max(0, run.player.hp - 6); run.room.alert = 3;
+        run.notice = "The Echo recognised the visible distraction. The trap cost 6 health.";
       }
       break;
     }
@@ -155,14 +155,14 @@ function execute(run: Run, op: Operation): Fact {
       run.relic.energy -= 3;
       const observed = run.room.entities.some(e => canSee(run.room, e, p, hidden));
       target!.suspicious = observed;
-      fact = observedFact(run, op, observed ? "A witness saw you forge the seal. The evidence lost credibility." : "Planted a false witness seal in shadow. A witness needs to discover it.", 3, "cunning");
+      fact = observedFact(run, op, observed ? "A witness saw you forge the seal. The evidence lost credibility." : "Planted a false witness seal in shadow. A witness needs to discover it.", 3, op.signature ?? "storm");
       // A forged trace is distinct from the observed act of forging it.
       target!.goal = { x: observed ? 1 : 0, y: ["storm", "mercy", "force", "cunning", "self-preservation"].indexOf(op.signature ?? "storm") };
       break;
     }
     case "REVEAL_EVIDENCE":
       fact = observedFact(run, op, "Revealed the witness seal. One claim does not make a certain story.", 0);
-      if (run.room.goal === "evidence" && !run.room.solved) {
+      if (run.room.goal === "evidence") {
         run.room.solved = true;
         run.relic.energy = Math.min(20, run.relic.energy + 3);
         run.relic.line = "It removed the memory because it did not fit the explanation. We are taking it with us.";
@@ -191,20 +191,16 @@ function autonomousChoice(run: Run) {
   if (!choice) return;
   run.relic.pendingChoice = null;
   const captive = entity(run.room, "captive")!, p = playerEntity(run.room);
-  if (run.player.hp <= 0) return;
-  if (choice.protect && captive.active && !captive.freed && run.relic.energy >= 3) {
+  if (choice.protect && captive.active && !captive.freed) {
     captive.protected = 7; run.relic.energy = Math.max(0, run.relic.energy - 3);
-    const healthCost = Math.min(4, run.player.hp);
-    run.player.hp -= healthCost;
-    const fact = record(run, { actor: "relic", kind: "choice", at: captive, target: captive.id, signature: "mercy", cost: healthCost + 3, value: healthCost, private: false, sources: choice.sources, text: `The relic flew to the captive and caught the blow in its light. You lost ${healthCost} health; it spent 3 energy.` });
+    run.player.hp = Math.max(1, run.player.hp - 4);
+    const fact = record(run, { actor: "relic", kind: "choice", at: captive, target: captive.id, signature: "mercy", cost: 7, value: 4, private: false, sources: choice.sources, text: "The relic flew to the captive and caught the blow in its light. You lost 4 health; it spent 3 energy." });
     run.relic.lastChoice = fact.id; run.relic.line = "I knew what you would ask. I went to the other one anyway.";
-  } else if (run.relic.energy >= 2) {
+  } else {
     p.protected = 6;
     const fact = record(run, { actor: "relic", kind: "choice", at: p, cost: 2, value: 0, private: true, sources: choice.sources, text: "The relic chose to shield you. The captive had to wait." });
     run.relic.energy = Math.max(0, run.relic.energy - 2); run.relic.lastChoice = fact.id;
     run.relic.line = "I chose you. I do not know if I can call that right.";
-  } else {
-    run.relic.line = "I reached for the light. There was too little left.";
   }
   run.relic.stage = 3;
 }
@@ -214,12 +210,12 @@ function autonomousGeneralization(run: Run) {
   const maneuver = run.relic.maneuvers.find(m => m.boundary !== "none" && m.steps.some(s => s.verb === "RELEASE") && m.steps.some(s => s.verb === "DISTRACT" || s.verb === "CREATE_NOISE") && m.corrections.length > 0);
   const principle = run.relic.principles.find(p => ["protect", "no-harm", "promise"].includes(p.id) && p.examples.length);
   const resonator = entity(run.room, "resonator"), guardian = entity(run.room, "guardian"), captive = entity(run.room, "captive");
-  if (!maneuver || !principle || !resonator || !guardian?.active || !captive?.active || captive.hp <= 0 || captive.freed) return;
+  if (!maneuver || !principle || !resonator || !guardian?.active || !captive || captive.freed) return;
   // The relic carries the learned distraction to a NEW object. It cannot conjure damage or a reward.
   run.relic.energy -= 4; guardian.distracted = 8; guardian.goal = { x: resonator.x, y: resonator.y }; run.room.light = false;
   const sources = [...maneuver.examples, ...maneuver.corrections, ...principle.examples.slice(-1)];
   const fact = record(run, { actor: "relic", kind: "learning", at: resonator, operation: { verb: "DISTRACT", target: resonator.id }, target: resonator.id, cost: 4, value: 8, private: false, sources, text: `The relic used the principle behind “${maneuver.name}” on the shadow resonator. The Echo turned away. Eight turns are yours.` });
-  run.chills.understood = fact.id; if (!maneuver.contexts.includes("echo")) maneuver.contexts.push("echo"); maneuver.uses++;
+  run.chills.understood = fact.id; maneuver.contexts.push("echo"); maneuver.uses++;
   run.relic.line = "It was never the bell. It was who you wanted to free.";
   if (run.room.components.length) {
     run.chills.mistaken = fact.id;
@@ -265,7 +261,7 @@ function environmentTurn(run: Run) {
   if (captive?.active && !captive.freed && run.room.captiveDeadline > 0 && run.room.turn >= run.room.captiveDeadline && captive.protected <= 0) {
     captive.hp = Math.max(0, captive.hp - 1);
     if (captive.hp === 0) {
-      captive.active = false;
+      captive.active = false; run.room.solved = run.room.family !== "echo";
       const fact = record(run, { actor: "world", kind: "scar", at: captive, cost: 0, value: 1, private: false, sources: run.relic.lastChoice ? [run.relic.lastChoice] : [], text: `${captive.name} did not survive the wait.` });
       run.scars.push(fact.id); run.relic.line = "I counted the turns. I should have counted who they belonged to.";
     }
@@ -273,10 +269,7 @@ function environmentTurn(run: Run) {
   if (captive?.freed) { const next = pathTo(run.room, captive, entity(run.room, "exit")!, true)[0]; if (next) Object.assign(captive, next); }
   if (run.room.goal === "escort" && captive?.freed && distance(captive, entity(run.room, "exit")!) <= 1) run.room.solved = true;
   if (run.room.goal === "story" && (!relay?.active || run.reports.some(r => r.room === run.room.index && r.delivered !== null))) run.room.solved = true;
-  if (run.room.hazards.some(h => equalPoint(h, p)) && run.player.hp > 0) {
-    const damage = Math.min(2, run.player.hp); run.player.hp -= damage;
-    record(run, { actor: "world", kind: "harm", at: p, target: "player", cost: 0, value: damage, private: false, sources: run.room.adaptationSources, text: `The charged floor cost ${damage} health.` });
-  }
+  if (run.room.hazards.some(h => equalPoint(h, p))) run.player.hp = Math.max(0, run.player.hp - 2);
   if (run.room.family === "echo" && guardian && guardian.hp <= 0 && !run.room.solved) {
     run.room.solved = true; run.echoes++;
     run.relic.line = "It had an explanation for you. We had a way forward.";
@@ -326,7 +319,7 @@ function saveManeuver(run: Run, name: string, boundary: Maneuver["boundary"]): b
   record(run, { actor: "relic", kind: "learning", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: seq.facts, text: `Remembered the personal maneuver “${safeName}”.` });
   run.relic.stage = Math.max(1, run.relic.stage) as 1 | 2 | 3;
   run.relic.line = "I want to remember why it worked. Help me if I remember wrong.";
-  run.lastSequence = null; run.recentSteps = []; run.recentFacts = [];
+  run.lastSequence = null;
   return true;
 }
 
@@ -375,7 +368,7 @@ function descend(run: Run): boolean {
 export function transition(original: Run, command: Command, expectedRevision = original.revision, journal = true): Run {
   if (expectedRevision !== original.revision || !command || typeof command !== "object") return original;
   if (original.status === "fallen" && command.type !== "recover") return original;
-  const run = clone(journal ? original : { ...original, journal: [] });
+  const run = clone(original);
   let accepted = true;
   switch (command.type) {
     case "teach": accepted = teach(run, command.principle, command.scope, false); break;
@@ -390,7 +383,6 @@ export function transition(original: Run, command: Command, expectedRevision = o
         || plan.boundary === "no-harm" && plan.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))
         || plan.boundary === "free-target" && !plan.steps.some(s => s.verb === "RELEASE")
         || operationError(run, plan.steps[0])) return original;
-      run.recentSteps = []; run.recentFacts = [];
       run.activePlan = { plan: clone(plan), cursor: 0, startedAt: run.tick, facts: [], interrupted: null };
       run.notice = "The plan is yours. Each step happens on the floor, one turn at a time.";
       break;
@@ -407,6 +399,7 @@ export function transition(original: Run, command: Command, expectedRevision = o
         run.notice = error; break;
       }
       if (command.type === "act") run.activePlan = null;
+      const beforeEnergy = run.relic.energy;
       const fact = execute(run, operation);
       run.recentSteps.push(clone(operation)); run.recentFacts.push(fact.id);
       if (command.type === "step") { active!.cursor++; active!.facts.push(fact.id); }
@@ -428,7 +421,7 @@ export function transition(original: Run, command: Command, expectedRevision = o
         }
         run.activePlan = null;
       } else if (command.type === "act" && (operation.verb === "RELEASE" || run.room.solved)) {
-        run.lastSequence = { steps: clone(run.recentSteps), facts: [...run.recentFacts], success: true, cost: run.facts.filter(f => run.recentFacts.includes(f.id)).reduce((sum, f) => sum + f.cost, 0) };
+        run.lastSequence = { steps: clone(run.recentSteps), facts: [...run.recentFacts], success: true, cost: beforeEnergy - run.relic.energy };
       }
       break;
     }
@@ -438,10 +431,10 @@ export function transition(original: Run, command: Command, expectedRevision = o
       const maneuver = run.relic.maneuvers.find(m => m.id === command.id);
       if (!maneuver || !["no-harm", "free-target", "none"].includes(command.boundary)) return original;
       if (command.boundary === "no-harm" && maneuver.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))) return original;
-      const fact = record(run, { actor: "player", kind: "correction", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: maneuver.examples.slice(0, 2), text: `Corrected “${maneuver.name}”: ${command.boundary === "free-target" ? "the captive must go free" : command.boundary === "no-harm" ? "no attack or lightning may harm the guard" : "judge the opening by its immediate result"}.` });
+      const fact = record(run, { actor: "player", kind: "correction", at: playerEntity(run.room), cost: 0, value: 0, private: true, sources: maneuver.examples.slice(0, 2), text: `Corrected “${maneuver.name}”: the captive must go free, and the guard must live.` });
       maneuver.boundary = command.boundary; maneuver.corrections.push(fact.id); maneuver.confidence = Math.min(0.95, maneuver.confidence + 0.1);
-      if (!maneuver.steps.some(s => s.verb === "RELEASE") && command.boundary === "free-target") { maneuver.steps.push({ verb: "RELEASE", role: "captive" }); maneuver.intent = "rescue"; }
-      run.relic.misunderstanding = false; run.relic.line = maneuver.intent === "rescue" ? "Not just silence. Freedom. I will remember who the silence is for." : "The boundary matters as much as the opening. I will carry both.";
+      if (!maneuver.steps.some(s => s.verb === "RELEASE") && command.boundary !== "none") maneuver.steps.push({ verb: "RELEASE", role: "captive" });
+      run.relic.misunderstanding = false; run.relic.line = "Not just silence. Freedom. I will remember who the silence is for.";
       break;
     }
     case "override":
@@ -468,15 +461,10 @@ export function transition(original: Run, command: Command, expectedRevision = o
       if (run.status !== "fallen") return original;
       run.status = "playing"; run.player.hp = 24; run.relic.energy = 12;
       run.scars.push(record(run, { actor: "world", kind: "scar", at: playerEntity(run.room), cost: 0, value: 1, private: true, sources: [], text: "Returned with a scar. The relic and the witnesses kept their memories." }).id);
-      // Recovery does not resurrect people, rebuild objects, or erase consequences.
-      Object.assign(playerEntity(run.room), { x: 2, y: 6, protected: 0 });
-      run.activePlan = null; run.lastSequence = null; run.recentSteps = []; run.recentFacts = [];
-      run.player.hiddenUntil = -1; run.relic.pendingChoice = null;
-      run.notice = "You returned to the entrance. The room and its consequences remain."; break;
+      run.room = buildRoom(run.seed, run.room.index, run.hypotheses, run.history.slice(0, -1)); run.activePlan = null; run.player.hiddenUntil = -1; break;
     default: return original;
   }
   if (!accepted) return original;
-  playerEntity(run.room).hp = run.player.hp;
   run.revision++;
   if (journal) run.journal.push({ revision: original.revision, command: clone(command) });
   return run;

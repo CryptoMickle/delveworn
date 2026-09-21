@@ -41,7 +41,7 @@ function validSemantic(value: unknown, run: Run): value is SemanticOutput {
     && ["none", "mercy", "storm", "force", "cunning", "self-preservation"].includes(s.signature));
 }
 function fallback(request: MindRequest, run: Run, reason: string): MindReply {
-  const option = suggestions(run)[0], plan = request.task === "plan" ? compilePlan(run, option.operations, { boundary: option.boundary }) : null;
+  const option = suggestions(run)[0], plan = request.task === "plan" && option ? compilePlan(run, option.operations, { boundary: option.boundary }) : null;
   if (plan) plan.binding = request.binding;
   return { source: "fallback", binding: request.binding, plan, teaching: null, family: null, line: "The words slip away. But I can still show you a way.", reason, usage: null };
 }

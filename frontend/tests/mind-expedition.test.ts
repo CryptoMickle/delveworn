@@ -79,7 +79,7 @@ test("scenario grammar continues through several Echoes without repeating recent
   assert.deepEqual(decodeSave(JSON.stringify(envelope(run))), run);
 });
 
-test("a complete Norwegian expedition migrates through the Echo with identical English replay", async () => {
+test("a complete legacy expedition preserves its historical Echo and resumes with current rules", async () => {
   const { createRun: oldCreate, transition: oldTransition } = await import("../app/living-dungeon/mind/legacy-v2/engine");
   const { bind: oldBind } = await import("../app/living-dungeon/mind/legacy-v2/protocol");
   const { hash } = await import("../app/living-dungeon/mind/protocol");
@@ -97,7 +97,23 @@ test("a complete Norwegian expedition migrates through the Echo with identical E
   }
   const data = { version: 2, rules: "mind-beneath-1", runId: legacy.runId, seed: legacy.seed, revision: legacy.revision, journal: legacy.journal };
   const migrated = decodeSave(JSON.stringify({ ...data, checksum: hash(data) }));
-  assert.deepEqual(migrated, english);
+  assert.ok(migrated);
+  // Historical replay uses the frozen English rules, not today's corrected mechanics.
+  const { createRun: v3Create, transition: v3Transition } = await import("../app/living-dungeon/mind/legacy-v3/engine");
+  const { bind: v3Bind } = await import("../app/living-dungeon/mind/legacy-v3/protocol");
+  let historical = v3Create(legacy.seed, legacy.runId);
+  for (const entry of legacy.journal) {
+    const command = structuredClone(entry.command);
+    if (command.type === "commit") {
+      command.plan.binding = v3Bind(historical, command.plan.binding.requestId, command.plan.binding.generation);
+      if (!command.plan.maneuverId) command.plan.name = "A Possible Future";
+    }
+    historical = v3Transition(historical, command, entry.revision);
+  }
+  assert.deepEqual(migrated, { ...historical, version: 4, rules: "mind-beneath-3", upgradedAt: historical.revision });
+  const continued = transition(migrated, { type: "act", operation: { verb: "WAIT" } });
+  assert.notEqual(continued, migrated);
+  assert.deepEqual(decodeSave(JSON.stringify(envelope(continued))), continued);
   assert.equal(migrated?.echoes, 1);
   assert.ok(migrated?.chills.divergence);
 });

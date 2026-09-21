@@ -7,7 +7,7 @@ export function hash(value: unknown): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 export function digest(run: Run): string {
-  return hash([run.rules, run.runId, run.revision, run.rng, run.tick, run.room, run.player, run.relic, run.reports, run.hypotheses]);
+  return hash([run.runId, run.revision, run.rng, run.tick, run.room, run.player, run.relic, run.reports, run.hypotheses]);
 }
 export function bind(run: Run, requestId = "local", generation = "local"): Binding {
   return { runId: run.runId, revision: run.revision, digest: digest(run), requestId, generation };

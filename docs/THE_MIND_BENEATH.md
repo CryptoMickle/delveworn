@@ -49,3 +49,13 @@ Save v3 / `mind-beneath-2` uses the existing browser storage slot. Authored pros
 ## Painted presentation
 
 `art.tsx` reuses the existing Delveworn adventurer, enemy cutouts, eight room paintings, logo and item art. A 281 KB atlas supplies Living Dungeon-specific characters and objects. The fixed board projection applies equally to artwork, floor input, plans, walls and sightlines. Decorative image bounds never determine a target's clickable area. World-state events drive brief flashes; there is no continuous particle or idle animation loop. See `frontend/public/living-dungeon/README.md` for source paths, generation prompts and rendering details.
+
+## Gameplay audit and rule boundary — 21 September 2026
+
+Current saves use v4 / `mind-beneath-3`. `legacy-v3/` freezes the exact simulation modules from 68cdd4f. A v3 journal is validated and replayed with those modules, then receives an `upgradedAt` revision boundary. Its facts, resources, world, relationships, bindings and pending sequence are preserved. Future commands use v4. Restoring v4 replays the historical prefix under v3 and the remaining journal under v4. V2 first follows the validated English translation into frozen v3, then receives the same boundary. The storage key remains unchanged; loading never overwrites an old save. Current plan digests include the rule version.
+
+New facts snapshot coordinates, operations and sources. Only living characters can observe. The player's concealment cannot conceal a distant relic action. Witnessing seal fabrication reports cunning; discovering the resulting seal reports its alleged identity at low confidence. Interception stops a report, not the witness's memory. Interrupting a channel requires line of sight.
+
+Death does not fulfill an objective, retreat does not defeat an Echo, and recovered evidence grants energy only once. Recovery restores the adventurer at the entrance while preserving casualties, broken objects, room selection, favors and other consequences. Hazards and Echo snares record damage. Autonomous choices obey actual health and energy, and the player figure's health agrees with the resource display.
+
+Planning retains missing prerequisites so a maneuver cannot silently become a different ability. No-harm concealment does not acquire an unrelated rescue goal. Save eligibility and boundaries reflect the executed sequence, and repeated contexts are unique. Context buttons and suggestions derive from the current room. Local choices cancel superseded AI work even without a world revision change. Director preparation waits for a short pause and can retry after movement invalidates its snapshot. Simulations avoid copying the persisted journal on every hypothetical turn.

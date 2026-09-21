@@ -9,7 +9,7 @@ export function describeOperation(run: Run, op: Operation): string {
   if (op.verb === "MOVE") return `Move to ${op.at?.x}, ${op.at?.y}`;
   return `${VERB_COPY[op.verb]}${target ? ` · ${target.name}` : ""}`;
 }
-const rangeFor = (verb: Verb) => ["OBSERVE", "REPORT", "HIDE", "WAIT", "POTION", "RETREAT"].includes(verb) ? 99 : verb === "STORM" ? 6 : ["DISTRACT", "CREATE_NOISE", "INTERRUPT_REPORT"].includes(verb) ? 3 : 1;
+const rangeFor = (verb: Verb) => ["OBSERVE", "REPORT", "HIDE", "WAIT", "POTION"].includes(verb) ? 99 : verb === "STORM" ? 6 : ["DISTRACT", "CREATE_NOISE", "INTERRUPT_REPORT"].includes(verb) ? 3 : 1;
 /** A path to a legal interaction cell, with predictable tie-breaking. */
 function approach(run: Run, target: Point, range: number): Point[] {
   const from = playerEntity(run.room), queue = [{ at: { x: from.x, y: from.y }, path: [] as Point[] }], seen = new Set<string>();
@@ -35,10 +35,15 @@ export function compilePlan(run: Run, desired: Operation[], options: { name?: st
   };
   for (const wanted of desired.slice(0, 16)) {
     if (wanted.verb === "MOVE" && wanted.at) {
-      for (const at of approach(simulated, wanted.at, 0)) add({ verb: "MOVE", at });
+      const path = approach(simulated, wanted.at, 0);
+      if (!path.length && distance(playerEntity(simulated.room), wanted.at) !== 0) add(wanted);
+      else for (const at of path) add({ verb: "MOVE", at });
       continue;
     }
-    const target = entity(simulated.room, wanted.target);
+    const target = entity(simulated.room, wanted.verb === "RETREAT" ? "exit" : wanted.target);
+    if (wanted.verb === "HIDE" && target?.role === "cover") {
+      for (const at of approach(simulated, target, 0)) add({ verb: "MOVE", at });
+    }
     if (target && rangeFor(wanted.verb) !== 99) {
       for (const at of approach(simulated, target, rangeFor(wanted.verb))) add({ verb: "MOVE", at });
     }
@@ -53,7 +58,7 @@ export function previewPlan(run: Run, plan: Plan): Preview {
   if (plan.boundary === "no-harm" && plan.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))) return { ...result, legal: false, reason: "This plan breaks your promise to let the guard live." };
   for (const operation of plan.steps) {
     const from = { ...playerEntity(simulated.room) }, error = operationError(simulated, operation);
-    const witnesses = simulated.room.entities.filter(e => canSee(simulated.room, e, operation.at ?? from, simulated.player.hiddenUntil >= simulated.tick)).map(e => e.name);
+    const witnesses = simulated.room.entities.filter(e => canSee(simulated.room, e, from, simulated.player.hiddenUntil >= simulated.tick)).map(e => e.name);
     if (!error) simulated = transition(simulated, { type: "act", operation }, simulated.revision, false);
     const to = playerEntity(simulated.room);
     result.steps.push({ operation, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, witnesses, hp: simulated.player.hp, energy: simulated.relic.energy, description: describeOperation(run, operation), interruption: error });
@@ -74,7 +79,7 @@ export function previewPlan(run: Run, plan: Plan): Preview {
   if (run.room.alert >= 2) result.complications.push("The guard may get in the way or destroy a distraction.");
   if (run.room.captiveDeadline) result.complications.push(`The captive is in danger after turn ${run.room.captiveDeadline}.`);
   if (simulated.status === "fallen") { result.legal = false; result.reason = "You will fall before the plan is finished."; }
-  if (simulated.room.solved) result.outcome = simulated.room.family === "echo" ? "The Echo collapses." : "The captive goes free. The story is still yours to shape.";
+  if (simulated.room.solved) result.outcome = simulated.room.escaped ? "You retreat. Those left behind keep their own story." : simulated.room.goal === "echo" ? "The Echo collapses." : simulated.room.goal === "evidence" ? "The missing memory is recovered." : simulated.room.goal === "story" ? "You decide which story travels onward." : simulated.room.goal === "escort" ? "The captive reaches the stairs safely." : "The captive goes free. The story is still yours to shape.";
   if (plan.boundary === "free-target" && !entity(simulated.room, "captive")?.freed) { result.legal = false; result.reason = "These steps do not free the captive."; }
   return result;
 }
@@ -86,14 +91,17 @@ export function generalizeManeuver(run: Run, maneuver: Maneuver): Plan {
     // Roles are rebound by affordance, not by the previous object's ID or name.
     const candidates = run.room.entities.filter(e => e.active && (e.role === step.role || step.role === "guardian" && e.role === "echo"));
     const target = candidates.find(e => e.id === "resonator" && run.room.components.some(c => c.id === "echo-snare")) ?? candidates[0];
-    if (step.role && !target) continue;
+    if (step.role && !target) {
+      // Keep a failed prerequisite visible. Never execute a different, partial ability.
+      desired.push({ verb: step.verb, target: `missing-${step.role}` }); continue;
+    }
     if (step.verb === "HIDE" && run.room.light && !desired.some(s => s.verb === "EXTINGUISH_LIGHT")) {
       const light = entity(run.room, "light");
       if (light?.active) desired.push({ verb: "EXTINGUISH_LIGHT", target: light.id });
     }
     desired.push({ verb: step.verb, ...(target ? { target: target.id } : {}), ...(step.signature ? { signature: step.signature } : {}) });
   }
-  if (maneuver.boundary !== "none" && !desired.some(s => s.verb === "RELEASE")) desired.push({ verb: "RELEASE", target: "captive" });
+  if ((maneuver.boundary === "free-target" || maneuver.intent === "rescue") && !desired.some(s => s.verb === "RELEASE")) desired.push({ verb: "RELEASE", target: "captive" });
   return compilePlan(run, desired, { name: maneuver.name, boundary: maneuver.boundary, maneuverId: maneuver.id });
 }
 
@@ -102,7 +110,7 @@ export function verbsForRole(role: Role): Verb[] {
   return values[role];
 }
 /** Three contextual starting points; the composer can make arbitrary certified sequences. */
-export function suggestions(run: Run): { label: string; detail: string; operations: Operation[]; boundary: Maneuver["boundary"] }[] {
+function authoredSuggestions(run: Run): { label: string; detail: string; operations: Operation[]; boundary: Maneuver["boundary"] }[] {
   const boss = run.room.family === "echo";
   if (!run.room.solved && run.room.index >= 12 && run.room.goal === "evidence") return [
     { label: "Recover the missing memory", detail: "Reach the witness seal and reveal what the dungeon hid.", operations: [{ verb: "REVEAL_EVIDENCE", target: "evidence" }], boundary: "none" },
@@ -122,6 +130,45 @@ export function suggestions(run: Run): { label: string; detail: string; operatio
   return [
     { label: "Create a hidden opening", detail: "Extinguish the light, distract the guard, free the captive.", operations: [...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "DISTRACT", target: boss && run.room.components.some(c => c.id === "echo-snare") ? "resonator" : "distraction" }, { verb: "HIDE" }, { verb: "RELEASE", target: "captive" }], boundary: "no-harm" },
     { label: "Let them see Storm", detail: "Spend 4 energy on a visible pattern. Keep another way hidden.", operations: [{ verb: "STORM", target: "guardian" }], boundary: "none" },
-    { label: boss ? "Strike the blind side" : "Protect before you attack", detail: boss ? "Hide. Attack what the ward overlooks." : "Reach the captive and protect them.", operations: boss ? [{ verb: "EXTINGUISH_LIGHT", target: "light" }, { verb: "HIDE" }, { verb: "ATTACK", target: "guardian" }] : [{ verb: "PROTECT", target: "captive" }, { verb: "RELEASE", target: "captive" }], boundary: boss ? "none" : "free-target" },
+    { label: boss ? "Strike the blind side" : "Protect before you attack", detail: boss ? "Hide. Attack what the ward overlooks." : "Reach the captive and protect them.", operations: boss ? [...(run.room.light ? [{ verb: "EXTINGUISH_LIGHT" as const, target: "light" }] : []), { verb: "HIDE" }, { verb: "ATTACK", target: "guardian" }] : [{ verb: "PROTECT", target: "captive" }, { verb: "RELEASE", target: "captive" }], boundary: boss ? "none" : "free-target" },
   ];
+}
+
+/** Only promise an ability the engine can actually remember. */
+export function suggestedBoundary(run: Run): Maneuver["boundary"] {
+  const steps = run.lastSequence?.steps ?? [];
+  return steps.some(s => ["ATTACK", "STORM"].includes(s.verb)) ? steps.some(s => s.verb === "RELEASE") ? "free-target" : "none" : "no-harm";
+}
+export function canSaveManeuver(run: Run): boolean {
+  return !!run.lastSequence?.success && run.lastSequence.steps.length > 1 && run.relic.maneuvers.length < 24
+    && run.lastSequence.steps.some(s => !["MOVE", "WAIT", "OBSERVE", "REPORT"].includes(s.verb));
+}
+export function availableVerbs(run: Run, id: string): Verb[] {
+  const target = entity(run.room, id);
+  if (!target?.active || target.hp <= 0) return [];
+  return verbsForRole(target.role).filter(verb => !(verb === "RELEASE" && target.freed)
+    && !(verb === "EXTINGUISH_LIGHT" && !run.room.light)
+    && !(verb === "TRANSFER_ITEM" && (!run.player.potions || target.hp === target.maxHp))
+    && !(verb === "POTION" && (!run.player.potions || run.player.hp === run.player.maxHp))
+    && !(verb === "STORM" && run.relic.energy < 4)
+    && !(["PROTECT", "DISTRACT", "CREATE_NOISE", "INTERRUPT_REPORT"].includes(verb) && run.relic.energy < 2)
+    && !(verb === "PLANT_EVIDENCE" && run.relic.energy < 3));
+}
+export function suggestions(run: Run): ReturnType<typeof authoredSuggestions> {
+  const choices = authoredSuggestions(run);
+  const fallbacks: ReturnType<typeof authoredSuggestions> = [
+    { label: "Free the captive", detail: "Reach the chain and open it. Check the cost before committing.", operations: [{ verb: "RELEASE", target: "captive" }], boundary: "free-target" },
+    { label: "Strike an opening", detail: "Approach the enemy and strike. The preview includes its response.", operations: [{ verb: "ATTACK", target: "guardian" }], boundary: "none" },
+    { label: "Recover your strength", detail: "Use a potion before your next move.", operations: [{ verb: "POTION" }], boundary: "none" },
+    { label: "Leave this room", detail: "Reach the stairs and retreat. Those left behind are not rescued.", operations: [{ verb: "RETREAT" }], boundary: "none" },
+    { label: "Read the stairs", detail: "Take a free look before deciding your next move.", operations: [{ verb: "OBSERVE", target: "exit" }], boundary: "none" },
+  ];
+  // Before teaching, the authored examples explain the coming loop without advancing it.
+  if (!run.relic.principles.length) return choices;
+  const usable: ReturnType<typeof authoredSuggestions> = [];
+  for (const choice of [...choices, ...fallbacks]) {
+    if (previewPlan(run, compilePlan(run, choice.operations, { boundary: choice.boundary })).legal) usable.push(choice);
+    if (usable.length === 3) break;
+  }
+  return usable;
 }

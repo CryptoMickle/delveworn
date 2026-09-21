@@ -24,10 +24,10 @@ export function PlayGuide({ run, plan, preview, auto, canRemember, canReuse, atE
       action = "correct"; label = "Correct the lesson";
     }
     if (run.room.solved) {
-      step = 5; title = first ? "First room complete" : "Room complete";
+      step = 5; title = run.room.escaped ? "You left the room behind" : first ? "First room complete" : "Room complete";
       body = run.room.index < 4 ? "Reach the stairs and choose “Go deeper”. What you taught the relic carries into the next room." : "You can move on now. An open report route lets surviving witnesses tell what they saw. Close it to protect your secret.";
       action = "exit"; label = atExit ? "Continue to the next room" : "Show the way to the stairs";
-      if (first && canRemember && !run.relic.maneuvers.length) {
+      if (first && !run.room.escaped && canRemember && !run.relic.maneuvers.length) {
         step = 4; title = "The rescue can become your own ability";
         body = "The cartographer is free. Remember these actions as “Quiet Mercy” so the relic can use the idea with different objects later. This costs no turn.";
         action = "remember"; label = "Remember “Quiet Mercy”";

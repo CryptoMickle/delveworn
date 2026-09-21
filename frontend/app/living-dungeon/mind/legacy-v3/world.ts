@@ -23,7 +23,7 @@ export function lineOfSight(room: Room, from: Point, to: Point): boolean {
   return true;
 }
 export function canSee(room: Room, observer: Entity, target: Point, hidden = false): boolean {
-  if (!observer.active || observer.hp <= 0 || observer.distracted > 0 || observer.freed || !["guardian", "observer", "captive", "echo"].includes(observer.role)) return false;
+  if (!observer.active || observer.hp <= 0 || observer.distracted > 0 || observer.freed || observer.id === "player") return false;
   const range = room.light ? observer.sight : Math.min(2, observer.sight);
   return distance(observer, target) <= range && (!hidden || distance(observer, target) <= 1) && lineOfSight(room, observer, target);
 }
