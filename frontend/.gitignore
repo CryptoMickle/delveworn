@@ -46,3 +46,6 @@ certificates
 # local development artifacts
 *.bak-*
 vrf-latency-*.csv
+
+# Focused browser verification artifacts
+/test-results-*/

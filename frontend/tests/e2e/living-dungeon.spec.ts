@@ -128,7 +128,10 @@ test("full expedition: public Storm, private maneuver, corrected learning, Echo 
     if (room === 0) {
       await page.getByRole("tab", { name: "The relic", exact: true }).click();
       await page.getByRole("button", { name: "Remember the maneuver", exact: true }).click();
+      const beforeCorrection = Number(await page.getByTestId("mind-game").getAttribute("data-revision"));
       await page.getByRole("button", { name: "Correct: Freedom, without harming the guard", exact: true }).click();
+      await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", String(beforeCorrection + 1));
+      await expect(page.getByText("The relic learned this boundary.", { exact: true })).toBeVisible();
     }
     if (room === 11) {
       for (let i = 0; i < 10 && !await page.getByRole("heading", { name: "It was certain. You were not finished.", exact: true }).isVisible(); i++) {
