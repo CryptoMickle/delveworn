@@ -198,7 +198,7 @@ for (const help of ["supplies", "silence"] as const) test(`Kevin's ${help} favou
   const action = routes.getByRole("button", { name: help === "supplies" ? "Ask for a potion · 1 favour" : "Close the report route · 1 favour", exact: true });
   if (isMobile) await action.tap(); else await action.click();
   await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", String(run.revision + 1));
-  await expect(routes.getByText(/Quartermaster Kevin repaid a favour:/)).toBeVisible();
+  await expect(routes.getByText(/^Quartermaster Kevin repaid a favour:/)).toBeVisible();
   if (help === "silence") await expect(page.locator('[data-entity="relay"]')).toHaveCount(0);
   else await expect(page.getByLabel("Your resources")).toContainText(`POTIONS${run.player.potions + 1}`);
   await routes.screenshot({ path: testInfo.outputPath(`kevin-${help}.png`) });
