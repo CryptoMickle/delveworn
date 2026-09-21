@@ -306,6 +306,13 @@
 .entityPortrait { width: 65px; height: 82px; flex-shrink: 0; overflow: visible; filter: drop-shadow(0 4px 4px #0008); }
 .inspectionHeading { display: flex; align-items: center; gap: 14px; margin-bottom: 7px; }
 .inspectionHeading h3 { margin: 0; font-size: 24px; }
+.kevinHelp { margin-top: 20px; padding: 16px; border: 1px solid #a88b5745; background: linear-gradient(120deg, #40372655, #1a271d); }
+.kevinHeading { display: flex; align-items: center; gap: 14px; }
+.kevinHeading > svg { width: 60px; height: 86px; flex-shrink: 0; }
+.kevinHeading > div { min-width: 0; }
+.kevinHeading h3 { margin: 5px 0; font-size: 23px; }
+.kevinHeading small, .kevinHelp > p, .favorNote { font-size: 12px; line-height: 1.6; color: #b6bca0; }
+.kevinHelp .contextActions > button { min-height: 44px; }
 .inspection { background: linear-gradient(120deg, #40372655, #1a271d); border-color: #a88b5745; }
 .relicCard { border-color: #c2a77655; background: radial-gradient(ellipse at 10% 10%, #64938230, transparent 70%), linear-gradient(130deg, #242e29, #121d1d); box-shadow: inset 0 2px #c4a96840, 0 10px 25px #0002; }
 .relicPortrait { width: 86px; height: 77px; position: relative; flex-shrink: 0; border: 1px solid #ac9c6a50; border-radius: 50%; background: #0d1919; overflow: hidden; }

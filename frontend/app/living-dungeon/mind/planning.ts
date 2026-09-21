@@ -1,4 +1,5 @@
 import { operationError, transition } from "./engine";
+import { entityName } from "./identities";
 import { bind, hash } from "./protocol";
 import type { Maneuver, Operation, Plan, Point, Preview, Role, Run, Verb } from "./types";
 import { canSee, distance, entity, lineOfSight, passable, playerEntity } from "./world";
@@ -7,7 +8,7 @@ export const VERB_COPY: Record<Verb, string> = { MOVE: "Move", ATTACK: "Attack",
 export function describeOperation(run: Run, op: Operation): string {
   const target = entity(run.room, op.target);
   if (op.verb === "MOVE") return `Move to ${op.at?.x}, ${op.at?.y}`;
-  return `${VERB_COPY[op.verb]}${target ? ` · ${target.name}` : ""}`;
+  return `${VERB_COPY[op.verb]}${target ? ` · ${entityName(run.room, target)}` : ""}`;
 }
 const rangeFor = (verb: Verb) => ["OBSERVE", "REPORT", "HIDE", "WAIT", "POTION"].includes(verb) ? 99 : verb === "STORM" ? 6 : ["DISTRACT", "CREATE_NOISE", "INTERRUPT_REPORT"].includes(verb) ? 3 : 1;
 /** A path to a legal interaction cell, with predictable tie-breaking. */
@@ -58,7 +59,7 @@ export function previewPlan(run: Run, plan: Plan): Preview {
   if (plan.boundary === "no-harm" && plan.steps.some(s => ["ATTACK", "STORM"].includes(s.verb))) return { ...result, legal: false, reason: "This plan breaks your promise to let the guard live." };
   for (const operation of plan.steps) {
     const from = { ...playerEntity(simulated.room) }, error = operationError(simulated, operation);
-    const witnesses = simulated.room.entities.filter(e => canSee(simulated.room, e, from, simulated.player.hiddenUntil >= simulated.tick)).map(e => e.name);
+    const witnesses = simulated.room.entities.filter(e => canSee(simulated.room, e, from, simulated.player.hiddenUntil >= simulated.tick)).map(e => entityName(run.room, e));
     if (!error) simulated = transition(simulated, { type: "act", operation }, simulated.revision, false);
     const to = playerEntity(simulated.room);
     result.steps.push({ operation, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, witnesses, hp: simulated.player.hp, energy: simulated.relic.energy, description: describeOperation(run, operation), interruption: error });
@@ -74,7 +75,7 @@ export function previewPlan(run: Run, plan: Plan): Preview {
   result.healthCost = run.player.hp - simulated.player.hp;
   result.energyCost = run.relic.energy - simulated.relic.energy;
   result.potionCost = run.player.potions - simulated.player.potions;
-  result.observations = [...new Set(simulated.observations.slice(run.observations.length).map(o => entity(run.room, o.observer.split(":").slice(1).join(":"))?.name ?? "A witness"))];
+  result.observations = [...new Set(simulated.observations.slice(run.observations.length).map(o => { const witness = entity(run.room, o.observer.split(":").slice(1).join(":")); return witness ? entityName(run.room, witness) : "A witness"; }))];
   if (run.room.entities.some(e => e.role === "observer" && e.active)) result.complications.push("The scribe moves towards the conduit while you act.");
   if (run.room.alert >= 2) result.complications.push("The guard may get in the way or destroy a distraction.");
   if (run.room.captiveDeadline) result.complications.push(`The captive is in danger after turn ${run.room.captiveDeadline}.`);

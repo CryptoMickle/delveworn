@@ -42,6 +42,8 @@ test("first lesson, visible future, physical rescue, custom maneuver and reload"
   await page.getByRole("tab", { name: "The relic", exact: true }).click();
   await expect(page.getByRole("heading", { name: "A Door Without Blood", exact: true })).toBeVisible();
   await descend(page, 0);
+  await expect(page.getByRole("heading", { name: "Quartermaster Kevin", exact: true })).toBeVisible();
+  await expect(page.locator('[data-sprite-role="captive"] image').first()).toHaveAttribute("href", "/characters/merchant-quartermaster-kevin.webp");
   await rescue(page, true);
   await page.getByRole("tab", { name: "The relic", exact: true }).click();
   await expect(page.getByText("2 USES · 2 ROOM TYPES", { exact: true })).toBeVisible();
@@ -163,10 +165,14 @@ test("full expedition: public Storm, private maneuver, corrected learning, Echo 
 });
 
 test("painted art loads and floor hit targets still match movement", async ({ page, isMobile }, testInfo) => {
-  const artLoaded = Promise.all(["/living-dungeon/mind-atlas-v1.webp", "/dungeon/adventurer.webp", "/dungeon/stone-room.webp"].map(path => page.waitForResponse(response => response.url().endsWith(path) && response.ok())));
+  const artLoaded = Promise.all(["/living-dungeon/mind-atlas-v1.webp", "/dungeon/adventurer.webp", "/dungeon/stone-room.webp", "/monsters/goblin-1-gary.webp"].map(path => page.waitForResponse(response => response.url().endsWith(path) && response.ok())));
   await begin(page);
   await artLoaded;
   await expect(page.getByTestId("mind-board")).toHaveAttribute("data-art-version", "painted-1");
+  await expect(page.getByTestId("mind-board").getByText("GOBLIN", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-art="warden"]')).toHaveCount(0);
+  await page.locator('[data-entity="guardian"]').click();
+  await expect(page.getByRole("heading", { name: "Gary · Goblin", exact: true })).toBeVisible();
   const game = page.getByTestId("mind-game"), revision = Number(await game.getAttribute("data-revision"));
   const north = page.locator('[data-cell="2,5"]');
   if (isMobile) await north.tap(); else await north.click();
@@ -176,6 +182,29 @@ test("painted art loads and floor hit targets still match movement", async ({ pa
   await page.getByRole("region", { name: "Next step", exact: true }).getByRole("button", { name: "Show a rescue plan →", exact: true }).click();
   await expect(page.getByRole("button", { name: "Execute the plan →", exact: true })).toBeEnabled();
   await page.getByTestId("mind-board").screenshot({ path: testInfo.outputPath("painted-plan.png") });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+for (const help of ["supplies", "silence"] as const) test(`Kevin's ${help} favour changes the room and persists`, async ({ page, isMobile }, testInfo) => {
+  const { kevinJourney } = await import("../fixtures/mind-kevin");
+  const { envelope } = await import("../../app/living-dungeon/mind/storage");
+  const run = kevinJourney();
+  await page.addInitScript(save => {
+    if (!localStorage.getItem("delveworn:mind-beneath:v2")) localStorage.setItem("delveworn:mind-beneath:v2", save);
+  }, JSON.stringify(envelope(run)));
+  await page.goto("/living-dungeon");
+  const routes = page.getByRole("region", { name: "Kevin's supply routes" });
+  await expect(routes.getByText("1 favour owed · earned by freeing him", { exact: true })).toBeVisible();
+  const action = routes.getByRole("button", { name: help === "supplies" ? "Ask for a potion · 1 favour" : "Close the report route · 1 favour", exact: true });
+  if (isMobile) await action.tap(); else await action.click();
+  await expect(page.getByTestId("mind-game")).toHaveAttribute("data-revision", String(run.revision + 1));
+  await expect(routes.getByText(/Quartermaster Kevin repaid a favour:/)).toBeVisible();
+  if (help === "silence") await expect(page.locator('[data-entity="relay"]')).toHaveCount(0);
+  else await expect(page.getByLabel("Your resources")).toContainText(`POTIONS${run.player.potions + 1}`);
+  await routes.screenshot({ path: testInfo.outputPath(`kevin-${help}.png`) });
+  await page.reload();
+  await expect(routes.getByText("0 favours owed · earned by freeing him", { exact: true })).toBeVisible();
+  await expect(routes.getByRole("button")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

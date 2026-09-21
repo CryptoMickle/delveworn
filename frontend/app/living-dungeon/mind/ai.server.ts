@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { PRINCIPLES, FAMILIES } from "./catalogue";
+import { entityName } from "./identities";
 import { dungeonKnowledge } from "./knowledge";
 import { compilePlan, previewPlan, suggestions } from "./planning";
 import { currentBinding, isOperation } from "./protocol";
@@ -65,7 +66,7 @@ export async function interpretMind(request: MindRequest, run: Run, http: Reques
   if (!/^[A-Za-z0-9._:-]{1,80}$/.test(model)) return fallback(request, run, "configuration");
   const now = options.now ?? Date.now;
   const context = {
-    room: { family: run.room.family, entities: run.room.entities.map(e => ({ id: e.id, role: e.role, name: e.name, x: e.x, y: e.y, active: e.active, freed: e.freed })), walls: run.room.walls, light: run.room.light },
+    room: { family: run.room.family, entities: run.room.entities.map(e => ({ id: e.id, role: e.role, name: entityName(run.room, e), x: e.x, y: e.y, active: e.active, freed: e.freed })), walls: run.room.walls, light: run.room.light },
     resources: { hp: run.player.hp, potions: run.player.potions, energy: run.relic.energy },
     privateRelic: { stage: run.relic.stage, principles: run.relic.principles.map(p => ({ id: p.id, scope: p.scope, interpretation: p.interpretation })), maneuvers: run.relic.maneuvers.map(m => ({ name: m.name, steps: m.steps, boundary: m.boundary })) },
     antagonistKnowledge: dungeonKnowledge(run), eligibleFamilies: FAMILIES.filter(f => f !== "echo" && !run.history.slice(-3).includes(f)),

@@ -5,7 +5,8 @@ Created 20 September 2026. Only Living Dungeon presentation consumes this new ar
 ## Reused Delveworn artwork
 
 - The original burgundy-cloaked adventurer, both orientations, through `app/dungeon/avatar-art.tsx`. The Echo uses an enlarged, tinted version of the same adventurer.
-- Existing orc and zombie cutouts through `EnemySprite` in `app/dungeon/scene.tsx` for the kiln, bridge, garden and reservoir guardians.
+- Existing goblin, orc and zombie cutouts through `EnemySprite` in `app/dungeon/scene.tsx` for every ordinary enemy. `mind/identities.ts` binds each family to its original named Delveworn monster and species label. The Echo retains its adventurer silhouette.
+- Quartermaster Kevin's original cutout through `MerchantSprite` in `app/dungeon/merchant-art.tsx`. He replaces the anonymous kiln captive. Rescuing him earns a favour in the existing relationship system; from chamber 5 his supply-route card exposes potion delivery and report-conduit closure. No shop, wallet, payment or random loot is involved.
 - Eight existing room paintings: `dungeon/stone-room.webp`; and `dungeon/rooms/original/{orc-2-brutus, boss-2-senior-dungeon-lord, orc-1-thud, zombie-3-velvet-rot, boss-1-dungeon-lord, zombie-2-miss-morgue, boss-4-chairman-below}.webp`.
 - The original Delveworn logo, Echo Lens, Stormheart, Iron Shell, Black Mirror, weapon and potion paintings in the interface.
 - Stone masonry sampled at render time from the original room painting. Mechanical walls and all gameplay targets remain derived from the real grid. The background's decorative south stair is sealed visually; only the marked exit entity is an actual exit.
@@ -15,6 +16,8 @@ Created 20 September 2026. Only Living Dungeon presentation consumes this new ar
 ## New artwork
 
 Final project asset: [`mind-atlas-v1.webp`](mind-atlas-v1.webp), 1536 × 1024, 281,332 bytes. It contains the masked warden, cartographer, witness scribe, bell, brazier, reporting stone, hiding niche and exit stair. The sheet is downloaded once and reused for board figures and inspection portraits. Other scenario mechanisms use native SVG brass wheels and organ pipes.
+
+The former warden tile is unused as of 21 September. Its crop and render path were removed; the original atlas and generation provenance remain intact for the other seven assets. No new image generation was needed. Display identities also cover inspection, plans, historical prose and the AI's entity context. Persisted entity names and the event journal remain unchanged so existing v4 saves and approved plans replay exactly.
 
 Generated with the **built-in ImageGen tool**, not the CLI/API fallback. The first result retained a colored backdrop, so a second ImageGen edit replaced it with solid black. Rendering uses the same black-key SVG technique as Delveworn's existing adventurer; the file does not claim an alpha channel. Sharp converted the selected PNG to WebP at quality 92 without cropping or recoloring. Sprite selection happens through SVG viewports.
 

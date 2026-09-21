@@ -1,4 +1,5 @@
 import { THEORY_COPY } from "./catalogue";
+import { witnessName } from "./identities";
 import type { Fact, Hypothesis, Run, Signature } from "./types";
 import { canSee, entity } from "./world";
 
@@ -78,7 +79,7 @@ export function traceSources(run: Run, ids: string[], seen = new Set<string>()):
     const fact = run.facts.find(f => f.id === id);
     if (fact) { lines.push(`Chamber ${fact.room + 1}, turn ${fact.tick}: ${fact.text}`); lines.push(...traceSources(run, fact.sources, seen)); continue; }
     const observation = run.observations.find(o => o.id === id);
-    if (observation) { lines.push(`Someone observed: ${observation.observer.split(":").slice(1).join(":")}.`); lines.push(...traceSources(run, [observation.factId], seen)); continue; }
+    if (observation) { lines.push(`Someone observed: ${witnessName(run, observation.room, observation.observer.split(":").slice(1).join(":"))}.`); lines.push(...traceSources(run, [observation.factId], seen)); continue; }
     const report = run.reports.find(r => r.id === id);
     if (report) { lines.push(`Report from chamber ${report.room + 1}, ${report.delivered === null ? "not delivered" : `delivered on turn ${report.delivered}`}.`); lines.push(...traceSources(run, report.observations, seen)); }
   }

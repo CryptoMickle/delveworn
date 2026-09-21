@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { Plan, Point, Preview, Run } from "./types";
 import { canSee, pathTo, playerEntity } from "./world";
 import { EntityArtwork, roomArtwork } from "./art";
+import { entityName, guardianCast, isKevin } from "./identities";
 import styles from "./mind.module.css";
 
 export function MindBoard({ run, lens, selected, plan, preview, onSelect, onTile, onKey, onConnect }: { run: Run; lens: boolean; selected: string | null; plan: Plan | null; preview: Preview | null; onSelect: (id: string) => void; onTile: (at: Point) => void; onKey: (event: React.KeyboardEvent) => void; onConnect: (from: string, to: string) => void }) {
@@ -65,11 +66,11 @@ export function MindBoard({ run, lens, selected, plan, preview, onSelect, onTile
       })}
       {plan && ghosts.length > 0 && <polyline points={[player, ...ghosts.map(s => s.to)].map(toScreen).join(" ")} fill="none" stroke="#c4ffe0" strokeWidth="4" strokeDasharray="5 6" pointerEvents="none" />}
       {room.entities.filter(e => e.active && (e.role !== "light" || room.light)).sort((a, b) => a.y - b.y).map(e => <g key={e.id} transform={`translate(${e.x * 60 + 30} ${e.y * 60 + 30})`} onPointerDown={() => { dragFrom.current = e.id; }} onClick={() => onSelect(e.id)} className={`${styles.figure} ${selected === e.id ? styles.selectedFigure : ""}`}>
-        <rect role="button" tabIndex={-1} aria-label={`${e.name}${e.freed ? ", free" : ""}`} data-entity={e.id} x="-28" y="-42" width="56" height="77" rx="8" fill="transparent" pointerEvents="all" />
+        <rect role="button" tabIndex={-1} aria-label={`${entityName(room, e)}${e.freed ? ", free" : ""}`} data-entity={e.id} x="-28" y="-42" width="56" height="77" rx="8" fill="transparent" pointerEvents="all" />
         {selected === e.id && <ellipse cy="19" rx="28" ry="14" fill="#e4c78625" stroke="#f2d399" strokeWidth="2" pointerEvents="none" />}
         {e.role === "player" && run.player.hiddenUntil >= run.tick && <circle r="28" fill="#66accb22" stroke="#8acbd1" strokeDasharray="3 5" pointerEvents="none" />}
         <EntityArtwork entity={e} room={room} orientation={orientation} />
-        {(lens || e.role === "player") && <text y="45" textAnchor="middle" fill={e.role === "player" ? "#d1ffe8" : e.role === "observer" ? "#f4c8f0" : "#f2e6c8"} stroke="#0c151c" strokeWidth="3" paintOrder="stroke" fontSize="14" fontWeight="600" letterSpacing=".2" pointerEvents="none">{e.role === "player" ? "YOU" : e.role === "captive" ? e.freed ? "FREE" : "BOUND" : e.role === "observer" ? "WITNESS" : e.role === "relay" ? "RELAY" : e.role === "exit" ? "EXIT" : e.role === "cover" ? "COVER" : e.role === "guardian" ? "GUARD" : e.role === "echo" ? "ECHO" : e.role === "light" ? "LIGHT" : e.role === "distraction" ? "SOUND" : "SEAL"}</text>}
+        {(lens || e.role === "player") && <text y="45" textAnchor="middle" fill={e.role === "player" ? "#d1ffe8" : e.role === "observer" ? "#f4c8f0" : "#f2e6c8"} stroke="#0c151c" strokeWidth="3" paintOrder="stroke" fontSize="14" fontWeight="600" letterSpacing=".2" pointerEvents="none">{e.role === "player" ? "YOU" : e.role === "captive" ? isKevin(room, e) ? "KEVIN" : e.freed ? "FREE" : "BOUND" : e.role === "observer" ? "WITNESS" : e.role === "relay" ? "RELAY" : e.role === "exit" ? "EXIT" : e.role === "cover" ? "COVER" : e.role === "guardian" ? guardianCast(room.family)?.species.toUpperCase() : e.role === "echo" ? "ECHO" : e.role === "light" ? "LIGHT" : e.role === "distraction" ? "SOUND" : "SEAL"}</text>}
       </g>)}
       {ghosts.filter(s => s.operation.verb !== "MOVE").map((step, i) => <g key={i} transform={`translate(${step.to.x * 60 + 47} ${step.to.y * 60 + 9})`} pointerEvents="none"><circle r="10" fill="#b6e8cd" stroke="#182e2c" strokeWidth="2" /><text y="4" textAnchor="middle" fill="#163b32" fontSize="11" fontWeight="700">{i + 1}</text></g>)}
       {lastAction && actionTarget && <g key={lastAction.id} className={styles.actionEffect} transform={`translate(${actionTarget.x * 60 + 30} ${actionTarget.y * 60 + 20})`} pointerEvents="none" data-effect={lastAction.operation!.verb}>
@@ -81,7 +82,7 @@ export function MindBoard({ run, lens, selected, plan, preview, onSelect, onTile
       <path d="M0 488H660V540H0Z" fill="url(#masonry)" pointerEvents="none" /><path d="M0 488H660M0 511H660M60 488V511M180 488V511M300 488V511M420 488V511M540 488V511M120 511V540M240 511V540M360 511V540M480 511V540M600 511V540" stroke="#090f14" strokeWidth="4" pointerEvents="none" /><path d="M0 486H660" stroke="#baa47a" strokeOpacity=".45" strokeWidth="2" pointerEvents="none" />
     </svg>
     {lens && <div className={styles.boardLegend} aria-label="Map key"><span><i className={styles.sightKey} />Amber: someone can see you</span>{plan && <span><i className={styles.pathKey} />Dashed: your planned route</span>}{room.entities.some(e => e.role === "observer" && e.active) && <span><i className={styles.reportKey} />Violet: the witness&apos;s report route</span>}</div>}
-    <div className={styles.boardBottom}><span><i className={styles.tealDot} />{selectedEntity?.name ?? "Select something in the room"}</span><span>{lens ? "◉ Sightlines are visible" : "WASD / arrow keys"}</span></div>
+    <div className={styles.boardBottom}><span><i className={styles.tealDot} />{selectedEntity ? entityName(room, selectedEntity) : "Select something in the room"}</span><span>{lens ? "◉ Sightlines are visible" : "WASD / arrow keys"}</span></div>
     {run.room.adaptation && <div className={styles.arenaRule}><span>THE DUNGEON SUSPECTS</span>{room.family === "echo" ? room.components.map(c => COMPONENT_LABELS[c.id]).join(" · ") || "It is still looking for a pattern." : room.adaptation === "storm" ? "The stone conducts lightning. The dark side passage is open." : room.adaptation === "mercy" ? "The captive stands where it expects you to go." : "The room has moved resistance into your usual path."}</div>}
   </div>;
 }

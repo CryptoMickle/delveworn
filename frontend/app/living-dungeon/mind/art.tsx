@@ -4,6 +4,8 @@ import { memo, useId } from "react";
 import Image from "next/image";
 import { AvatarSprite } from "../../dungeon/avatar-art";
 import { EnemySprite } from "../../dungeon/scene";
+import { MerchantSprite } from "../../dungeon/merchant-art";
+import { guardianCast, isKevin } from "./identities";
 import type { Entity, Family, Room, Verb } from "./types";
 import styles from "./mind.module.css";
 
@@ -23,9 +25,9 @@ const ROOM_ART: Record<Family, string> = {
 };
 export const roomArtwork = (family: Family) => ROOM_ART[family];
 
-type AtlasPart = "warden" | "cartographer" | "scribe" | "bell" | "brazier" | "relay" | "cover" | "exit";
+type AtlasPart = "cartographer" | "scribe" | "bell" | "brazier" | "relay" | "cover" | "exit";
 const CROPS: Record<AtlasPart, string> = {
-  warden: "15 30 415 495", cartographer: "474 50 247 475", scribe: "797 54 283 471", bell: "1157 76 359 437",
+  cartographer: "474 50 247 475", scribe: "797 54 283 471", bell: "1157 76 359 437",
   brazier: "76 565 254 379", relay: "429 526 293 435", cover: "763 535 368 424", exit: "1140 554 379 404",
 };
 
@@ -64,10 +66,11 @@ export function EntityArtwork({ entity: e, room, orientation = "north" }: { enti
   const size = boss ? { x: -43, y: -68, w: 86, h: 94 } : actor ? { x: -32, y: -49, w: 64, h: 73 } : { x: -29, y: -39, w: 58, h: 65 };
   let artwork;
   if (e.role === "player" || boss) artwork = <AvatarSprite orientation={boss ? "south" : orientation} />;
-  else if (e.role === "guardian" && ["kiln", "bridge", "garden", "reservoir"].includes(room.family)) artwork = <EnemySprite type={["garden", "reservoir"].includes(room.family) ? 0 : 2} room={room.family === "garden" ? 21 : 1} />;
+  else if (e.role === "guardian") { const cast = guardianCast(room.family)!; artwork = <EnemySprite type={cast.type} room={cast.room} />; }
+  else if (isKevin(room, e)) artwork = <MerchantSprite />;
   else if (e.role === "distraction" && !["bell", "tribunal", "echo"].includes(room.family)) artwork = <Mechanism family={room.family} />;
   else if (e.role === "evidence") artwork = <svg viewBox="-30 -34 60 65" aria-hidden="true"><path d="M-21-26 16-30 24 18 -16 26Z" fill="#d0b788" stroke="#695337" strokeWidth="2" /><path d="M-13-18 10-21M-11-12 12-15M-10-6 5-8" stroke="#725c41" strokeWidth="2" /><circle cx="5" cy="10" r="9" fill="#863b45" stroke="#d39a77" /><path d="M5 4 9 10 5 16 1 10Z" fill="none" stroke="#e7b889" /></svg>;
-  else artwork = <AtlasSprite part={e.role === "guardian" ? "warden" : e.role === "captive" ? "cartographer" : e.role === "observer" ? "scribe" : e.role === "distraction" ? "bell" : e.role === "light" ? "brazier" : e.role as "relay" | "cover" | "exit"} />;
+  else artwork = <AtlasSprite part={e.role === "captive" ? "cartographer" : e.role === "observer" ? "scribe" : e.role === "distraction" ? "bell" : e.role === "light" ? "brazier" : e.role as "relay" | "cover" | "exit"} />;
   return <g pointerEvents="none">
     <ellipse cy="19" rx={boss ? 28 : actor ? 20 : 24} ry="8" fill="#000" opacity=".65" />
     {e.role === "player" && <ellipse cy="19" rx="24" ry="11" fill="#8ce0c32a" stroke="#9ce9cb" strokeWidth="1.6" />}

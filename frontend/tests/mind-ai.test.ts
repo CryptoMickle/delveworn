@@ -19,6 +19,7 @@ test("provider receives strict bounded operations, existing server model and sto
     assert.equal(body.store, false); assert.equal(body.model, "configured-model"); assert.equal(body.text.format.strict, true);
     assert.equal(body.text.format.schema.additionalProperties, false);
     const input = JSON.parse(body.input[0].content[0].text);
+    assert.equal(input.room.entities.find((e: { id: string }) => e.id === "guardian").name, "Gary · Goblin");
     assert.deepEqual(input.antagonistKnowledge, { theories: [], reports: [] });
     assert.ok(input.privateRelic.principles.length);
     assert.equal(body.tools, undefined);
