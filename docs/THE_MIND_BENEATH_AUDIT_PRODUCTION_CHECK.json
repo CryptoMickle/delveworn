@@ -1,0 +1,110 @@
+[
+  {
+    "path": "/living-dungeon",
+    "status": 200,
+    "bytes": 12093
+  },
+  {
+    "path": "/practice",
+    "status": 200,
+    "bytes": 22963
+  },
+  {
+    "path": "/challenge",
+    "status": 200,
+    "bytes": 20151
+  },
+  {
+    "path": "/onchain",
+    "status": 200,
+    "bytes": 23991
+  },
+  {
+    "task": "teach",
+    "language": "nb",
+    "status": 200,
+    "source": "ai",
+    "reason": null,
+    "latencyMs": 3014,
+    "usage": {
+      "model": "gpt-5.6-terra",
+      "input": 1033,
+      "output": 60
+    },
+    "line": "The endangered innocent comes first; I will not make a throne of your safety.",
+    "teaching": {
+      "principle": "protect",
+      "scope": "innocent-at-risk"
+    },
+    "validBinding": true
+  },
+  {
+    "task": "plan",
+    "language": "nb",
+    "status": 200,
+    "source": "ai",
+    "reason": null,
+    "latencyMs": 3665,
+    "usage": {
+      "model": "gpt-5.6-terra",
+      "input": 1047,
+      "output": 231
+    },
+    "line": "Dim the watch, turn its attention, then free the endangered.",
+    "teaching": null,
+    "operations": [
+      {
+        "verb": "EXTINGUISH_LIGHT",
+        "target": "light",
+        "signature": "cunning"
+      },
+      {
+        "verb": "CREATE_NOISE",
+        "target": "distraction",
+        "signature": "cunning"
+      },
+      {
+        "verb": "RELEASE",
+        "target": "captive",
+        "signature": "mercy"
+      }
+    ],
+    "validBinding": true
+  },
+  {
+    "task": "plan",
+    "language": "en",
+    "status": 200,
+    "source": "ai",
+    "reason": null,
+    "latencyMs": 4084,
+    "usage": {
+      "model": "gpt-5.6-terra",
+      "input": 1041,
+      "output": 188
+    },
+    "line": "The light dies, the bell speaks, and the captive goes free.",
+    "teaching": null,
+    "operations": [
+      {
+        "verb": "EXTINGUISH_LIGHT",
+        "target": "light",
+        "signature": "mercy"
+      },
+      {
+        "verb": "DISTRACT",
+        "target": "distraction",
+        "signature": "cunning"
+      },
+      {
+        "verb": "RELEASE",
+        "target": "captive",
+        "signature": "mercy"
+      }
+    ],
+    "validBinding": true
+  },
+  {
+    "equivalentIntents": "identical mechanical outcomes"
+  }
+]
